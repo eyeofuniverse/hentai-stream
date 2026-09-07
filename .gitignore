@@ -19,3 +19,6 @@ scripts/.metadata-backfill-progress.json
 
 # TEMP: gh token lacks "workflow" scope. Re-add after: gh auth refresh -s workflow
 .github/workflows/
+
+.vercel
+.env*

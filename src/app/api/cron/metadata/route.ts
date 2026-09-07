@@ -5,7 +5,11 @@ import { importSeason, recountTaxonomy } from "@/lib/metadata/importer";
 import type { ImportStats } from "@/lib/metadata/importer";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 800;
+// Hobby plan caps Serverless Functions at 300s. The weekly cron only touches
+// 3 seasons and runs from a US region (fast to MAL + Supabase), so this is
+// plenty. The full catalogue backfill does NOT use this route — it runs
+// straight against the DB via `npm run metadata:backfill`.
+export const maxDuration = 300;
 
 const SEASONS: MalSeason[] = ["winter", "spring", "summer", "fall"];
 
