@@ -72,6 +72,7 @@ async function handle(req: Request) {
     updated: 0,
     skipped: 0,
     flagged: 0,
+    episodeStubs: 0,
     errors: [],
   };
 

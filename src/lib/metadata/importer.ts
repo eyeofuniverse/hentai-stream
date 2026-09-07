@@ -42,6 +42,7 @@ export interface ImportStats {
   updated: number;
   skipped: number;
   flagged: number;
+  episodeStubs: number;
   errors: string[];
 }
 
@@ -51,6 +52,7 @@ const empty = (): ImportStats => ({
   updated: 0,
   skipped: 0,
   flagged: 0,
+  episodeStubs: 0,
   errors: [],
 });
 
@@ -96,6 +98,48 @@ async function ensureStudio(name: string) {
   );
   studioCache.set(slug, s.id);
   return s;
+}
+
+/**
+ * Create DRAFT episode skeletons 1..count that don't already exist (part 1).
+ * MAL only gives an episode count + an average runtime — no per-episode data —
+ * so the stub carries just number + runtime. The scraper attaches the real
+ * video source later and flips the episode live. Only fills gaps; never
+ * removes episodes added by the scraper or an admin.
+ */
+async function ensureEpisodeStubs(
+  seriesId: string,
+  count: number | null,
+  runtimeSec: number | null,
+): Promise<number> {
+  if (!count || count < 1) return 0;
+  const n = Math.min(Math.floor(count), 60); // guard against bad MAL data
+
+  const have = await db(() =>
+    prisma.episode.findMany({
+      where: { seriesId, part: 1 },
+      select: { number: true },
+    }),
+  );
+  const present = new Set(have.map((e) => e.number));
+
+  const missing: Prisma.EpisodeCreateManyInput[] = [];
+  for (let i = 1; i <= n; i++) {
+    if (present.has(i)) continue;
+    missing.push({
+      seriesId,
+      number: i,
+      part: 1,
+      runtimeSec: runtimeSec ?? 0,
+      publish: "DRAFT",
+    });
+  }
+  if (!missing.length) return 0;
+
+  await db(() =>
+    prisma.episode.createMany({ data: missing, skipDuplicates: true }),
+  );
+  return missing.length;
 }
 
 async function freeSlug(title: string, malId: number): Promise<string> {
@@ -186,7 +230,7 @@ export async function importSeries(
 
   if (!existing) {
     const slug = await freeSlug(n.title, n.malId);
-    await db(() =>
+    const created = await db(() =>
       prisma.series.create({
         data: {
           ...core,
@@ -196,7 +240,13 @@ export async function importSeries(
           bayesianRating: n.externalScore ?? 0,
           tags: { connect: tagIds.map((id) => ({ id })) },
         },
+        select: { id: true },
       }),
+    );
+    stats.episodeStubs += await ensureEpisodeStubs(
+      created.id,
+      n.totalEpisodes,
+      n.runtimeSec,
     );
     stats.created++;
     return;
@@ -256,6 +306,11 @@ export async function importSeries(
         tags: { set: tagIds.map((id) => ({ id })) },
       },
     }),
+  );
+  stats.episodeStubs += await ensureEpisodeStubs(
+    existing.id,
+    n.totalEpisodes,
+    n.runtimeSec,
   );
   stats.updated++;
 }

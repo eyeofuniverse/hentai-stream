@@ -54,6 +54,7 @@ const blank = (): ImportStats => ({
   updated: 0,
   skipped: 0,
   flagged: 0,
+  episodeStubs: 0,
   errors: [],
 });
 
@@ -75,7 +76,14 @@ for (let year = from; year <= to; year++) {
       // importSeason swallows per-title + per-season errors into stats.errors
       await importSeason(year, season, yearStats);
     }
-    for (const k of ["scanned", "created", "updated", "skipped", "flagged"] as const) {
+    for (const k of [
+      "scanned",
+      "created",
+      "updated",
+      "skipped",
+      "flagged",
+      "episodeStubs",
+    ] as const) {
       total[k] += yearStats[k];
     }
     total.errors.push(...yearStats.errors);
@@ -83,7 +91,7 @@ for (let year = from; year <= to; year++) {
     saveProgress();
     console.log(
       `+${yearStats.created} new, ${yearStats.updated} upd, ${yearStats.skipped} kept, ` +
-        `${yearStats.flagged} flagged` +
+        `${yearStats.flagged} flagged, ${yearStats.episodeStubs} ep-stubs` +
         `${yearStats.errors.length ? `, ${yearStats.errors.length} item-errors` : ""}` +
         `  (${((Date.now() - t) / 1000) | 0}s)`,
     );
@@ -114,6 +122,7 @@ console.log({
   updated: total.updated,
   skipped: total.skipped,
   flagged: total.flagged,
+  episodeStubs: total.episodeStubs,
 });
 if (total.errors.length) {
   console.log(`\n${total.errors.length} per-title error(s); first 30:`);

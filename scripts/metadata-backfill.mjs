@@ -101,7 +101,7 @@ async function importYear(year) {
 }
 
 // ── run ───────────────────────────────────────────────────────────────────
-const total = { scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0 };
+const total = { scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0, episodeStubs: 0 };
 const failures = [];
 const allErrors = [];
 
@@ -120,7 +120,8 @@ for (let year = from; year <= to; year++) {
     done.add(year);
     saveProgress();
     console.log(
-      `+${j.created} new, ${j.updated} upd, ${j.skipped} kept, ${j.flagged} flagged` +
+      `+${j.created} new, ${j.updated} upd, ${j.skipped} kept, ${j.flagged} flagged, ` +
+        `${j.episodeStubs ?? 0} ep-stubs` +
         `${j.errorCount ? `, ${j.errorCount} item-errors` : ""}  (${secs}s)`,
     );
   } catch (e) {

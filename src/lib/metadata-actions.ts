@@ -26,7 +26,7 @@ export async function runMetadataSync() {
   ];
 
   const stats: ImportStats = {
-    scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0, errors: [],
+    scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0, episodeStubs: 0, errors: [],
   };
   const t0 = Date.now();
   for (const target of targets) await importSeason(target.year, target.season, stats);
@@ -59,7 +59,7 @@ export async function repullSeries(seriesId: string) {
 
   const anime = await getAnime(s.malId);
   const stats: ImportStats = {
-    scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0, errors: [],
+    scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0, episodeStubs: 0, errors: [],
   };
   await importSeries(normalize(anime), stats);
   revalidatePath(`/admin/series/${seriesId}`);
