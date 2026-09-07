@@ -5,7 +5,11 @@ const nextConfig = {
   images: {
     // Cloudinary-delivered thumbnails/covers (we use plain <img>, but keep this
     // for any next/image usage).
-    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "cdn.myanimelist.net" },
+      { protocol: "https", hostname: "api-cdn.myanimelist.net" },
+    ],
   },
   async headers() {
     return [
