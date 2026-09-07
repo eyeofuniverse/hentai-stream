@@ -1,0 +1,21 @@
+node_modules
+.next
+out
+build
+*.log
+.DS_Store
+next-env.d.ts
+/coverage
+*.tsbuildinfo
+.vercel
+
+# env — keep everything secret, ship only the example
+.env
+.env.*
+!.env.example
+
+# local backfill resume state
+scripts/.metadata-backfill-progress.json
+
+# TEMP: gh token lacks "workflow" scope. Re-add after: gh auth refresh -s workflow
+.github/workflows/

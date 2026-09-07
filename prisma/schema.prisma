@@ -1,0 +1,646 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────── enums ───────────────────────────────
+
+enum Role {
+  USER
+  UPLOADER
+  MODERATOR
+  ADMIN
+}
+
+/// Moderation lifecycle for any user-facing content row.
+enum PublishStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+  HIDDEN
+}
+
+enum SeriesStatus {
+  ANNOUNCED
+  ONGOING
+  COMPLETED
+  HIATUS
+}
+
+enum SeriesType {
+  OVA
+  ONA
+  MOVIE
+  SPECIAL
+  SERIES
+}
+
+enum AnimeSeason {
+  WINTER
+  SPRING
+  SUMMER
+  FALL
+}
+
+enum SourceMaterial {
+  ORIGINAL
+  MANGA
+  GAME
+  VISUAL_NOVEL
+  LIGHT_NOVEL
+  DOUJINSHI
+  OTHER
+}
+
+enum Weekday {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum VideoHost {
+  STREAMTAPE
+  DOODSTREAM
+  MIXDROP
+  VOE
+  STREAMWISH
+  FILEMOON
+  MP4UPLOAD
+  VIDGUARD
+  LULUSTREAM
+  BIGWARP
+  YOURUPLOAD
+  OTHER
+}
+
+/// sub = original audio + subs, dub = re-voiced, raw = no subs
+enum ReleaseKind {
+  SUB
+  DUB
+  RAW
+}
+
+enum Quality {
+  Q360
+  Q480
+  Q720
+  Q1080
+  Q2160
+  UNKNOWN
+}
+
+enum SourceStatus {
+  PENDING
+  ACTIVE
+  DEAD
+  REJECTED
+}
+
+enum TagCategory {
+  GENRE
+  THEME
+  FETISH
+  FORMAT
+  CONTENT_WARNING
+}
+
+enum StudioType {
+  STUDIO
+  CIRCLE
+  LABEL
+}
+
+enum ListStatus {
+  WATCHING
+  COMPLETED
+  PLAN_TO_WATCH
+  ON_HOLD
+  DROPPED
+}
+
+enum CommentStatus {
+  VISIBLE
+  PENDING
+  HIDDEN
+  DELETED
+}
+
+enum ReportReason {
+  BROKEN_LINK
+  WRONG_CONTENT
+  UNDERAGE
+  NON_CONSENSUAL
+  COPYRIGHT
+  SPAM
+  ABUSE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum DmcaStatus {
+  RECEIVED
+  ACTIONED
+  REJECTED
+}
+
+enum SubmissionKind {
+  NEW_SERIES
+  NEW_EPISODE
+  NEW_SOURCE
+  EDIT
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  NEW_EPISODE
+  COMMENT_REPLY
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  SYSTEM
+}
+
+// ─────────────────────────────── users ───────────────────────────────
+
+/// Mirrors a Supabase auth.users row (id = the auth user's UUID).
+model Profile {
+  id           String    @id @db.Uuid
+  handle       String    @unique
+  displayName  String?
+  avatarUrl    String?
+  bio          String?
+  role         Role      @default(USER)
+  reputation   Int       @default(0)
+  strikes      Int       @default(0)
+  banned       Boolean   @default(false)
+  bannedReason String?
+  bannedUntil  DateTime?
+  /// { language, showContentWarnings, autoplay, preferredHost, preferredQuality }
+  prefs        Json      @default("{}")
+  emailOptIn   Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  seriesCreated       Series[]        @relation("SeriesCreatedBy")
+  episodesCreated     Episode[]       @relation("EpisodeCreatedBy")
+  sourcesCreated      VideoSource[]   @relation("SourceCreatedBy")
+  downloadsCreated    DownloadLink[]  @relation("DownloadCreatedBy")
+  listEntries         ListEntry[]
+  progress            WatchProgress[]
+  ratings             Rating[]
+  comments            Comment[]
+  commentVotes        CommentVote[]
+  reportsFiled        Report[]        @relation("ReportReporter")
+  reportsReviewed     Report[]        @relation("ReportReviewer")
+  submissions         Submission[]    @relation("SubmissionSubmitter")
+  submissionsReviewed Submission[]    @relation("SubmissionReviewer")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+}
+
+// ─────────────────────────────── catalogue ───────────────────────────────
+
+model Studio {
+  id             String     @id @default(cuid())
+  name           String     @unique
+  slug           String     @unique
+  type           StudioType @default(STUDIO)
+  aliases        String[]   @default([])
+  description    String?
+  foundedYear    Int?
+  country        String?
+  website        String?
+  logoUrl        String?
+  coverUrl       String?
+  seoTitle       String?
+  seoDescription String?
+  bodyMd         String?
+  seriesCount    Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  series Series[]
+}
+
+model Tag {
+  id             String      @id @default(cuid())
+  name           String      @unique
+  slug           String      @unique
+  category       TagCategory @default(GENRE)
+  synonyms       String[]    @default([])
+  description    String?
+  bodyMd         String?
+  seoTitle       String?
+  seoDescription String?
+  coverUrl       String?
+  hideFromDefault Boolean    @default(false)
+  seriesCount    Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  parentId String?
+  parent   Tag?    @relation("TagTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Tag[]   @relation("TagTree")
+
+  series Series[] @relation("SeriesTags")
+}
+
+model Character {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  imageUrl    String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  series Series[] @relation("SeriesCharacters")
+}
+
+model Series {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  titleOriginal String?
+  titleRomaji   String?
+  titleEnglish  String?
+  altTitles     String[] @default([])
+  synopsis      String?
+
+  coverUrl  String?
+  bannerUrl String?
+
+  type           SeriesType      @default(OVA)
+  status         SeriesStatus    @default(COMPLETED)
+  sourceMaterial SourceMaterial?
+  year           Int?
+  releaseDate    DateTime?
+  animeSeason    AnimeSeason?
+  seasonYear     Int?
+  totalEpisodes  Int?
+  isCensored     Boolean         @default(true)
+  contentWarnings String[]       @default([])
+
+  publish      PublishStatus @default(DRAFT)
+  featuredRank Int?
+
+  airDay        Weekday?
+  nextEpisodeAt DateTime?
+
+  anilistId Int? @unique
+  malId     Int? @unique
+
+  /// external community score (MAL mean, 0-10) — separate from our users' ratingAvg
+  externalScore   Float?
+  /// "mal" | "anilist" | "manual" — where the catalogue metadata came from
+  metadataSource  String?
+  metadataSyncedAt DateTime?
+
+  viewCount      Int   @default(0)
+  weeklyViews    Int   @default(0)
+  favoriteCount  Int   @default(0)
+  ratingSum      Int   @default(0)
+  ratingCount    Int   @default(0)
+  ratingAvg      Float @default(0)
+  bayesianRating Float @default(0)
+  trendingScore  Float @default(0)
+
+  /// cached [{ slug, title, coverUrl }] so the page stays static
+  relatedCache Json?
+
+  createdById String?  @db.Uuid
+  createdBy   Profile? @relation("SeriesCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  studioId String?
+  studio   Studio? @relation(fields: [studioId], references: [id], onDelete: SetNull)
+
+  episodes    Episode[]
+  tags        Tag[]       @relation("SeriesTags")
+  characters  Character[] @relation("SeriesCharacters")
+  listEntries ListEntry[]
+  ratings     Rating[]
+
+  @@index([publish, updatedAt])
+  @@index([publish, trendingScore])
+  @@index([publish, bayesianRating])
+  @@index([publish, createdAt])
+  @@index([status, animeSeason, seasonYear])
+  @@index([studioId])
+  @@index([year])
+  /// typo-tolerant title search (needs the pg_trgm extension — Supabase ships it)
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model Episode {
+  id          String        @id @default(cuid())
+  seriesId    String
+  series      Series        @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  number      Float
+  part        Int           @default(1)
+  title       String?
+  synopsis    String?
+  thumbUrl    String?
+  screenshots String[]      @default([])
+  runtimeSec  Int           @default(0)
+  isCensored  Boolean       @default(true)
+  publish     PublishStatus @default(PENDING)
+  viewCount   Int           @default(0)
+  airedAt     DateTime?
+
+  createdById String?  @db.Uuid
+  createdBy   Profile? @relation("EpisodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  sources   VideoSource[]
+  downloads DownloadLink[]
+  progress  WatchProgress[]
+  ratings   Rating[]
+  dailyStats EpisodeDailyStat[]
+
+  @@unique([seriesId, number, part])
+  @@index([publish, createdAt])
+  @@index([seriesId, publish])
+}
+
+model VideoSource {
+  id        String       @id @default(cuid())
+  episodeId String
+  episode   Episode      @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  host      VideoHost
+  hostName  String?
+  embedUrl  String
+  label     String?
+  kind      ReleaseKind  @default(SUB)
+  language  String       @default("en")
+  quality   Quality      @default(UNKNOWN)
+  isCensored Boolean?
+  status    SourceStatus @default(PENDING)
+  order     Int          @default(0)
+
+  lastCheckedAt  DateTime?
+  checkFailCount Int       @default(0)
+  brokenReports  Int       @default(0)
+
+  createdById String?  @db.Uuid
+  createdBy   Profile? @relation("SourceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([episodeId, host, embedUrl])
+  @@index([status, lastCheckedAt])
+}
+
+model DownloadLink {
+  id        String       @id @default(cuid())
+  episodeId String
+  episode   Episode      @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  host      VideoHost
+  hostName  String?
+  url       String
+  kind      ReleaseKind  @default(SUB)
+  language  String       @default("en")
+  quality   Quality      @default(UNKNOWN)
+  sizeMb    Int?
+  status    SourceStatus @default(ACTIVE)
+  order     Int          @default(0)
+
+  createdById String?  @db.Uuid
+  createdBy   Profile? @relation("DownloadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([episodeId, host, url])
+}
+
+// ─────────────────────────────── engagement ───────────────────────────────
+
+model ListEntry {
+  profileId String     @db.Uuid
+  profile   Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  seriesId  String
+  series    Series     @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  status    ListStatus @default(PLAN_TO_WATCH)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([profileId, seriesId])
+  @@index([profileId, status, updatedAt])
+  @@index([seriesId])
+}
+
+model WatchProgress {
+  profileId     String   @db.Uuid
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  episodeId     String
+  episode       Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  completed     Boolean  @default(false)
+  lastWatchedAt DateTime @default(now())
+
+  @@id([profileId, episodeId])
+  @@index([profileId, lastWatchedAt])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  profileId String   @db.Uuid
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  seriesId  String?
+  series    Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episodeId String?
+  episode   Episode? @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  value     Int // 1..10
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([profileId, seriesId])
+  @@unique([profileId, episodeId])
+  @@index([seriesId])
+  @@index([episodeId])
+}
+
+model Comment {
+  id         String        @id @default(cuid())
+  targetType String // "series" | "episode"
+  targetId   String
+  profileId  String        @db.Uuid
+  profile    Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     Comment?      @relation("CommentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[]     @relation("CommentTree")
+  body       String
+  status     CommentStatus @default(VISIBLE)
+  score      Int           @default(0)
+  edited     Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  votes CommentVote[]
+
+  @@index([targetType, targetId, status, createdAt])
+  @@index([profileId])
+}
+
+model CommentVote {
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  profileId String   @db.Uuid
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  value     Int // -1 | 1
+  createdAt DateTime @default(now())
+
+  @@id([commentId, profileId])
+}
+
+model EpisodeDailyStat {
+  episodeId String
+  episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  views     Int      @default(0)
+  uniques   Int      @default(0)
+
+  @@id([episodeId, date])
+  @@index([date])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  profileId String           @db.Uuid
+  profile   Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([profileId, readAt, createdAt])
+}
+
+// ─────────────────────────────── operations ───────────────────────────────
+
+model Report {
+  id         String       @id @default(cuid())
+  targetType String // "series" | "episode" | "source" | "comment"
+  targetId   String
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(OPEN)
+
+  reporterId   String?  @db.Uuid
+  reporter     Profile? @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reviewedById String?  @db.Uuid
+  reviewedBy   Profile? @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model Submission {
+  id         String           @id @default(cuid())
+  kind       SubmissionKind
+  status     SubmissionStatus @default(PENDING)
+  targetType String? // for EDIT
+  targetId   String?
+  payload    Json
+  note       String?
+
+  submitterId String   @db.Uuid
+  submitter   Profile  @relation("SubmissionSubmitter", fields: [submitterId], references: [id], onDelete: Cascade)
+  reviewerId  String?  @db.Uuid
+  reviewer    Profile? @relation("SubmissionReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+model DmcaRequest {
+  id           String     @id @default(cuid())
+  claimant     String
+  email        String
+  organization String?
+  urls         String[]
+  statement    String?
+  status       DmcaStatus @default(RECEIVED)
+  note         String?
+  createdAt    DateTime   @default(now())
+  actionedAt   DateTime?
+
+  @@index([status, createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model AdSlot {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  position  String
+  provider  String?
+  html      String   @default("")
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  @db.Uuid
+  actor      Profile? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String
+  targetId   String
+  diff       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+}
+
+model PageMeta {
+  path        String   @id
+  title       String?
+  description String?
+  ogImage     String?
+  noindex     Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model RedirectMap {
+  id        String   @id @default(cuid())
+  fromPath  String   @unique
+  toPath    String
+  code      Int      @default(301)
+  createdAt DateTime @default(now())
+}

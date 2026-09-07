@@ -1,0 +1,323 @@
+import type { Prisma, TagCategory } from "@prisma/client";
+import { prisma, db } from "@/lib/db";
+import { TAG_DICTIONARY } from "@/lib/metadata/tag-dictionary";
+import { extractTags, flagsMinor, slugify, matchers } from "@/lib/metadata/tags";
+import {
+  getSeason,
+  isHentai,
+  normalize,
+  type NormalizedSeries,
+  type MalSeason,
+} from "@/lib/metadata/mal";
+
+const CAT_BY_NAME = new Map<string, TagCategory>(
+  TAG_DICTIONARY.map((t) => [slugify(t.name), t.category]),
+);
+const NAME_BY_SLUG = new Map<string, string>(
+  TAG_DICTIONARY.map((t) => [slugify(t.name), t.name]),
+);
+const LANDING_BY_SLUG = new Map<string, boolean>(
+  TAG_DICTIONARY.map((t) => [slugify(t.name), Boolean(t.landing)]),
+);
+
+/** MAL genres worth keeping, mapped to our tag names. */
+const MAL_GENRE_MAP: Record<string, { name: string; category: TagCategory }> = {
+  "Love Polygon": { name: "Harem", category: "THEME" },
+  Harem: { name: "Harem", category: "THEME" },
+  "Reverse Harem": { name: "Reverse Harem", category: "THEME" },
+  "Girls Love": { name: "Yuri", category: "FETISH" },
+  Gore: { name: "Guro", category: "CONTENT_WARNING" },
+  Horror: { name: "Horror", category: "GENRE" },
+  Comedy: { name: "Comedy", category: "GENRE" },
+  Fantasy: { name: "Fantasy", category: "GENRE" },
+  "Sci-Fi": { name: "Sci-Fi", category: "GENRE" },
+  Romance: { name: "Romance", category: "GENRE" },
+  Drama: { name: "Drama", category: "GENRE" },
+  "Slice of Life": { name: "Slice of Life", category: "GENRE" },
+};
+
+export interface ImportStats {
+  scanned: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  flagged: number;
+  errors: string[];
+}
+
+const empty = (): ImportStats => ({
+  scanned: 0,
+  created: 0,
+  updated: 0,
+  skipped: 0,
+  flagged: 0,
+  errors: [],
+});
+
+// in-process caches — a backfill touches the same tags/studios thousands of times
+const tagCache = new Map<string, string>();
+const studioCache = new Map<string, string>();
+
+async function ensureTag(slug: string, name: string, category: TagCategory) {
+  const hit = tagCache.get(slug);
+  if (hit) return { id: hit };
+  const t = await db(() =>
+    prisma.tag.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        slug,
+        name,
+        category,
+        hideFromDefault: category === "CONTENT_WARNING",
+        bodyMd: LANDING_BY_SLUG.get(slug)
+          ? `${name} hentai — every ${name.toLowerCase()} title on the site, newest first.`
+          : null,
+      },
+      select: { id: true },
+    }),
+  );
+  tagCache.set(slug, t.id);
+  return t;
+}
+
+async function ensureStudio(name: string) {
+  const slug = slugify(name);
+  if (!slug) return null;
+  const hit = studioCache.get(slug);
+  if (hit) return { id: hit };
+  const s = await db(() =>
+    prisma.studio.upsert({
+      where: { slug },
+      update: {},
+      create: { name, slug, type: "STUDIO" },
+      select: { id: true },
+    }),
+  );
+  studioCache.set(slug, s.id);
+  return s;
+}
+
+async function freeSlug(title: string, malId: number): Promise<string> {
+  const base = slugify(title).slice(0, 90) || `mal-${malId}`;
+  for (let i = 0; i < 40; i++) {
+    const cand = i === 0 ? base : `${base}-${i + 1}`;
+    const existing = await db(() =>
+      prisma.series.findUnique({
+        where: { slug: cand },
+        select: { malId: true },
+      }),
+    );
+    if (!existing || existing.malId === malId) return cand;
+  }
+  return `${base}-${malId}`;
+}
+
+/** Upsert one normalized series. Never clobbers admin edits. */
+export async function importSeries(
+  n: NormalizedSeries,
+  stats: ImportStats,
+): Promise<void> {
+  stats.scanned++;
+
+  const existing = await db(() =>
+    prisma.series.findUnique({
+      where: { malId: n.malId },
+      select: { id: true, slug: true, metadataSource: true, publish: true },
+    }),
+  );
+
+  // an admin-owned row: only fill blanks, never touch tags/publish
+  const adminOwned = existing && existing.metadataSource !== "mal";
+
+  const minor = flagsMinor(`${n.title} ${n.synopsis ?? ""}`);
+  if (minor) stats.flagged++;
+
+  const contentWarnings = minor ? ["possible-minor"] : [];
+
+  // tags: MAL genres + keyword extraction over title + synopsis
+  const tagSlugs = new Set<string>();
+  for (const g of n.genreNames) {
+    const m = MAL_GENRE_MAP[g];
+    if (m) tagSlugs.add(slugify(m.name));
+  }
+  for (const s of extractTags(`${n.title}\n${n.synopsis ?? ""}`, matchers())) {
+    tagSlugs.add(s);
+  }
+  if (minor) tagSlugs.add(slugify("Non-Consensual")); // conservative surface
+
+  const tagIds: string[] = [];
+  if (!adminOwned) {
+    for (const slug of tagSlugs) {
+      const name = NAME_BY_SLUG.get(slug) ?? MAL_GENRE_MAP[slug]?.name;
+      const cat = CAT_BY_NAME.get(slug) ?? "THEME";
+      if (!name) continue;
+      const t = await ensureTag(slug, name, cat);
+      tagIds.push(t.id);
+    }
+  }
+
+  const studio = n.studioNames[0] ? await ensureStudio(n.studioNames[0]) : null;
+
+  const core = {
+    title: n.title,
+    titleRomaji: n.titleRomaji,
+    titleEnglish: n.titleEnglish,
+    titleOriginal: n.titleOriginal,
+    altTitles: n.altTitles,
+    synopsis: n.synopsis,
+    type: n.type as Prisma.SeriesCreateInput["type"],
+    status: n.status as Prisma.SeriesCreateInput["status"],
+    sourceMaterial:
+      (n.sourceMaterial as Prisma.SeriesCreateInput["sourceMaterial"]) ?? null,
+    year: n.year,
+    animeSeason:
+      (n.animeSeason as Prisma.SeriesCreateInput["animeSeason"]) ?? null,
+    seasonYear: n.seasonYear,
+    totalEpisodes: n.totalEpisodes,
+    airDay: (n.airDay as Prisma.SeriesCreateInput["airDay"]) ?? null,
+    externalScore: n.externalScore,
+    coverUrl: n.coverUrl,
+    contentWarnings,
+    studioId: studio?.id ?? null,
+    metadataSource: "mal",
+    metadataSyncedAt: new Date(),
+  };
+
+  if (!existing) {
+    const slug = await freeSlug(n.title, n.malId);
+    await db(() =>
+      prisma.series.create({
+        data: {
+          ...core,
+          slug,
+          malId: n.malId,
+          publish: "DRAFT",
+          bayesianRating: n.externalScore ?? 0,
+          tags: { connect: tagIds.map((id) => ({ id })) },
+        },
+      }),
+    );
+    stats.created++;
+    return;
+  }
+
+  if (adminOwned) {
+    // fill only empty columns
+    const cur = await db(() =>
+      prisma.series.findUnique({
+        where: { id: existing.id },
+        select: {
+          synopsis: true,
+          titleOriginal: true,
+          titleEnglish: true,
+          coverUrl: true,
+          year: true,
+          animeSeason: true,
+          sourceMaterial: true,
+          totalEpisodes: true,
+          externalScore: true,
+        },
+      }),
+    );
+    await db(() =>
+      prisma.series.update({
+        where: { id: existing.id },
+        data: {
+          synopsis: cur?.synopsis ?? n.synopsis,
+          titleOriginal: cur?.titleOriginal ?? n.titleOriginal,
+          titleEnglish: cur?.titleEnglish ?? n.titleEnglish,
+          coverUrl: cur?.coverUrl ?? n.coverUrl,
+          year: cur?.year ?? n.year,
+          animeSeason:
+            cur?.animeSeason ??
+            (n.animeSeason as Prisma.SeriesCreateInput["animeSeason"]) ??
+            null,
+          sourceMaterial:
+            cur?.sourceMaterial ??
+            (n.sourceMaterial as Prisma.SeriesCreateInput["sourceMaterial"]) ??
+            null,
+          totalEpisodes: cur?.totalEpisodes ?? n.totalEpisodes,
+          externalScore: cur?.externalScore ?? n.externalScore,
+          metadataSyncedAt: new Date(),
+        },
+      }),
+    );
+    stats.skipped++;
+    return;
+  }
+
+  // our own metadata row — full refresh
+  await db(() =>
+    prisma.series.update({
+      where: { id: existing.id },
+      data: {
+        ...core,
+        tags: { set: tagIds.map((id) => ({ id })) },
+      },
+    }),
+  );
+  stats.updated++;
+}
+
+/** Import one MAL season (hentai only). */
+export async function importSeason(
+  year: number,
+  season: MalSeason,
+  stats: ImportStats = empty(),
+): Promise<ImportStats> {
+  let anime;
+  try {
+    anime = await getSeason(year, season);
+  } catch (err) {
+    stats.errors.push(`${year}/${season}: ${(err as Error).message}`);
+    return stats;
+  }
+
+  for (const a of anime.filter(isHentai)) {
+    try {
+      await importSeries(normalize(a), stats);
+    } catch (err) {
+      stats.errors.push(`mal:${a.id} ${a.title}: ${(err as Error).message}`);
+    }
+    // breathe between titles so the free pooler isn't hammered flat-out
+    await new Promise((r) => setTimeout(r, 40));
+  }
+  return stats;
+}
+
+/**
+ * Recompute the denormalised `seriesCount` on every tag + studio — as three SQL
+ * statements, not one round-trip per row.
+ */
+export async function recountTaxonomy() {
+  await db(() =>
+    prisma.$executeRawUnsafe(`
+      UPDATE "Tag" t SET "seriesCount" = COALESCE(sub.n, 0)
+      FROM (
+        SELECT st."B" AS tag_id, count(*)::int AS n
+        FROM "_SeriesTags" st
+        JOIN "Series" s ON s.id = st."A" AND s.publish = 'PUBLISHED'
+        GROUP BY st."B"
+      ) sub
+      WHERE t.id = sub.tag_id;
+    `),
+  );
+  await db(() =>
+    prisma.$executeRawUnsafe(`
+      UPDATE "Tag" SET "seriesCount" = 0
+      WHERE id NOT IN (
+        SELECT DISTINCT st."B" FROM "_SeriesTags" st
+        JOIN "Series" s ON s.id = st."A" AND s.publish = 'PUBLISHED'
+      );
+    `),
+  );
+  await db(() =>
+    prisma.$executeRawUnsafe(`
+      UPDATE "Studio" st SET "seriesCount" = (
+        SELECT count(*)::int FROM "Series" s
+        WHERE s."studioId" = st.id AND s.publish = 'PUBLISHED'
+      );
+    `),
+  );
+}
