@@ -1,0 +1,64 @@
+name: Backfill catalogue (one-off)
+
+# Manual, on-demand full import of the MyAnimeList hentai catalogue straight
+# into the database. Runs on a US GitHub runner (~ms from Supabase), so the
+# whole thing finishes in ~15–30 min instead of hours from a far-away laptop.
+#
+# Run it: repo → Actions → "Backfill catalogue (one-off)" → Run workflow.
+#
+# Needs three repo secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL    same value as the app env (password @ must be %40-encoded)
+#   DIRECT_URL      same value as the app env
+#   MAL_CLIENT_ID   the MyAnimeList API client id
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "First year to import"
+        required: false
+        default: "1985"
+      to:
+        description: "Last year to import"
+        required: false
+        default: "2028"
+      fresh:
+        description: "Ignore progress, redo every year"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: catalogue-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
+          } > .env
+
+      - run: npx prisma generate
+
+      - name: Run backfill
+        run: |
+          ARGS="${{ inputs.from }} ${{ inputs.to }}"
+          if [ "${{ inputs.fresh }}" = "true" ]; then ARGS="$ARGS --fresh"; fi
+          echo "npm run metadata:backfill -- $ARGS"
+          npm run metadata:backfill -- $ARGS
