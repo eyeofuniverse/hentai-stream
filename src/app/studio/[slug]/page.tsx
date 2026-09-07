@@ -22,7 +22,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const studio = await db(() => prisma.studio.findUnique({ where: { slug } }));
+  const studio = await db(() =>
+    prisma.studio.findUnique({ where: { slug } }),
+  ).catch(() => null);
   if (!studio) return { title: "Not found" };
   return {
     title: `${studio.name} — hentai series`,
@@ -38,7 +40,9 @@ export default async function StudioPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const studio = await db(() => prisma.studio.findUnique({ where: { slug } }));
+  const studio = await db(() =>
+    prisma.studio.findUnique({ where: { slug } }),
+  ).catch(() => null);
   if (!studio) notFound();
 
   const { items, total, pages } = await browseSeries({ studio: slug, sort: "updated" });

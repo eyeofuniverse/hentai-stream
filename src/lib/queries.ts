@@ -65,7 +65,9 @@ export async function browseSeries(params: BrowseParams) {
 }
 
 export async function getSeries(slug: string) {
-  return db(() => getSeriesInner(slug));
+  // null on a DB failure rather than throwing — a build-time blip during
+  // prerender must not fail the whole deploy (the page 404s, ISR heals it).
+  return db(() => getSeriesInner(slug)).catch(() => null);
 }
 function getSeriesInner(slug: string) {
   return prisma.series.findFirst({
@@ -94,7 +96,7 @@ function getSeriesInner(slug: string) {
 }
 
 export async function getEpisode(seriesSlug: string, number: number) {
-  return db(() => getEpisodeInner(seriesSlug, number));
+  return db(() => getEpisodeInner(seriesSlug, number)).catch(() => null);
 }
 function getEpisodeInner(seriesSlug: string, number: number) {
   return prisma.episode.findFirst({

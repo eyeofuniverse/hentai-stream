@@ -22,7 +22,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const tag = await db(() => prisma.tag.findUnique({ where: { slug } }));
+  const tag = await db(() =>
+    prisma.tag.findUnique({ where: { slug } }),
+  ).catch(() => null);
   if (!tag) return { title: "Not found" };
   return {
     title: `${tag.name} Hentai`,
@@ -39,7 +41,9 @@ export default async function TagPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const tag = await db(() => prisma.tag.findUnique({ where: { slug } }));
+  const tag = await db(() =>
+    prisma.tag.findUnique({ where: { slug } }),
+  ).catch(() => null);
   if (!tag) notFound();
 
   const { items, total, pages } = await browseSeries({ tag: slug, sort: "updated" });

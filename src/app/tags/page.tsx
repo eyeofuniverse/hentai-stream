@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { prisma } from "@/lib/db";
+import { prisma, db } from "@/lib/db";
 
 export const revalidate = 600;
 export const metadata: Metadata = {
@@ -8,11 +8,21 @@ export const metadata: Metadata = {
   description: "Every genre, theme and tag on HentaiStream.",
 };
 
+function getTags() {
+  return db(() =>
+    prisma.tag.findMany({
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+      include: { _count: { select: { series: true } } },
+    }),
+  );
+}
+
 export default async function TagsPage() {
-  const tags = await prisma.tag.findMany({
-    orderBy: [{ category: "asc" }, { name: "asc" }],
-    include: { _count: { select: { series: true } } },
-  });
+  // Don't let a build-time DB blip fail the whole deploy — an empty render is
+  // recovered on the first request after deploy (revalidate).
+  const tags = await getTags().catch(
+    () => [] as Awaited<ReturnType<typeof getTags>>,
+  );
 
   const groups = {
     GENRE: tags.filter((t) => t.category === "GENRE"),
