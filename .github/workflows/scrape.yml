@@ -48,6 +48,9 @@ jobs:
           {
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
+            echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
           } > .env
       - run: npx prisma generate
       - name: Scrape
@@ -60,6 +63,10 @@ jobs:
           echo "npm run scrape -- $ARGS"
           npm run scrape -- $ARGS
 
-      - name: Verify + publish new sources
+      - name: Verify sources
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: npm run verify
+
+      - name: Queue new episodes into Bunny
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm run migrate

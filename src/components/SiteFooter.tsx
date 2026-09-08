@@ -14,13 +14,13 @@ export function SiteFooter() {
           <Link href="/report-content">Report content</Link>
         </div>
         <p className="mt-6 text-xs leading-relaxed text-white/35">
-          HentaiStream is an index of animated adult content. All videos are hosted
-          by third-party providers; we store no media. All characters depicted are
-          fictional adults (18+). 18 U.S.C. § 2257 record-keeping requirements do
-          not apply to content that does not depict real persons. 18+ only.
+          LustHentai streams animated adult content. All characters depicted are
+          fictional and represented as adults (18+). No real persons appear in any
+          content, so the record-keeping requirements of 18 U.S.C. § 2257 do not
+          apply. 18+ only.
         </p>
         <p className="mt-3 text-xs text-white/25">
-          © {new Date().getFullYear()} HentaiStream
+          © {new Date().getFullYear()} LustHentai
         </p>
       </div>
     </footer>

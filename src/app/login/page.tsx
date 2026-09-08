@@ -12,7 +12,7 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-6">
       <Link href="/" className="mb-1 text-center text-xl font-black">
-        Hentai<span className="text-accent">Stream</span>
+        Lust<span className="text-accent">Hentai</span>
       </Link>
       <p className="mb-8 text-center text-sm text-white/45">
         Sign in to build a watchlist and submit episodes

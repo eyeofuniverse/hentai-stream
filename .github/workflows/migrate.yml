@@ -1,0 +1,65 @@
+name: Host videos (Bunny)
+
+# Queues un-hosted episodes into Bunny Stream (Bunny fetches the source URL,
+# with a Referer header for locked CDNs, and transcodes), then polls for the
+# transcodes that finished and publishes them. The webhook does the same in
+# real time; this is the safety net + the bulk backfill.
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_LIBRARY_ID,
+#               BUNNY_STREAM_API_KEY, BUNNY_STREAM_CDN_HOST
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "max episodes to queue (blank = all)"
+        required: false
+        default: ""
+      site:
+        description: "only sources from this site (blank = any)"
+        required: false
+        default: ""
+      retry:
+        description: "also re-queue failed episodes"
+        type: boolean
+        default: false
+      poll_only:
+        description: "skip queueing, just poll in-flight transcodes"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "25 */4 * * *" # every 4h — poll + pick up new scraped episodes
+
+concurrency:
+  group: host-bunny
+  cancel-in-progress: false
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
+            echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Migrate
+        run: |
+          ARGS=""
+          [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
+          [ -n "${{ github.event.inputs.site }}" ] && ARGS="$ARGS --site=${{ github.event.inputs.site }}"
+          [ "${{ github.event.inputs.retry }}" = "true" ] && ARGS="$ARGS --retry"
+          [ "${{ github.event.inputs.poll_only }}" = "true" ] && ARGS="$ARGS --poll-only"
+          npm run migrate -- $ARGS

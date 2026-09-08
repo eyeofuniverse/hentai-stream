@@ -47,7 +47,7 @@ export default async function AdminLayout({
       <aside className="md:w-52 md:shrink-0">
         <div className="mb-4 flex items-center justify-between md:mb-6">
           <Link href="/admin" className="text-sm font-bold tracking-tight">
-            Hentai<span className="text-accent">Stream</span>
+            Lust<span className="text-accent">Hentai</span>
             <span className="ml-1.5 text-white/30">admin</span>
           </Link>
         </div>

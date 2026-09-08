@@ -15,6 +15,7 @@
     "scrape": "tsx --env-file=.env scripts/scrape.mts",
     "enrich": "tsx --env-file=.env scripts/enrich.mts",
     "verify": "tsx --env-file=.env scripts/verify.mts",
+    "migrate": "tsx --env-file=.env scripts/migrate.mts",
     "metadata:backfill:http": "node --env-file=.env scripts/metadata-backfill.mjs"
   },
   "prisma": {
@@ -25,6 +26,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.47.10",
     "cheerio": "^1.0.0",
+    "hls.js": "^1.5.17",
     "next": "15.5.25",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

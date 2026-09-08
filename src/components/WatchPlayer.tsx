@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type PlayerSource = {
   id: string;
@@ -12,6 +12,10 @@ export type PlayerSource = {
   quality: string | null;
   direct?: boolean;
 };
+
+export type HostedVideo = { guid: string; hls: string; poster?: string | null } | null;
+
+const CDN = process.env.NEXT_PUBLIC_BUNNY_CDN_HOST;
 
 const HOST_LABEL: Record<string, string> = {
   STREAMTAPE: "Streamtape",
@@ -31,25 +35,82 @@ const HOST_LABEL: Record<string, string> = {
 const qLabel = (q: string | null) =>
   q && q !== "UNKNOWN" ? q.replace("Q", "") + "p" : null;
 
-export function WatchPlayer({ sources }: { sources: PlayerSource[] }) {
-  const [activeId, setActiveId] = useState(sources[0]?.id);
+/** HLS <video> — native on Safari, hls.js everywhere else. */
+function Hls({ src, poster }: { src: string; poster?: string | null }) {
+  const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      return;
+    }
+    let hls: import("hls.js").default | undefined;
+    let cancelled = false;
+    import("hls.js").then(({ default: HlsJs }) => {
+      if (cancelled || !HlsJs.isSupported()) {
+        video.src = src;
+        return;
+      }
+      hls = new HlsJs({ maxBufferLength: 30 });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+    });
+    return () => {
+      cancelled = true;
+      hls?.destroy();
+    };
+  }, [src]);
+
+  return (
+    <video
+      ref={ref}
+      poster={poster ?? undefined}
+      controls
+      playsInline
+      preload="metadata"
+      className="h-full w-full bg-black"
+    />
+  );
+}
+
+export function WatchPlayer({
+  sources,
+  hosted,
+}: {
+  sources: PlayerSource[];
+  hosted?: HostedVideo;
+}) {
+  // the hosted copy is always option 0 when present
+  const options: (
+    | { kind: "hosted"; hls: string; poster?: string | null }
+    | { kind: "source"; src: PlayerSource }
+  )[] = [
+    ...(hosted && CDN ? [{ kind: "hosted" as const, hls: hosted.hls, poster: hosted.poster }] : []),
+    ...sources.map((s) => ({ kind: "source" as const, src: s })),
+  ];
+
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    if (hosted) return; // hosted always wins
     try {
       const pref = localStorage.getItem("hs_host");
-      const match = sources.find((s) => s.host === pref);
-      if (match) setActiveId(match.id);
+      const i = options.findIndex((o) => o.kind === "source" && o.src.host === pref);
+      if (i >= 0) setActive(i);
     } catch {
       /* ignore */
     }
-  }, [sources]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sources.length, hosted]);
 
-  const active = sources.find((s) => s.id === activeId) ?? sources[0];
+  const cur = options[active] ?? options[0];
 
-  if (!active) {
+  if (!cur) {
     return (
       <div className="grid aspect-video place-items-center rounded-xl bg-surface text-sm text-white/40">
-        No working sources — try again later or report it.
+        No working sources yet — check back soon.
       </div>
     );
   }
@@ -58,10 +119,12 @@ export function WatchPlayer({ sources }: { sources: PlayerSource[] }) {
     <div>
       <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
         <div className="aspect-video">
-          {active.direct ? (
+          {cur.kind === "hosted" ? (
+            <Hls key="hosted" src={cur.hls} poster={cur.poster} />
+          ) : cur.src.direct ? (
             <video
-              key={active.id}
-              src={active.embedUrl}
+              key={cur.src.id}
+              src={cur.src.embedUrl}
               controls
               playsInline
               preload="metadata"
@@ -69,8 +132,8 @@ export function WatchPlayer({ sources }: { sources: PlayerSource[] }) {
             />
           ) : (
             <iframe
-              key={active.id}
-              src={active.embedUrl}
+              key={cur.src.id}
+              src={cur.src.embedUrl}
               title="Player"
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
               allowFullScreen
@@ -81,38 +144,48 @@ export function WatchPlayer({ sources }: { sources: PlayerSource[] }) {
         </div>
       </div>
 
-      {sources.length > 1 && (
+      {options.length > 1 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {sources.map((s, i) => (
+          {options.map((o, i) => (
             <button
-              key={s.id}
+              key={i}
               onClick={() => {
-                setActiveId(s.id);
-                try {
-                  localStorage.setItem("hs_host", s.host);
-                } catch {
-                  /* ignore */
+                setActive(i);
+                if (o.kind === "source") {
+                  try {
+                    localStorage.setItem("hs_host", o.src.host);
+                  } catch {
+                    /* ignore */
+                  }
                 }
               }}
               className={`rounded-lg px-3 py-1.5 text-xs ${
-                s.id === active.id
+                i === active
                   ? "bg-accent font-semibold"
                   : "bg-surface text-white/70 hover:bg-surface-2"
               }`}
             >
-              Server {i + 1} ·{" "}
-              {s.host === "OTHER" && s.hostName ? s.hostName : HOST_LABEL[s.host] ?? s.host}
-              <span className="ml-1.5 inline-flex gap-1 align-middle">
-                <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
-                  {s.kind}
-                  {s.language !== "en" ? ` ${s.language.toUpperCase()}` : ""}
-                </span>
-                {qLabel(s.quality) && (
-                  <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
-                    {qLabel(s.quality)}
+              {o.kind === "hosted" ? (
+                <>Server {i + 1} · HD</>
+              ) : (
+                <>
+                  Server {i + 1} ·{" "}
+                  {o.src.host === "OTHER" && o.src.hostName
+                    ? o.src.hostName
+                    : HOST_LABEL[o.src.host] ?? o.src.host}
+                  <span className="ml-1.5 inline-flex gap-1 align-middle">
+                    <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
+                      {o.src.kind}
+                      {o.src.language !== "en" ? ` ${o.src.language.toUpperCase()}` : ""}
+                    </span>
+                    {qLabel(o.src.quality) && (
+                      <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
+                        {qLabel(o.src.quality)}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
+                </>
+              )}
             </button>
           ))}
         </div>

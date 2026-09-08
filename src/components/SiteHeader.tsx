@@ -15,7 +15,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-white/8 bg-bg/85 backdrop-blur-lg">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
         <Link href="/" className="shrink-0 text-lg font-black tracking-tight">
-          Hentai<span className="text-accent">Stream</span>
+          Lust<span className="text-accent">Hentai</span>
         </Link>
 
         <nav className="hidden items-center gap-1 text-sm text-white/60 md:flex">

@@ -9,13 +9,13 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "HentaiStream — watch hentai online, subbed & uncensored",
-    template: "%s — HentaiStream",
+    default: "LustHentai — watch hentai online, subbed & uncensored",
+    template: "%s — LustHentai",
   },
   description:
     "Stream subbed, dubbed and uncensored hentai series, OVAs and movies. Updated daily. 18+ only.",
   robots: { index: true, follow: true },
-  openGraph: { siteName: "HentaiStream", type: "website" },
+  openGraph: { siteName: "LustHentai", type: "website" },
 };
 
 export default function RootLayout({

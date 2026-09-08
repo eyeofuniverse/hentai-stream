@@ -10,7 +10,7 @@ export default function ReportContentPage() {
       </p>
       <h2>Illegal or non-consensual content</h2>
       <p>
-        Email <a href="mailto:abuse@example.com">abuse@example.com</a> with the
+        Email <a href="mailto:abuse@lusthentai.com">abuse@lusthentai.com</a> with the
         page URL and the reason. Content that appears to depict a minor in a
         sexual context is removed immediately on report, pending review. Suspected
         child sexual abuse material should also be reported to{" "}

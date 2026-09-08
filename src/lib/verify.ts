@@ -80,6 +80,7 @@ export async function publishIfLive(episodeId: string): Promise<{
       select: {
         publish: true,
         seriesId: true,
+        bunnyStatus: true,
         series: { select: { publish: true, contentWarnings: true } },
         _count: { select: { sources: { where: { status: "ACTIVE" } } } },
       },
@@ -88,15 +89,17 @@ export async function publishIfLive(episodeId: string): Promise<{
   if (!ep) return { episodePublished: false, seriesPublished: false };
 
   const blocked = ep.series.contentWarnings.includes("possible-minor");
+  // playable = a ready hosted copy, or (transition) a live hotlinkable source
+  const playable = ep.bunnyStatus === "ready" || ep._count.sources > 0;
   let episodePublished = false;
   let seriesPublished = false;
 
-  if (!blocked && ep._count.sources > 0 && ep.publish !== "PUBLISHED") {
+  if (!blocked && playable && ep.publish !== "PUBLISHED") {
     await db(() =>
       prisma.episode.update({ where: { id: episodeId }, data: { publish: "PUBLISHED" } }),
     );
     episodePublished = true;
-  } else if (blocked || ep._count.sources === 0) {
+  } else if (blocked || !playable) {
     if (ep.publish === "PUBLISHED") {
       await db(() =>
         prisma.episode.update({ where: { id: episodeId }, data: { publish: "DRAFT" } }),

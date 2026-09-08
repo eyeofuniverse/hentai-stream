@@ -114,6 +114,13 @@ export default async function AdminHome() {
     ]),
   ).catch(() => [0, 0, [] as never[], [] as never[]] as const);
 
+  const hosting = await db(() =>
+    prisma.episode.groupBy({ by: ["bunnyStatus"], _count: true }),
+  ).catch(() => [] as { bunnyStatus: string | null; _count: number }[]);
+  const hostBy = Object.fromEntries(
+    hosting.map((h) => [h.bunnyStatus ?? "none", h._count]),
+  );
+
   const sync = (syncRow?.value ?? null) as SyncLog | null;
   const attention = [
     { label: "Auto-published — spot check", value: spotCheck, href: "/admin/review" },
@@ -152,7 +159,11 @@ export default async function AdminHome() {
         <Stat label="Episodes" value={episodes} />
         <Stat label="Episodes with a video" value={epsWithSource} tone="good" />
         <Stat label="Video sources" value={sources} />
-        <Stat label="Active / dead" value={`${activeSources} / ${deadSources}`} />
+        <Stat label="Hosted on Bunny" value={hostBy.ready ?? 0} tone="good" />
+        <Stat
+          label="Hosting: processing / failed"
+          value={`${(hostBy.queued ?? 0) + (hostBy.fetching ?? 0) + (hostBy.processing ?? 0)} / ${hostBy.failed ?? 0}`}
+        />
       </div>
 
       {attention.length > 0 && (

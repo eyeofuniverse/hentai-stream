@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEpisode } from "@/lib/queries";
 import { cover, thumb } from "@/lib/cloudinary";
+import { hlsUrl, thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { WatchPlayer } from "@/components/WatchPlayer";
 import { ReportBroken } from "@/components/ReportBroken";
 import { ViewPing } from "@/components/ViewPing";
@@ -62,17 +63,38 @@ export default async function WatchPage({
   const prev = idx > 0 ? eps[idx - 1] : null;
   const next = idx < eps.length - 1 ? eps[idx + 1] : null;
 
+  const hosted =
+    ep.bunnyGuid && ep.bunnyStatus === "ready"
+      ? {
+          guid: ep.bunnyGuid,
+          hls: hlsUrl(ep.bunnyGuid),
+          poster: thumb(ep.thumbUrl) ?? bunnyThumb(ep.bunnyGuid),
+        }
+      : null;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
     name: `${ep.series.title} Episode ${ep.number}`,
     description: ep.synopsis ?? ep.series.synopsis ?? undefined,
-    thumbnailUrl: thumb(ep.thumbUrl) ?? cover(ep.series.coverUrl) ?? undefined,
-    uploadDate: ep.createdAt.toISOString(),
+    thumbnailUrl: [
+      hosted?.poster,
+      thumb(ep.thumbUrl),
+      cover(ep.series.coverUrl),
+    ].filter(Boolean),
+    uploadDate: (ep.airedAt ?? ep.createdAt).toISOString(),
     duration: ep.runtimeSec ? `PT${ep.runtimeSec}S` : undefined,
-    embedUrl: ep.sources[0]?.embedUrl,
+    contentUrl: hosted?.hls,
+    embedUrl: `${SITE}/hentai/${slug}/${ep.number}`,
     genre: ep.series.tags.map((t) => t.name),
     isFamilyFriendly: false,
+    interactionStatistic: ep.viewCount
+      ? {
+          "@type": "InteractionCounter",
+          interactionType: "https://schema.org/WatchAction",
+          userInteractionCount: ep.viewCount,
+        }
+      : undefined,
     url: `${SITE}/hentai/${slug}/${ep.number}`,
     partOfSeries: { "@type": "TVSeries", name: ep.series.title, url: `${SITE}/hentai/${slug}` },
   };
@@ -95,7 +117,7 @@ export default async function WatchPage({
       </h1>
 
       <ViewPing episodeId={ep.id} />
-      <WatchPlayer sources={ep.sources} />
+      <WatchPlayer sources={ep.sources} hosted={hosted} />
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex gap-2">

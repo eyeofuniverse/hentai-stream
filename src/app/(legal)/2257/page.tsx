@@ -5,7 +5,7 @@ export default function Statement2257() {
     <>
       <h1>18 U.S.C. § 2257 Exemption Statement</h1>
       <p>
-        All visual content on HentaiStream is animated, illustrated or
+        All visual content on LustHentai is animated, illustrated or
         computer-generated. It does not depict any real human being. Accordingly,
         the record-keeping requirements of 18 U.S.C. § 2257 and 28 C.F.R. Part 75
         do not apply.
@@ -19,7 +19,7 @@ export default function Statement2257() {
       <p>
         Report content that appears to violate this policy at{" "}
         <a href="/report-content">/report-content</a> or{" "}
-        <a href="mailto:abuse@example.com">abuse@example.com</a>.
+        <a href="mailto:abuse@lusthentai.com">abuse@lusthentai.com</a>.
       </p>
     </>
   );

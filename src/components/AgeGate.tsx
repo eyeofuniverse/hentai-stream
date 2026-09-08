@@ -23,7 +23,7 @@ export function AgeGate() {
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-surface p-7 text-center">
         <div className="mx-auto mb-5 h-11 w-11 rounded-xl bg-accent" />
         <h1 className="text-xl font-bold">
-          Hentai<span className="text-accent">Stream</span>
+          Lust<span className="text-accent">Hentai</span>
         </h1>
         <p className="mt-4 text-sm leading-relaxed text-white/70">
           This site contains sexually explicit animated material. By entering you
@@ -32,8 +32,7 @@ export function AgeGate() {
           legal in your location.
         </p>
         <p className="mt-3 text-xs text-white/40">
-          All content is animated — no real persons are depicted. Videos are
-          hosted by third-party providers.
+          All content is animated — no real persons are depicted.
         </p>
         <div className="mt-6 flex flex-col gap-2.5">
           <button

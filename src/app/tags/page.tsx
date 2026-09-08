@@ -5,7 +5,7 @@ import { prisma, db } from "@/lib/db";
 export const revalidate = 600;
 export const metadata: Metadata = {
   title: "All hentai tags & genres",
-  description: "Every genre, theme and tag on HentaiStream.",
+  description: "Every genre, theme and tag on LustHentai.",
 };
 
 function getTags() {
