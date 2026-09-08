@@ -414,6 +414,8 @@ model VideoSource {
   order     Int          @default(0)
   /// which scraper adapter produced this embed, e.g. "watchhentai" (null = manual)
   sourceSite String?
+  /// true = embedUrl is a direct video file (play in <video>), false = iframe embed
+  direct    Boolean      @default(false)
 
   lastCheckedAt  DateTime?
   checkFailCount Int       @default(0)

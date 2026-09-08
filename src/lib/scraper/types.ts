@@ -9,6 +9,8 @@ export interface ScrapedSource {
   /** "720p" / "FHD" / "Q1080" — normalised by normQuality */
   quality?: string;
   isCensored?: boolean | null;
+  /** embedUrl is a direct video file (play in <video>), not an iframe embed */
+  direct?: boolean;
 }
 
 /**
@@ -25,12 +27,19 @@ export interface EpisodeRef {
   part?: number;
   /** episode page URL — passed back to fetchSources */
   episodeUrl: string;
+  /** flat-post adapters (one page = one episode) fill these during crawl so the
+   *  orchestrator can skip the second fetch */
+  sources?: ScrapedSource[];
+  thumbUrl?: string | null;
+  airedAt?: string | null;
 }
 
 export interface SiteAdapter {
   /** short key — stored on VideoSource.sourceSite and ScrapeRun.site */
   name: string;
   baseUrl: string;
+  /** sources from this site are direct, hotlinkable files → ACTIVE + auto-publish */
+  directPlayback?: boolean;
 
   /** Walk the whole site, yielding lightweight episode pointers. */
   crawl(

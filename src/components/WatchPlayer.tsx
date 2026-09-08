@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 export type PlayerSource = {
   id: string;
   host: string;
+  hostName?: string | null;
   embedUrl: string;
   kind: string; // SUB | DUB | RAW
   language: string;
   quality: string | null;
+  direct?: boolean;
 };
 
 const HOST_LABEL: Record<string, string> = {
@@ -56,15 +58,26 @@ export function WatchPlayer({ sources }: { sources: PlayerSource[] }) {
     <div>
       <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
         <div className="aspect-video">
-          <iframe
-            key={active.id}
-            src={active.embedUrl}
-            title="Player"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            referrerPolicy="origin"
-            className="h-full w-full border-0"
-          />
+          {active.direct ? (
+            <video
+              key={active.id}
+              src={active.embedUrl}
+              controls
+              playsInline
+              preload="metadata"
+              className="h-full w-full bg-black"
+            />
+          ) : (
+            <iframe
+              key={active.id}
+              src={active.embedUrl}
+              title="Player"
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+              allowFullScreen
+              referrerPolicy="origin"
+              className="h-full w-full border-0"
+            />
+          )}
         </div>
       </div>
 
@@ -87,7 +100,8 @@ export function WatchPlayer({ sources }: { sources: PlayerSource[] }) {
                   : "bg-surface text-white/70 hover:bg-surface-2"
               }`}
             >
-              Server {i + 1} · {HOST_LABEL[s.host] ?? s.host}
+              Server {i + 1} ·{" "}
+              {s.host === "OTHER" && s.hostName ? s.hostName : HOST_LABEL[s.host] ?? s.host}
               <span className="ml-1.5 inline-flex gap-1 align-middle">
                 <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
                   {s.kind}

@@ -40,6 +40,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   const adapter = getAdapter(opts.site);
   const http = new Http(opts.minGapMs ?? 1500);
   const started = Date.now();
+  const publishLive = opts.publishLive ?? adapter.directPlayback ?? false;
 
   const s: ScrapeSummary = {
     site: opts.site,
@@ -117,12 +118,14 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
       }
     }
 
-    let sources;
-    try {
-      sources = await adapter.fetchSources(http, ref);
-    } catch (e) {
-      s.errors.push(`sources ${ref.episodeUrl}: ${(e as Error).message}`);
-      return;
+    let sources = ref.sources;
+    if (!sources?.length) {
+      try {
+        sources = await adapter.fetchSources(http, ref);
+      } catch (e) {
+        s.errors.push(`sources ${ref.episodeUrl}: ${(e as Error).message}`);
+        return;
+      }
     }
     if (!sources.length) {
       log(`  · ${ref.seriesTitle} ep ${ref.number} — no embeds found`);
@@ -140,7 +143,9 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
         number: ref.number,
         part: ref.part,
         site: opts.site,
-        publishLive: opts.publishLive,
+        publishLive,
+        thumbUrl: ref.thumbUrl,
+        airedAt: ref.airedAt,
         sources: sources.map((src) => ({
           hostOrUrl: src.hostOrUrl,
           embedUrl: src.embedUrl,
@@ -148,6 +153,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
           language: src.language,
           quality: normQuality(src.quality) as never,
           isCensored: src.isCensored ?? null,
+          direct: src.direct,
         })),
       });
       if (res.sourcesAdded) s.episodesIngested++;

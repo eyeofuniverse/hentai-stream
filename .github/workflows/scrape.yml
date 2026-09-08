@@ -12,7 +12,7 @@ on:
       site:
         description: "watchhentai | hentaimama | hentaigasm | miohentai | hentaila"
         required: true
-        default: "watchhentai"
+        default: "hentaigasm"
       mode:
         description: "crawl (whole site) | topup (our series missing video)"
         required: true
@@ -29,7 +29,7 @@ on:
     - cron: "40 3 * * *" # daily 03:40 UTC — incremental, skips episodes we have
 
 concurrency:
-  group: scrape-${{ github.event.inputs.site || 'watchhentai' }}
+  group: scrape-${{ github.event.inputs.site || 'hentaigasm' }}
   cancel-in-progress: false
 
 jobs:
@@ -52,7 +52,7 @@ jobs:
       - run: npx prisma generate
       - name: Scrape
         run: |
-          SITE="${{ github.event.inputs.site || 'watchhentai' }}"
+          SITE="${{ github.event.inputs.site || 'hentaigasm' }}"
           MODE="${{ github.event.inputs.mode || 'crawl' }}"
           ARGS="--site=$SITE --mode=$MODE"
           [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"

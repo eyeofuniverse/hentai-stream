@@ -243,6 +243,8 @@ export interface IngestSource {
   quality?: Quality;
   isCensored?: boolean | null;
   label?: string | null;
+  /** embedUrl is a direct video file, not an iframe embed */
+  direct?: boolean;
 }
 
 export interface IngestResult {
@@ -265,11 +267,13 @@ export async function ingestEpisode(opts: {
   part?: number;
   site: string;
   sources: IngestSource[];
+  thumbUrl?: string | null;
+  airedAt?: string | null;
   /**
    * When false (default) scraped sources land as PENDING and nothing is
    * published — the crawl still records every source, but a link we can't yet
    * serve (referer-locked file, X-Frame-blocked embed) never reaches the public
-   * site. Flip to true once a proxy / re-host delivery layer exists.
+   * site. Sites whose files are directly hotlinkable pass true.
    */
   publishLive?: boolean;
 }): Promise<IngestResult> {
@@ -284,6 +288,9 @@ export async function ingestEpisode(opts: {
     if (!series) throw new Error(`ingestEpisode: no series ${opts.seriesId}`);
     const blocked = series.contentWarnings.includes("possible-minor");
 
+    const airedAt = opts.airedAt ? new Date(opts.airedAt) : null;
+    const validAired = airedAt && !Number.isNaN(airedAt.getTime()) ? airedAt : null;
+
     const ep = await prisma.episode.upsert({
       where: {
         seriesId_number_part: { seriesId: opts.seriesId, number: opts.number, part },
@@ -293,10 +300,22 @@ export async function ingestEpisode(opts: {
         number: opts.number,
         part,
         publish: "DRAFT",
+        thumbUrl: opts.thumbUrl ?? null,
+        airedAt: validAired,
       },
       update: {},
-      select: { id: true, publish: true },
+      select: { id: true, publish: true, thumbUrl: true, airedAt: true },
     });
+    // fill thumb / air date only if still missing (don't clobber later data)
+    if ((opts.thumbUrl && !ep.thumbUrl) || (validAired && !ep.airedAt)) {
+      await prisma.episode.update({
+        where: { id: ep.id },
+        data: {
+          ...(opts.thumbUrl && !ep.thumbUrl ? { thumbUrl: opts.thumbUrl } : {}),
+          ...(validAired && !ep.airedAt ? { airedAt: validAired } : {}),
+        },
+      });
+    }
 
     let sourcesAdded = 0;
     let order = 0;
@@ -317,9 +336,10 @@ export async function ingestEpisode(opts: {
       };
       const res = await prisma.videoSource.upsert({
         where: { episodeId_host_embedUrl: { episodeId: ep.id, host, embedUrl: url } },
-        create: { episodeId: ep.id, host, embedUrl: url, ...fields },
+        create: { episodeId: ep.id, host, embedUrl: url, direct: s.direct ?? false, ...fields },
         update: {
           sourceSite: opts.site,
+          direct: s.direct ?? false,
           lastCheckedAt: new Date(),
         },
         select: { createdAt: true, updatedAt: true },
