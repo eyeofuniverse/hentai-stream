@@ -17,21 +17,27 @@ export default async function AdminLayout({
   const role = session.profile.role;
   if (role !== "ADMIN" && role !== "MODERATOR") redirect("/");
 
-  const [openReports, pendingSeries, pendingEps, flagged] = await db(() =>
-    Promise.all([
-      prisma.report.count({ where: { status: "OPEN" } }),
-      prisma.series.count({ where: { publish: "PENDING" } }),
-      prisma.episode.count({ where: { publish: "PENDING" } }),
-      prisma.series.count({
-        where: { contentWarnings: { has: "possible-minor" }, publish: { not: "REJECTED" } },
-      }),
-    ]),
-  ).catch(() => [0, 0, 0, 0]);
+  const [openReports, pendingSeries, pendingEps, flagged, spotCheck, unmatched] =
+    await db(() =>
+      Promise.all([
+        prisma.report.count({ where: { status: "OPEN" } }),
+        prisma.series.count({ where: { publish: "PENDING" } }),
+        prisma.episode.count({ where: { publish: "PENDING" } }),
+        prisma.series.count({
+          where: { contentWarnings: { has: "possible-minor" }, publish: { not: "REJECTED" } },
+        }),
+        prisma.series.count({
+          where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
+        }),
+        prisma.unmatchedTitle.count({ where: { status: "PENDING" } }),
+      ]),
+    ).catch(() => [0, 0, 0, 0, 0, 0]);
 
   const nav: { href: string; label: string; badge?: number; tone?: string }[] = [
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/series", label: "Series", badge: pendingSeries + pendingEps || undefined, tone: "amber" },
-    { href: "/admin/review", label: "Review queue", badge: flagged || undefined, tone: "pink" },
+    { href: "/admin/review", label: "Review queue", badge: flagged + spotCheck || undefined, tone: "pink" },
+    { href: "/admin/unmatched", label: "Unmatched", badge: unmatched || undefined, tone: "amber" },
     { href: "/admin/metadata", label: "Metadata" },
     { href: "/admin/reports", label: "Reports", badge: openReports || undefined, tone: "red" },
   ];

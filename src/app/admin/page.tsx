@@ -76,8 +76,34 @@ export default async function AdminHome() {
     ]),
   );
 
+  const [spotCheck, unmatched, scrapeRuns] = await db(() =>
+    Promise.all([
+      prisma.series.count({
+        where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
+      }),
+      prisma.unmatchedTitle.count({ where: { status: "PENDING" } }),
+      prisma.scrapeRun.findMany({
+        orderBy: { startedAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          site: true,
+          mode: true,
+          startedAt: true,
+          finishedAt: true,
+          ok: true,
+          matched: true,
+          sourcesAdded: true,
+          unmatched: true,
+        },
+      }),
+    ]),
+  ).catch(() => [0, 0, [] as never[]] as const);
+
   const sync = (syncRow?.value ?? null) as SyncLog | null;
   const attention = [
+    { label: "Auto-published — spot check", value: spotCheck, href: "/admin/review" },
+    { label: "Unmatched scraped titles", value: unmatched, href: "/admin/unmatched" },
     { label: "Series pending review", value: pendingSeries, href: "/admin/series?publish=PENDING" },
     { label: "Episodes pending review", value: pendingEps, href: "/admin/series?publish=PENDING" },
     { label: "Flagged: possible minor", value: flagged, href: "/admin/review" },
@@ -173,6 +199,40 @@ export default async function AdminHome() {
               </li>
             ))}
           </ul>
+        </Card>
+
+        <Card className="p-4">
+          <SectionTitle
+            right={
+              <Link href="/admin/unmatched" className="text-xs text-white/40 hover:text-white">
+                unmatched →
+              </Link>
+            }
+          >
+            Scraper runs
+          </SectionTitle>
+          {scrapeRuns.length === 0 ? (
+            <p className="text-sm text-white/35">
+              No runs yet — trigger the “Scrape video sources” Action.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {scrapeRuns.map((r) => (
+                <li key={r.id} className="flex items-center gap-2 text-white/70">
+                  <Badge tone={r.ok ? "green" : r.finishedAt ? "red" : "amber"}>
+                    {r.site}
+                  </Badge>
+                  <span className="text-xs text-white/45">{r.mode}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-white/40">
+                    +{r.sourcesAdded} src · {r.matched} matched · {r.unmatched} new
+                  </span>
+                  <span className="shrink-0 text-xs text-white/30">
+                    {timeAgo(r.startedAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
         <Card className="p-4 lg:col-span-2">

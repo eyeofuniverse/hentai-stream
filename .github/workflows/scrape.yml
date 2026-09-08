@@ -1,0 +1,61 @@
+name: Scrape video sources
+
+# Pulls episode embed links from a source site and attaches them to matched
+# series (auto-publishing + spot-check per the ingest rules). Runs on a US
+# runner, straight against the DB.
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL  (MAL_CLIENT_ID not needed here)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "watchhentai | hentaigasm | miohentai | hentaila"
+        required: true
+        default: "watchhentai"
+      mode:
+        description: "crawl (whole site) | topup (our series missing video)"
+        required: true
+        default: "crawl"
+      limit:
+        description: "stop after N episode records (blank = no limit)"
+        required: false
+        default: ""
+      dry_run:
+        description: "match + report only, write nothing"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "40 3 * * *" # daily 03:40 UTC — incremental, skips episodes we have
+
+concurrency:
+  group: scrape-${{ github.event.inputs.site || 'watchhentai' }}
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Scrape
+        run: |
+          SITE="${{ github.event.inputs.site || 'watchhentai' }}"
+          MODE="${{ github.event.inputs.mode || 'crawl' }}"
+          ARGS="--site=$SITE --mode=$MODE"
+          [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          echo "npm run scrape -- $ARGS"
+          npm run scrape -- $ARGS

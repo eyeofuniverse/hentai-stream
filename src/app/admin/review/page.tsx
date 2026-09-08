@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { prisma, db } from "@/lib/db";
-import { reviewFlag } from "@/lib/actions";
+import { reviewFlag, setSeriesPublish } from "@/lib/actions";
+import { confirmAutoPublish } from "@/lib/scraper-actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import {
   PageHeader,
   Card,
   Badge,
+  SectionTitle,
   EmptyState,
   LinkButton,
   timeAgo,
@@ -15,32 +17,88 @@ export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false } };
 
 export default async function ReviewQueue() {
-  const flagged = await db(() =>
-    prisma.series.findMany({
-      where: {
-        contentWarnings: { has: "possible-minor" },
-        publish: { not: "REJECTED" },
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        synopsis: true,
-        year: true,
-        publish: true,
-        createdAt: true,
-        malId: true,
-      },
-    }),
+  const [flagged, autoPub] = await db(() =>
+    Promise.all([
+      prisma.series.findMany({
+        where: {
+          contentWarnings: { has: "possible-minor" },
+          publish: { not: "REJECTED" },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          synopsis: true,
+          year: true,
+          publish: true,
+          createdAt: true,
+          malId: true,
+        },
+      }),
+      prisma.series.findMany({
+        where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
+        orderBy: { autoPublishedAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          year: true,
+          autoPublishedAt: true,
+          _count: { select: { episodes: { where: { publish: "PUBLISHED" } } } },
+        },
+      }),
+    ]),
   );
 
   return (
     <div>
       <PageHeader
         title="Review queue"
-        subtitle="Titles the importer flagged for possible underage content. Each stays DRAFT and out of the catalogue until you clear or reject it."
+        subtitle="Content flagged for a look, and series the scraper auto-published for a spot-check."
       />
+
+      <SectionTitle>
+        Auto-published — spot check{autoPub.length > 0 ? ` (${autoPub.length})` : ""}
+      </SectionTitle>
+      {autoPub.length === 0 ? (
+        <EmptyState title="Nothing to spot-check." hint="Scraper auto-publishes land here." />
+      ) : (
+        <div className="mb-8 grid gap-2">
+          {autoPub.map((s) => (
+            <Card key={s.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
+              <Badge tone="green">auto-published</Badge>
+              <Link
+                href={`/admin/series/${s.id}`}
+                className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
+              >
+                {s.title}
+              </Link>
+              <span className="text-xs text-white/35">
+                {s.year ?? "—"} · {s._count.episodes} live ep ·{" "}
+                {s.autoPublishedAt ? timeAgo(s.autoPublishedAt) : ""}
+              </span>
+              <div className="flex gap-1.5">
+                <form action={confirmAutoPublish.bind(null, s.id)}>
+                  <SubmitButton variant="secondary" size="sm" pendingText="…">
+                    Looks good
+                  </SubmitButton>
+                </form>
+                <form action={setSeriesPublish.bind(null, s.id, "HIDDEN")}>
+                  <SubmitButton variant="ghost" size="sm" pendingText="…">
+                    Unpublish
+                  </SubmitButton>
+                </form>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <SectionTitle>
+        Possible-minor flags{flagged.length > 0 ? ` (${flagged.length})` : ""}
+      </SectionTitle>
 
       {flagged.length === 0 ? (
         <EmptyState

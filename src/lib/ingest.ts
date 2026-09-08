@@ -1,0 +1,350 @@
+import { Prisma, type VideoHost, type ReleaseKind, type Quality } from "@prisma/client";
+import { prisma, db } from "@/lib/db";
+
+/* ───────────────────────────── title matching ───────────────────────────── */
+
+const SUFFIXES = [
+  "the animation",
+  "the anime",
+  "the motion anime",
+  "za animation",
+  "original animation",
+];
+
+/** Canonical form for comparing a scraped title to our catalogue. */
+export function normalizeTitle(raw: string): string {
+  let s = raw
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip diacritics
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[’'`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  // trailing episode / part / volume markers
+  s = s.replace(
+    /\b(episode|ep|epis|capitulo|cap|part|pt|vol|volume|disc)\s*\d+(\s*\d+)?\s*$/,
+    "",
+  );
+  s = s.replace(/\s+\d{1,3}\s*$/, (m) => (raw.length > 12 ? "" : m)); // "... 2"
+
+  for (const suf of SUFFIXES) {
+    if (s.endsWith(" " + suf)) s = s.slice(0, -suf.length - 1);
+  }
+  return s.replace(/\s+/g, " ").trim();
+}
+
+const tokens = (s: string) => new Set(s.split(" ").filter((t) => t.length > 1));
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+
+export interface SeriesMatch {
+  seriesId: string;
+  confidence: number; // 0..1
+  method: "exact" | "alias" | "jaccard" | "trigram";
+  title: string;
+}
+
+type Cand = {
+  id: string;
+  title: string;
+  titleEnglish: string | null;
+  titleRomaji: string | null;
+  titleOriginal: string | null;
+  altTitles: string[];
+  year: number | null;
+  sim: number;
+};
+
+/**
+ * Resolve a scraped title to one of our Series, or null if we're not confident.
+ * Strategy: pg_trgm shortlist → exact normalized match → token Jaccard → raw
+ * trigram score, each gated by a confidence floor and (when given) the year.
+ */
+export async function resolveSeries(opts: {
+  title: string;
+  year?: number | null;
+}): Promise<SeriesMatch | null> {
+  const norm = normalizeTitle(opts.title);
+  if (norm.length < 2) return null;
+  const q = opts.title.trim().slice(0, 200);
+
+  const cands = await db(() =>
+    prisma.$queryRaw<Cand[]>(Prisma.sql`
+      SELECT id, title, "titleEnglish", "titleRomaji", "titleOriginal",
+             "altTitles", year,
+             GREATEST(
+               similarity(title, ${q}),
+               similarity(coalesce("titleEnglish", ''), ${q}),
+               similarity(coalesce("titleRomaji", ''), ${q}),
+               similarity(coalesce("titleOriginal", ''), ${q})
+             ) AS sim
+      FROM "Series"
+      WHERE title % ${q}
+         OR "titleEnglish" % ${q}
+         OR "titleRomaji" % ${q}
+         OR "titleOriginal" % ${q}
+      ORDER BY sim DESC
+      LIMIT 20
+    `),
+  );
+  if (!cands.length) return null;
+
+  const nTok = tokens(norm);
+  let best: SeriesMatch | null = null;
+
+  for (const c of cands) {
+    const variants = [
+      c.title,
+      c.titleEnglish,
+      c.titleRomaji,
+      c.titleOriginal,
+      ...c.altTitles,
+    ]
+      .filter(Boolean)
+      .map((v) => normalizeTitle(v as string));
+
+    const yearOk =
+      opts.year == null || c.year == null || Math.abs(c.year - opts.year) <= 1;
+
+    // 1. exact normalized equality
+    if (variants.includes(norm)) {
+      const conf = yearOk ? 0.99 : 0.9;
+      if (!best || conf > best.confidence)
+        best = { seriesId: c.id, confidence: conf, method: "exact", title: c.title };
+      continue;
+    }
+
+    // 2. token Jaccard over the best variant
+    const j = Math.max(...variants.map((v) => jaccard(nTok, tokens(v))), 0);
+    if (j >= 0.8 && yearOk) {
+      const conf = 0.7 + j * 0.25;
+      if (!best || conf > best.confidence)
+        best = { seriesId: c.id, confidence: conf, method: "jaccard", title: c.title };
+      continue;
+    }
+
+    // 3. raw trigram score — needs to be high, and year must agree
+    if (c.sim >= 0.55 && yearOk && j >= 0.4) {
+      const conf = Math.min(0.85, c.sim);
+      if (!best || conf > best.confidence)
+        best = { seriesId: c.id, confidence: conf, method: "trigram", title: c.title };
+    }
+  }
+
+  return best && best.confidence >= 0.62 ? best : null;
+}
+
+/** Record a title the scraper couldn't map. Deduped per site. */
+export async function recordUnmatched(opts: {
+  site: string;
+  rawTitle: string;
+  sampleUrl: string;
+  year?: number | null;
+  episodeCount?: number;
+}): Promise<void> {
+  const normalizedTitle = normalizeTitle(opts.rawTitle);
+  if (!normalizedTitle) return;
+  await db(() =>
+    prisma.unmatchedTitle.upsert({
+      where: { site_normalizedTitle: { site: opts.site, normalizedTitle } },
+      create: {
+        site: opts.site,
+        rawTitle: opts.rawTitle.slice(0, 300),
+        normalizedTitle,
+        sampleUrl: opts.sampleUrl,
+        year: opts.year ?? null,
+        episodeCount: opts.episodeCount ?? 0,
+      },
+      update: {
+        hits: { increment: 1 },
+        lastSeenAt: new Date(),
+        sampleUrl: opts.sampleUrl,
+        episodeCount: opts.episodeCount ?? undefined,
+      },
+    }),
+  );
+}
+
+/* ─────────────────────────────── host mapping ───────────────────────────── */
+
+const HOST_ALIASES: Record<string, VideoHost> = {
+  streamtape: "STREAMTAPE",
+  strtape: "STREAMTAPE",
+  stape: "STREAMTAPE",
+  tapecontent: "STREAMTAPE",
+  doodstream: "DOODSTREAM",
+  dood: "DOODSTREAM",
+  dooood: "DOODSTREAM",
+  ds2play: "DOODSTREAM",
+  d0o0d: "DOODSTREAM",
+  vidply: "DOODSTREAM",
+  mixdrop: "MIXDROP",
+  mixdrp: "MIXDROP",
+  mdbekjwqa: "MIXDROP",
+  voe: "VOE",
+  streamwish: "STREAMWISH",
+  wishembed: "STREAMWISH",
+  embedwish: "STREAMWISH",
+  wishfast: "STREAMWISH",
+  swishsrv: "STREAMWISH",
+  filemoon: "FILEMOON",
+  moonplayer: "FILEMOON",
+  filemoons: "FILEMOON",
+  kerapoxy: "FILEMOON",
+  mp4upload: "MP4UPLOAD",
+  vidguard: "VIDGUARD",
+  listeamed: "VIDGUARD",
+  vgfplay: "VIDGUARD",
+  lulustream: "LULUSTREAM",
+  luluvdo: "LULUSTREAM",
+  lulu: "LULUSTREAM",
+  bigwarp: "BIGWARP",
+  bgwp: "BIGWARP",
+  yourupload: "YOURUPLOAD",
+  yumeko: "YOURUPLOAD",
+};
+
+/** Map a host name or an embed URL to our VideoHost enum. */
+export function mapHost(hostOrUrl: string): { host: VideoHost; hostName: string | null } {
+  const domain = hostOrUrl
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .split(/[/?#]/)[0]
+    .replace(/^www\d?\./, "");
+  const key = domain.split(".")[0].replace(/[^a-z0-9]/g, "");
+
+  for (const [alias, host] of Object.entries(HOST_ALIASES)) {
+    if (key.includes(alias)) return { host, hostName: null };
+  }
+  return { host: "OTHER", hostName: (domain || hostOrUrl).slice(0, 60) };
+}
+
+/* ─────────────────────────────── episode ingest ─────────────────────────── */
+
+export interface IngestSource {
+  hostOrUrl?: string; // explicit host hint
+  embedUrl: string;
+  kind?: ReleaseKind;
+  language?: string;
+  quality?: Quality;
+  isCensored?: boolean | null;
+  label?: string | null;
+}
+
+export interface IngestResult {
+  episodeId: string;
+  sourcesAdded: number;
+  episodePublished: boolean;
+  seriesPublished: boolean;
+}
+
+/**
+ * Attach one episode's video sources to a matched Series, creating the episode
+ * row if needed, and running the auto-publish + spot-check rules:
+ *   - episode gets a live source            → publish the episode
+ *   - series gets its first published ep     → auto-publish the series + queue it
+ *   - series flagged `possible-minor`        → nothing is published
+ */
+export async function ingestEpisode(opts: {
+  seriesId: string;
+  number: number;
+  part?: number;
+  site: string;
+  sources: IngestSource[];
+}): Promise<IngestResult> {
+  const part = opts.part && opts.part > 0 ? opts.part : 1;
+
+  return db(async () => {
+    const series = await prisma.series.findUnique({
+      where: { id: opts.seriesId },
+      select: { publish: true, contentWarnings: true, slug: true },
+    });
+    if (!series) throw new Error(`ingestEpisode: no series ${opts.seriesId}`);
+    const blocked = series.contentWarnings.includes("possible-minor");
+
+    const ep = await prisma.episode.upsert({
+      where: {
+        seriesId_number_part: { seriesId: opts.seriesId, number: opts.number, part },
+      },
+      create: {
+        seriesId: opts.seriesId,
+        number: opts.number,
+        part,
+        publish: "DRAFT",
+      },
+      update: {},
+      select: { id: true, publish: true },
+    });
+
+    let sourcesAdded = 0;
+    let order = 0;
+    for (const s of opts.sources) {
+      const url = s.embedUrl?.trim();
+      if (!url || !/^https?:\/\//.test(url)) continue;
+      const { host, hostName } = mapHost(s.hostOrUrl || url);
+      const fields = {
+        hostName,
+        label: s.label ?? null,
+        kind: s.kind ?? "SUB",
+        language: s.language ?? "en",
+        quality: s.quality ?? "UNKNOWN",
+        isCensored: s.isCensored ?? null,
+        status: "ACTIVE" as const,
+        sourceSite: opts.site,
+        order: order++,
+      };
+      const res = await prisma.videoSource.upsert({
+        where: { episodeId_host_embedUrl: { episodeId: ep.id, host, embedUrl: url } },
+        create: { episodeId: ep.id, host, embedUrl: url, ...fields },
+        update: {
+          status: "ACTIVE",
+          sourceSite: opts.site,
+          lastCheckedAt: new Date(),
+        },
+        select: { createdAt: true, updatedAt: true },
+      });
+      if (res.createdAt.getTime() === res.updatedAt.getTime()) sourcesAdded++;
+    }
+
+    const activeCount = await prisma.videoSource.count({
+      where: { episodeId: ep.id, status: "ACTIVE" },
+    });
+
+    let episodePublished = false;
+    if (!blocked && activeCount > 0 && ep.publish !== "PUBLISHED") {
+      await prisma.episode.update({
+        where: { id: ep.id },
+        data: { publish: "PUBLISHED" },
+      });
+      episodePublished = true;
+    }
+
+    let seriesPublished = false;
+    if (!blocked && series.publish === "DRAFT") {
+      const livePub = await prisma.episode.count({
+        where: { seriesId: opts.seriesId, publish: "PUBLISHED" },
+      });
+      if (livePub > 0) {
+        await prisma.series.update({
+          where: { id: opts.seriesId },
+          data: {
+            publish: "PUBLISHED",
+            autoPublishedAt: new Date(),
+            reviewedAt: null,
+          },
+        });
+        seriesPublished = true;
+      }
+    }
+
+    return { episodeId: ep.id, sourcesAdded, episodePublished, seriesPublished };
+  });
+}
