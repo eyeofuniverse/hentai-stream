@@ -1,5 +1,14 @@
-import { prisma } from "@/lib/db";
+import { prisma, db } from "@/lib/db";
 import { runMetadataSync } from "@/lib/metadata-actions";
+import { SubmitButton } from "@/components/admin/SubmitButton";
+import {
+  PageHeader,
+  Card,
+  Stat,
+  SectionTitle,
+  Badge,
+  timeAgo,
+} from "@/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false } };
@@ -12,130 +21,108 @@ type SyncLog = {
   updated?: number;
   skipped?: number;
   flagged?: number;
+  episodeStubs?: number;
   errors?: string[];
+  errorCount?: number;
   tookMs?: number;
   at?: string;
 };
 
 export default async function MetadataPage() {
-  const [
-    total,
-    drafts,
-    published,
-    noSources,
-    flagged,
-    withMal,
-    logRow,
-  ] = await Promise.all([
-    prisma.series.count(),
-    prisma.series.count({ where: { publish: "DRAFT" } }),
-    prisma.series.count({ where: { publish: "PUBLISHED" } }),
-    prisma.series.count({ where: { episodes: { none: {} } } }),
-    prisma.series.count({ where: { contentWarnings: { has: "possible-minor" } } }),
-    prisma.series.count({ where: { malId: { not: null } } }),
-    prisma.setting.findUnique({ where: { key: "metadataSync" } }),
-  ]);
+  const [total, fromMal, draft, published, flagged, episodeStubs, noEpisodes, logRow] =
+    await db(() =>
+      Promise.all([
+        prisma.series.count(),
+        prisma.series.count({ where: { metadataSource: "mal" } }),
+        prisma.series.count({ where: { publish: "DRAFT" } }),
+        prisma.series.count({ where: { publish: "PUBLISHED" } }),
+        prisma.series.count({ where: { contentWarnings: { has: "possible-minor" } } }),
+        prisma.episode.count({ where: { publish: "DRAFT", sources: { none: {} } } }),
+        prisma.series.count({ where: { episodes: { none: {} } } }),
+        prisma.setting.findUnique({ where: { key: "metadataSync" } }),
+      ]),
+    );
 
   const log = (logRow?.value ?? null) as SyncLog | null;
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-bold">Metadata</h1>
-      <p className="mb-5 text-sm text-white/50">
-        Catalogue metadata is pulled from MyAnimeList. Imported titles start as{" "}
-        <span className="m rounded bg-surface px-1">DRAFT</span> with no episodes —
-        they go live when a mirror is attached.
-      </p>
+      <PageHeader
+        title="Metadata"
+        subtitle="The catalogue is populated from the MyAnimeList API. Imported titles start DRAFT with empty episode skeletons — they go live once the scraper attaches a video."
+        actions={
+          <form action={runMetadataSync}>
+            <SubmitButton variant="primary" pendingText="Syncing…">
+              Run weekly sync now
+            </SubmitButton>
+          </form>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Series total" value={total} />
-        <Stat label="From MAL" value={withMal} />
-        <Stat label="Draft (metadata only)" value={drafts} />
-        <Stat label="Published" value={published} />
-        <Stat label="No episodes yet" value={noSources} />
-        <Stat label="Flagged: possible minor" value={flagged} alert />
+        <Stat label="From MyAnimeList" value={fromMal} />
+        <Stat label="Draft (metadata only)" value={draft} />
+        <Stat label="Published" value={published} tone="good" />
+        <Stat label="Episode stubs awaiting video" value={episodeStubs} />
+        <Stat label="Series with no episodes" value={noEpisodes} />
+        <Stat label="Flagged: possible minor" value={flagged} tone="warn" href="/admin/review" />
       </div>
 
-      <form action={runMetadataSync} className="mt-5">
-        <button className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold">
-          Run weekly sync now
-        </button>
-        <span className="ml-3 text-xs text-white/40">
-          previous + current + next season · ~1 min
-        </span>
-      </form>
-
       {log && (
-        <div className="mt-5 rounded-xl border border-white/10 bg-surface p-4 text-sm">
-          <div className="mb-1 font-semibold">
-            Last sync{" "}
-            <span className="text-white/40">
-              {log.at ? new Date(log.at).toLocaleString() : ""}
-            </span>
-          </div>
-          <p className="text-white/70">
-            {log.mode} · {log.seasons} seasons · scanned {log.scanned} ·{" "}
-            <span className="text-green-400">+{log.created} new</span> ·{" "}
-            {log.updated} updated · {log.skipped} kept ·{" "}
-            <span className={log.flagged ? "text-accent" : ""}>
-              {log.flagged} flagged
-            </span>{" "}
+        <Card className="mt-6 p-4">
+          <SectionTitle
+            right={
+              <span className="text-xs font-normal normal-case text-white/35">
+                {log.at ? timeAgo(log.at) : ""}
+              </span>
+            }
+          >
+            Last sync
+          </SectionTitle>
+          <p className="text-sm text-white/75">
+            {log.mode} · {log.seasons ?? 0} seasons · scanned {log.scanned ?? 0} ·{" "}
+            <span className="text-emerald-300">+{log.created ?? 0} new</span> ·{" "}
+            {log.updated ?? 0} updated · {log.skipped ?? 0} kept ·{" "}
+            {log.episodeStubs ?? 0} episode stubs ·{" "}
+            <span className={log.flagged ? "text-accent" : ""}>{log.flagged ?? 0} flagged</span>{" "}
             · {((log.tookMs ?? 0) / 1000) | 0}s
           </p>
           {log.errors && log.errors.length > 0 && (
             <details className="mt-2">
               <summary className="cursor-pointer text-xs text-white/40">
-                {log.errors.length} errors
+                {log.errorCount ?? log.errors.length} errors
               </summary>
-              <ul className="mt-1 space-y-0.5 text-xs text-white/50">
+              <ul className="mt-1 space-y-0.5 text-xs text-white/45">
                 {log.errors.map((e, i) => (
-                  <li key={i}>{e}</li>
+                  <li key={i} className="break-all">
+                    {e}
+                  </li>
                 ))}
               </ul>
             </details>
           )}
-        </div>
+        </Card>
       )}
 
-      <div className="mt-6 rounded-xl border border-white/10 bg-surface p-4 text-sm text-white/70">
-        <p className="mb-2 font-semibold text-white">First-time full backfill</p>
-        <p className="mb-2">
-          Pulls the entire hentai catalogue (~1,800 titles, ~15 min). Run once
-          with the dev server up:
+      <Card className="mt-6 p-4 text-sm text-white/70">
+        <SectionTitle>Full catalogue backfill</SectionTitle>
+        <p className="mb-3">
+          One-off import of the entire hentai catalogue (~1,800 titles + episode
+          skeletons). Runs on a US GitHub runner in ~15–30 min, fully unattended
+          and resumable.
         </p>
-        <code className="block rounded bg-black/40 p-2 text-xs">
-          npm run metadata:backfill
-        </code>
-        <p className="mt-2 text-xs text-white/40">
-          Or hit{" "}
-          <span className="m">
-            /api/cron/metadata?mode=range&amp;from=1985&amp;to=2027&amp;key=CRON_SECRET
-          </span>
+        <ol className="ml-4 list-decimal space-y-1 text-white/60">
+          <li>
+            Repo → <Badge>Actions</Badge> → <em>“Backfill catalogue (one-off)”</em>{" "}
+            → <em>Run workflow</em>
+          </li>
+          <li>Needs repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID</li>
+        </ol>
+        <p className="mt-3 text-xs text-white/35">
+          Or locally: <code className="rounded bg-black/40 px-1 py-0.5">npm run metadata:backfill</code>
         </p>
-      </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  alert,
-}: {
-  label: string;
-  value: number;
-  alert?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border p-4 ${
-        alert && value > 0
-          ? "border-accent/50 bg-accent/10"
-          : "border-white/10 bg-surface"
-      }`}
-    >
-      <div className="text-2xl font-bold">{value.toLocaleString()}</div>
-      <div className="text-xs text-white/50">{label}</div>
+      </Card>
     </div>
   );
 }

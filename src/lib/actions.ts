@@ -5,9 +5,17 @@ import slugify from "slugify";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import type { PublishStatus, SourceStatus } from "@prisma/client";
+import type {
+  AnimeSeason,
+  PublishStatus,
+  SourceMaterial,
+  SourceStatus,
+  Weekday,
+} from "@prisma/client";
 
 const slug = (s: string) => slugify(s, { lower: true, strict: true });
+const csv = (v?: string) =>
+  v ? [...new Set(v.split(",").map((x) => x.trim()).filter(Boolean))] : [];
 
 /** Bust the public ISR cache for a series + its shared pages. */
 async function bust(seriesId?: string) {
@@ -27,20 +35,64 @@ async function bust(seriesId?: string) {
 
 // ─────────── series ───────────
 
+const blank = (v: unknown) => (v === "" || v == null ? undefined : v);
+const optStr = z.preprocess(blank, z.string().max(4000).optional());
+const optInt = z.preprocess(blank, z.coerce.number().int().optional());
+const optEnum = <T extends [string, ...string[]]>(vals: T) =>
+  z.preprocess(blank, z.enum(vals).optional());
+
 const seriesSchema = z.object({
   title: z.string().min(2).max(200),
-  altTitles: z.string().optional(),
-  synopsis: z.string().max(4000).optional(),
-  coverUrl: z.string().optional(),
-  bannerUrl: z.string().optional(),
+  titleEnglish: optStr,
+  titleRomaji: optStr,
+  titleOriginal: optStr,
+  altTitles: optStr,
+  synopsis: optStr,
+  coverUrl: optStr,
+  bannerUrl: optStr,
+  tags: optStr,
+  contentWarnings: optStr,
   type: z.enum(["OVA", "ONA", "MOVIE", "SPECIAL", "SERIES"]),
-  status: z.enum(["ONGOING", "COMPLETED", "HIATUS"]),
-  year: z.coerce.number().int().min(1980).max(2100).optional(),
+  status: z.enum(["ANNOUNCED", "ONGOING", "COMPLETED", "HIATUS"]),
+  sourceMaterial: optEnum([
+    "ORIGINAL", "MANGA", "GAME", "VISUAL_NOVEL", "LIGHT_NOVEL", "DOUJINSHI", "OTHER",
+  ]),
+  animeSeason: optEnum(["WINTER", "SPRING", "SUMMER", "FALL"]),
+  airDay: optEnum(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]),
+  year: optInt,
+  seasonYear: optInt,
+  totalEpisodes: optInt,
+  featuredRank: optInt,
   isCensored: z.coerce.boolean().optional(),
-  studioName: z.string().max(120).optional(),
-  tags: z.string().optional(),
-  publish: z.enum(["PENDING", "PUBLISHED", "REJECTED", "HIDDEN"]).optional(),
+  studioName: optStr,
+  publish: z.enum(["DRAFT", "PENDING", "PUBLISHED", "REJECTED", "HIDDEN"]).optional(),
 });
+
+/** Map validated form data to the columns create + update share. */
+function seriesData(d: z.infer<typeof seriesSchema>, studioId: string | null) {
+  return {
+    title: d.title,
+    titleEnglish: d.titleEnglish ?? null,
+    titleRomaji: d.titleRomaji ?? null,
+    titleOriginal: d.titleOriginal ?? null,
+    altTitles: csv(d.altTitles),
+    synopsis: d.synopsis ?? null,
+    coverUrl: d.coverUrl ?? null,
+    bannerUrl: d.bannerUrl ?? null,
+    contentWarnings: csv(d.contentWarnings),
+    type: d.type,
+    status: d.status,
+    sourceMaterial: (d.sourceMaterial as SourceMaterial | undefined) ?? null,
+    animeSeason: (d.animeSeason as AnimeSeason | undefined) ?? null,
+    airDay: (d.airDay as Weekday | undefined) ?? null,
+    year: d.year ?? null,
+    seasonYear: d.seasonYear ?? null,
+    totalEpisodes: d.totalEpisodes ?? null,
+    featuredRank: d.featuredRank ?? null,
+    isCensored: d.isCensored ?? true,
+    studioId,
+  };
+}
 
 async function resolveStudio(name?: string) {
   if (!name?.trim()) return null;
@@ -52,11 +104,9 @@ async function resolveStudio(name?: string) {
   });
 }
 
-async function resolveTags(csv?: string) {
-  if (!csv?.trim()) return [];
-  const names = [...new Set(csv.split(",").map((t) => t.trim()).filter(Boolean))];
+async function resolveTags(list: string[]) {
   const tags = [];
-  for (const name of names) {
+  for (const name of list) {
     tags.push(
       await prisma.tag.upsert({
         where: { slug: slug(name) },
@@ -72,30 +122,23 @@ export async function createSeries(form: FormData) {
   await requireRole("ADMIN", "MODERATOR");
   const d = seriesSchema.parse(Object.fromEntries(form));
   const studio = await resolveStudio(d.studioName);
-  const tags = await resolveTags(d.tags);
+  const tags = await resolveTags(csv(d.tags));
 
-  let base = slug(d.title);
+  const base = slug(d.title);
   let s = base;
   for (let i = 2; await prisma.series.findUnique({ where: { slug: s } }); i++) s = `${base}-${i}`;
 
   const created = await prisma.series.create({
     data: {
+      ...seriesData(d, studio?.id ?? null),
       slug: s,
-      title: d.title,
-      altTitles: d.altTitles ? d.altTitles.split(",").map((x) => x.trim()).filter(Boolean) : [],
-      synopsis: d.synopsis || null,
-      coverUrl: d.coverUrl || null,
-      bannerUrl: d.bannerUrl || null,
-      type: d.type,
-      status: d.status,
-      year: d.year ?? null,
-      isCensored: d.isCensored ?? true,
-      publish: d.publish ?? "PUBLISHED",
-      studioId: studio?.id ?? null,
+      publish: d.publish ?? "DRAFT",
+      metadataSource: "manual",
       tags: { connect: tags.map((t) => ({ id: t.id })) },
     },
   });
   revalidatePath("/admin");
+  revalidatePath("/admin/series");
   await bust(created.id);
   return created.id;
 }
@@ -104,27 +147,71 @@ export async function updateSeries(id: string, form: FormData) {
   await requireRole("ADMIN", "MODERATOR");
   const d = seriesSchema.parse(Object.fromEntries(form));
   const studio = await resolveStudio(d.studioName);
-  const tags = await resolveTags(d.tags);
+  const tags = await resolveTags(csv(d.tags));
 
   await prisma.series.update({
     where: { id },
     data: {
-      title: d.title,
-      altTitles: d.altTitles ? d.altTitles.split(",").map((x) => x.trim()).filter(Boolean) : [],
-      synopsis: d.synopsis || null,
-      coverUrl: d.coverUrl || null,
-      bannerUrl: d.bannerUrl || null,
-      type: d.type,
-      status: d.status,
-      year: d.year ?? null,
-      isCensored: d.isCensored ?? true,
+      ...seriesData(d, studio?.id ?? null),
       publish: d.publish ?? undefined,
-      studioId: studio?.id ?? null,
       tags: { set: tags.map((t) => ({ id: t.id })) },
       // a hand-edit takes the row out of the auto-sync's write path
       metadataSource: "manual",
     },
   });
+  revalidatePath(`/admin/series/${id}`);
+  revalidatePath("/admin/series");
+  await bust(id);
+}
+
+/** Quick publish-state change from the series list / editor header. */
+export async function setSeriesPublish(id: string, publish: PublishStatus) {
+  await requireRole("ADMIN", "MODERATOR");
+  await prisma.series.update({ where: { id }, data: { publish } });
+  revalidatePath("/admin/series");
+  revalidatePath(`/admin/series/${id}`);
+  await bust(id);
+}
+
+export async function deleteSeries(id: string) {
+  await requireRole("ADMIN");
+  const s = await prisma.series
+    .findUnique({ where: { id }, select: { slug: true } })
+    .catch(() => null);
+  await prisma.series.delete({ where: { id } });
+  revalidatePath("/admin/series");
+  if (s) revalidatePath(`/hentai/${s.slug}`);
+  await bust();
+}
+
+export async function deleteEpisode(id: string) {
+  await requireRole("ADMIN", "MODERATOR");
+  const e = await prisma.episode.delete({
+    where: { id },
+    select: { seriesId: true },
+  });
+  revalidatePath(`/admin/series/${e.seriesId}`);
+  await bust(e.seriesId);
+}
+
+/** Review-queue decision on a `possible-minor`-flagged series. */
+export async function reviewFlag(id: string, decision: "clear" | "reject") {
+  await requireRole("ADMIN", "MODERATOR");
+  const s = await prisma.series.findUnique({
+    where: { id },
+    select: { contentWarnings: true },
+  });
+  if (!s) return;
+  await prisma.series.update({
+    where: { id },
+    data:
+      decision === "reject"
+        ? { publish: "REJECTED" }
+        : {
+            contentWarnings: s.contentWarnings.filter((w) => w !== "possible-minor"),
+          },
+  });
+  revalidatePath("/admin/review");
   revalidatePath(`/admin/series/${id}`);
   await bust(id);
 }
