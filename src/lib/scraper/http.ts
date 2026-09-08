@@ -86,16 +86,24 @@ export class Http {
     return res.text();
   }
 
-  async getJson<T>(url: string): Promise<T> {
-    const res = await this.raw(url, { headers: { accept: "application/json" } });
+  async getJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
+    const res = await this.raw(url, { headers: { accept: "application/json", ...headers } });
     if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
     return res.json() as Promise<T>;
   }
 
-  async postJson<T>(url: string, body: unknown): Promise<T> {
+  async postJson<T>(
+    url: string,
+    body: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T> {
     const res = await this.raw(url, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        ...headers,
+      },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`POST ${url} → ${res.status}`);

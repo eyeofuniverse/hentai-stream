@@ -44,14 +44,24 @@ async function query(
     by === "id" ? "id: $v" : by === "idMal" ? "idMal: $v" : "search: $v";
   const type = by === "search" ? "String" : "Int";
   const q = `query ($v: ${type}) { Media(${arg}, type: ANIME) { ${MEDIA} } }`;
-  // A transport error (403 IP block, 429, 5xx) throws so the run records it as
-  // an error instead of silently reporting "no match" for every series. Only a
-  // real "not found" (200 with data.Media === null / GraphQL errors) returns null.
-  const r = await http.postJson<{
-    data?: { Media?: AniMedia | null };
-    errors?: { message: string }[];
-  }>(API, { query: q, variables: { v: vars.v } });
-  return r.data?.Media ?? null;
+  // AniList answers a genuine "not found" with HTTP 404 — that's a null, not an
+  // error. A 403 (WAF) / 429 / 5xx is a real transport problem and propagates so
+  // the run records it instead of silently reporting "no match" everywhere.
+  try {
+    const r = await http.postJson<{
+      data?: { Media?: AniMedia | null };
+      errors?: { message: string }[];
+    }>(
+      API,
+      { query: q, variables: { v: vars.v } },
+      // AniList's WAF 403s requests without a browser Origin/Referer
+      { origin: "https://anilist.co", referer: "https://anilist.co/" },
+    );
+    return r.data?.Media ?? null;
+  } catch (e) {
+    if (/→ 404$/.test((e as Error).message)) return null;
+    throw e;
+  }
 }
 
 function toResult(m: AniMedia): EnrichResult {
