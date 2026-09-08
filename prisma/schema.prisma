@@ -311,8 +311,15 @@ model Series {
   airDay        Weekday?
   nextEpisodeAt DateTime?
 
-  anilistId Int? @unique
-  malId     Int? @unique
+  anilistId  Int?    @unique
+  malId      Int?    @unique
+  nhentaiId  Int?
+  hanimeSlug String?
+  anidbId    Int?
+
+  /// doujin artist (from nhentai) and source-manga / parody name — SEO long tail
+  artist String?
+  parody String?
 
   /// external community score (MAL mean, 0-10) — separate from our users' ratingAvg
   externalScore   Float?
@@ -697,4 +704,21 @@ model ScrapeRun {
   errors           String[]  @default([])
 
   @@index([site, startedAt])
+}
+
+/// One run of a metadata enrichment source (anilist / nhentai / hanime / anidb).
+model EnrichRun {
+  id             String    @id @default(cuid())
+  source         String
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  ok             Boolean   @default(false)
+  seriesSeen     Int       @default(0)
+  seriesMatched  Int       @default(0)
+  fieldsFilled   Int       @default(0)
+  tagsAdded      Int       @default(0)
+  charactersAdded Int      @default(0)
+  errors         String[]  @default([])
+
+  @@index([source, startedAt])
 }

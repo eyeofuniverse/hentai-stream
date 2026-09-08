@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       site:
-        description: "watchhentai | hentaigasm | miohentai | hentaila"
+        description: "watchhentai | hentaimama | hentaigasm | miohentai | hentaila"
         required: true
         default: "watchhentai"
       mode:

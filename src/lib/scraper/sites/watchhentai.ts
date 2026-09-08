@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { Http, sitemapLocs } from "../http";
+import { Http, sitemapLocs, decodeEntities } from "../http";
 import {
   episodeNumFrom,
   yearFrom,
@@ -154,6 +154,6 @@ function extractEmbed(body: string): string | null {
   }
   if (!raw) return null;
   const iframe = raw.match(/<iframe[^>]+src=["']([^"']+)["']/i);
-  const url = (iframe ? iframe[1] : raw).trim().replace(/^\/\//, "https://");
+  const url = decodeEntities((iframe ? iframe[1] : raw).trim()).replace(/^\/\//, "https://");
   return /^https?:\/\/\S+$/.test(url) ? url : null;
 }

@@ -1,0 +1,56 @@
+name: Enrich metadata
+
+# Fills gaps in series metadata from external sources (non-destructive: only
+# empty fields, only adds tags/characters).
+#   anilist — adult tags, EN/native titles, description, characters, score
+#   nhentai — granular tags, characters, parody, artist (Cloudflare-gated)
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "anilist | nhentai"
+        required: true
+        default: "anilist"
+      limit:
+        description: "max series (blank = 500)"
+        required: false
+        default: ""
+      dry_run:
+        type: boolean
+        default: false
+  schedule:
+    - cron: "20 5 * * 2" # weekly Tue 05:20 UTC — anilist top-up
+
+concurrency:
+  group: enrich-${{ github.event.inputs.source || 'anilist' }}
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Enrich
+        run: |
+          SRC="${{ github.event.inputs.source || 'anilist' }}"
+          ARGS="--source=$SRC"
+          [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          echo "npm run enrich -- $ARGS"
+          npm run enrich -- $ARGS

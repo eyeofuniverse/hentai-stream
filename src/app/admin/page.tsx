@@ -76,7 +76,7 @@ export default async function AdminHome() {
     ]),
   );
 
-  const [spotCheck, unmatched, scrapeRuns] = await db(() =>
+  const [spotCheck, unmatched, scrapeRuns, enrichRuns] = await db(() =>
     Promise.all([
       prisma.series.count({
         where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
@@ -97,8 +97,22 @@ export default async function AdminHome() {
           unmatched: true,
         },
       }),
+      prisma.enrichRun.findMany({
+        orderBy: { startedAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          source: true,
+          startedAt: true,
+          finishedAt: true,
+          ok: true,
+          seriesMatched: true,
+          tagsAdded: true,
+          fieldsFilled: true,
+        },
+      }),
     ]),
-  ).catch(() => [0, 0, [] as never[]] as const);
+  ).catch(() => [0, 0, [] as never[], [] as never[]] as const);
 
   const sync = (syncRow?.value ?? null) as SyncLog | null;
   const attention = [
@@ -225,6 +239,31 @@ export default async function AdminHome() {
                   <span className="text-xs text-white/45">{r.mode}</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-white/40">
                     +{r.sourcesAdded} src · {r.matched} matched · {r.unmatched} new
+                  </span>
+                  <span className="shrink-0 text-xs text-white/30">
+                    {timeAgo(r.startedAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <SectionTitle>Enrichment runs</SectionTitle>
+          {enrichRuns.length === 0 ? (
+            <p className="text-sm text-white/35">
+              No runs yet — trigger the “Enrich metadata” Action.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {enrichRuns.map((r) => (
+                <li key={r.id} className="flex items-center gap-2 text-white/70">
+                  <Badge tone={r.ok ? "green" : r.finishedAt ? "red" : "amber"}>
+                    {r.source}
+                  </Badge>
+                  <span className="min-w-0 flex-1 truncate text-xs text-white/40">
+                    {r.seriesMatched} matched · +{r.tagsAdded} tags · +{r.fieldsFilled} fields
                   </span>
                   <span className="shrink-0 text-xs text-white/30">
                     {timeAgo(r.startedAt)}

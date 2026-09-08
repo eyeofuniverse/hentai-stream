@@ -13,6 +13,7 @@
     "db:seed": "tsx --env-file=.env prisma/seed.ts",
     "metadata:backfill": "tsx --env-file=.env scripts/backfill.mts",
     "scrape": "tsx --env-file=.env scripts/scrape.mts",
+    "enrich": "tsx --env-file=.env scripts/enrich.mts",
     "metadata:backfill:http": "node --env-file=.env scripts/metadata-backfill.mjs"
   },
   "prisma": {

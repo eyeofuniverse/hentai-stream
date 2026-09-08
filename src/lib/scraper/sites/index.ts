@@ -1,6 +1,7 @@
 import type { SiteAdapter } from "../types";
 import { NotImplemented } from "../types";
 import { watchhentai } from "./watchhentai";
+import { hentaimama } from "./hentaimama";
 
 /* Adapters still to be wired — known URL shapes below, finished once we have a
  * sample series + episode page from each (they need live HTML for selectors). */
@@ -32,6 +33,7 @@ const hentaila = stub("hentaila", "https://hentaila.com");
 
 export const ADAPTERS: Record<string, SiteAdapter> = {
   watchhentai,
+  hentaimama,
   hentaigasm,
   miohentai,
   hentaila,

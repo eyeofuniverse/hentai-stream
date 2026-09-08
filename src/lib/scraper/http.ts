@@ -85,9 +85,35 @@ export class Http {
     if (!res.ok) throw new Error(`POST ${url} → ${res.status}`);
     return res.text();
   }
+
+  async getJson<T>(url: string): Promise<T> {
+    const res = await this.raw(url, { headers: { accept: "application/json" } });
+    if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
+    return res.json() as Promise<T>;
+  }
+
+  async postJson<T>(url: string, body: unknown): Promise<T> {
+    const res = await this.raw(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`POST ${url} → ${res.status}`);
+    return res.json() as Promise<T>;
+  }
 }
 
 /** Extract <loc> values from a sitemap XML string. */
 export function sitemapLocs(xml: string): string[] {
-  return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
+  return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => decodeEntities(m[1]));
+}
+
+/** Decode the handful of HTML entities that show up in scraped URLs. */
+export function decodeEntities(s: string): string {
+  return s
+    .replace(/&#0?38;|&amp;/g, "&")
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
