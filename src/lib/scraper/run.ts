@@ -40,7 +40,9 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   const adapter = getAdapter(opts.site);
   const http = new Http(opts.minGapMs ?? 1500);
   const started = Date.now();
-  const publishLive = opts.publishLive ?? adapter.directPlayback ?? false;
+  // publishing is `verify`'s job (it checks the link actually streams first) —
+  // the scrape just records sources. --publish-live forces the old behaviour.
+  const publishLive = opts.publishLive ?? false;
 
   const s: ScrapeSummary = {
     site: opts.site,

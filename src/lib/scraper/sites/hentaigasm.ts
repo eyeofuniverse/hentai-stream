@@ -19,7 +19,6 @@ const BASE = "https://hentaigasm.com";
 export const hentaigasm: SiteAdapter = {
   name: "hentaigasm",
   baseUrl: BASE,
-  directPlayback: true,
 
   async *crawl(http, { limit, log }) {
     const idx = (await http.getMaybe(`${BASE}/wp-sitemap.xml`)) ?? "";

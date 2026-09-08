@@ -25,7 +25,6 @@ const BASE = "https://miohentai.com";
 export const miohentai: SiteAdapter = {
   name: "miohentai",
   baseUrl: BASE,
-  directPlayback: true,
 
   async *crawl(http, { limit, log }) {
     const sitemaps = [

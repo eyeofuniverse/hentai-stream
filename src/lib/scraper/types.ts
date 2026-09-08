@@ -38,8 +38,6 @@ export interface SiteAdapter {
   /** short key — stored on VideoSource.sourceSite and ScrapeRun.site */
   name: string;
   baseUrl: string;
-  /** sources from this site are direct, hotlinkable files → ACTIVE + auto-publish */
-  directPlayback?: boolean;
 
   /** Walk the whole site, yielding lightweight episode pointers. */
   crawl(

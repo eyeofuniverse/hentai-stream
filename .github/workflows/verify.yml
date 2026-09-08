@@ -1,0 +1,50 @@
+name: Verify sources
+
+# Checks every video source actually streams, sets its status (ACTIVE /
+# REJECTED / DEAD), then publishes episodes + series that now have a live
+# source and unpublishes any that lost their last one.
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL
+
+on:
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "re-check every source (not just new/stale)"
+        type: boolean
+        default: false
+      limit:
+        description: "max sources (blank = 5000)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 */12 * * *" # every 12h — catch dead links + late-verified sources
+
+concurrency:
+  group: verify
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Verify
+        run: |
+          ARGS=""
+          [ "${{ github.event.inputs.all }}" = "true" ] && ARGS="$ARGS --all"
+          [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
+          npm run verify -- $ARGS

@@ -59,3 +59,7 @@ jobs:
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
           echo "npm run scrape -- $ARGS"
           npm run scrape -- $ARGS
+
+      - name: Verify + publish new sources
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm run verify

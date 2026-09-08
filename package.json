@@ -14,6 +14,7 @@
     "metadata:backfill": "tsx --env-file=.env scripts/backfill.mts",
     "scrape": "tsx --env-file=.env scripts/scrape.mts",
     "enrich": "tsx --env-file=.env scripts/enrich.mts",
+    "verify": "tsx --env-file=.env scripts/verify.mts",
     "metadata:backfill:http": "node --env-file=.env scripts/metadata-backfill.mjs"
   },
   "prisma": {
