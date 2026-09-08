@@ -11,6 +11,10 @@ export interface ScrapeOptions {
   dryRun?: boolean;
   /** re-fetch sources even for episodes we already have from this site */
   refetch?: boolean;
+  /** mark sources ACTIVE + auto-publish. Off by default until a delivery layer
+   *  (proxy / re-host) exists — scraped links are referer-locked / X-Frame-blocked
+   *  and won't play as raw embeds. */
+  publishLive?: boolean;
   minGapMs?: number;
   log?: (msg: string) => void;
 }
@@ -136,6 +140,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
         number: ref.number,
         part: ref.part,
         site: opts.site,
+        publishLive: opts.publishLive,
         sources: sources.map((src) => ({
           hostOrUrl: src.hostOrUrl,
           embedUrl: src.embedUrl,

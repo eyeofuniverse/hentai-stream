@@ -34,6 +34,7 @@ const summary = await runScrape({
   limit: flag("limit") ? Number(flag("limit")) : undefined,
   dryRun: !!flag("dry-run"),
   refetch: !!flag("refetch"),
+  publishLive: !!flag("publish-live"),
   minGapMs: flag("gap") ? Number(flag("gap")) : undefined,
   log: (m) => console.log(m),
 });

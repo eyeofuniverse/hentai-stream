@@ -1,4 +1,10 @@
-import { Prisma, type VideoHost, type ReleaseKind, type Quality } from "@prisma/client";
+import {
+  Prisma,
+  type VideoHost,
+  type ReleaseKind,
+  type Quality,
+  type SourceStatus,
+} from "@prisma/client";
 import { prisma, db } from "@/lib/db";
 
 /* ───────────────────────────── title matching ───────────────────────────── */
@@ -259,8 +265,16 @@ export async function ingestEpisode(opts: {
   part?: number;
   site: string;
   sources: IngestSource[];
+  /**
+   * When false (default) scraped sources land as PENDING and nothing is
+   * published — the crawl still records every source, but a link we can't yet
+   * serve (referer-locked file, X-Frame-blocked embed) never reaches the public
+   * site. Flip to true once a proxy / re-host delivery layer exists.
+   */
+  publishLive?: boolean;
 }): Promise<IngestResult> {
   const part = opts.part && opts.part > 0 ? opts.part : 1;
+  const sourceStatus: SourceStatus = opts.publishLive ? "ACTIVE" : "PENDING";
 
   return db(async () => {
     const series = await prisma.series.findUnique({
@@ -297,7 +311,7 @@ export async function ingestEpisode(opts: {
         language: s.language ?? "en",
         quality: s.quality ?? "UNKNOWN",
         isCensored: s.isCensored ?? null,
-        status: "ACTIVE" as const,
+        status: sourceStatus,
         sourceSite: opts.site,
         order: order++,
       };
@@ -305,7 +319,6 @@ export async function ingestEpisode(opts: {
         where: { episodeId_host_embedUrl: { episodeId: ep.id, host, embedUrl: url } },
         create: { episodeId: ep.id, host, embedUrl: url, ...fields },
         update: {
-          status: "ACTIVE",
           sourceSite: opts.site,
           lastCheckedAt: new Date(),
         },
@@ -314,12 +327,14 @@ export async function ingestEpisode(opts: {
       if (res.createdAt.getTime() === res.updatedAt.getTime()) sourcesAdded++;
     }
 
-    const activeCount = await prisma.videoSource.count({
-      where: { episodeId: ep.id, status: "ACTIVE" },
-    });
+    const activeCount = opts.publishLive
+      ? await prisma.videoSource.count({
+          where: { episodeId: ep.id, status: "ACTIVE" },
+        })
+      : 0;
 
     let episodePublished = false;
-    if (!blocked && activeCount > 0 && ep.publish !== "PUBLISHED") {
+    if (opts.publishLive && !blocked && activeCount > 0 && ep.publish !== "PUBLISHED") {
       await prisma.episode.update({
         where: { id: ep.id },
         data: { publish: "PUBLISHED" },
@@ -328,7 +343,7 @@ export async function ingestEpisode(opts: {
     }
 
     let seriesPublished = false;
-    if (!blocked && series.publish === "DRAFT") {
+    if (opts.publishLive && !blocked && series.publish === "DRAFT") {
       const livePub = await prisma.episode.count({
         where: { seriesId: opts.seriesId, publish: "PUBLISHED" },
       });

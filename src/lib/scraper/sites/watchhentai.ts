@@ -124,12 +124,24 @@ function parseSeries(html: string, url: string) {
     yearFrom($(".sheader .data .extra span.date, span.date").first().text()) ??
     yearFrom(url);
 
+  // series slug stem, e.g. .../series/doukyuusei-id-01/ -> "doukyuusei"
+  const stem = (url.match(/\/series\/([a-z0-9-]+?)(?:-id-\d+)?\/?$/i)?.[1] ?? "")
+    .replace(/-\d+$/, "");
+
   const episodes: { number: number; url: string }[] = [];
   const seen = new Set<number>();
-  $("#seasons .episodios li, .episodios li").each((_, el) => {
+  // ONLY the real season list — a loose `.episodios li` also catches "related"
+  // carousels, which is how "A Forbidden Time" episodes ended up on the
+  // "Kodomo no Jikan" page.
+  $("#seasons .episodios li").each((_, el) => {
     const a = $(el).find("a[href*='/videos/']").first();
     const href = a.attr("href");
     if (!href) return;
+    // the episode slug must share the series stem
+    const epSlug = href.match(/\/videos\/([a-z0-9-]+?)-episode-/i)?.[1] ?? "";
+    if (stem && epSlug && !epSlug.startsWith(stem.slice(0, 8)) && !stem.startsWith(epSlug.slice(0, 8))) {
+      return;
+    }
     const num =
       episodeNumFrom(href) ??
       episodeNumFrom($(el).find(".epst, .numerando").text()) ??
