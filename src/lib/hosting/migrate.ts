@@ -32,19 +32,22 @@ type Src = {
   quality: string;
 };
 
-/** Best Bunny-fetchable source for an episode: a direct file, ACTIVE first,
- *  then by site rank. Player-page embeds (hentaimama) aren't fetchable. */
-function pickSource(sources: Src[]): Src | null {
-  const usable = sources.filter(
-    (s) => s.direct && /^https?:\/\//.test(s.embedUrl) && !/\?dt_embed=/.test(s.embedUrl),
-  );
-  if (!usable.length) return null;
-  return usable.sort((a, b) => {
-    const act = (a.status === "ACTIVE" ? 0 : 1) - (b.status === "ACTIVE" ? 0 : 1);
-    if (act) return act;
-    return (SITE_RANK[a.sourceSite ?? ""] ?? 9) - (SITE_RANK[b.sourceSite ?? ""] ?? 9);
-  })[0];
+/** All Bunny-fetchable sources for an episode, best first — ACTIVE before
+ *  REJECTED, then by site rank. Player-page embeds (hentaimama) aren't
+ *  fetchable. Multiple entries = mirror URLs to fall back through. */
+function usableSources(sources: Src[]): Src[] {
+  return sources
+    .filter(
+      (s) => s.direct && /^https?:\/\//.test(s.embedUrl) && !/\?dt_embed=/.test(s.embedUrl),
+    )
+    .sort((a, b) => {
+      const act = (a.status === "ACTIVE" ? 0 : 1) - (b.status === "ACTIVE" ? 0 : 1);
+      if (act) return act;
+      return (SITE_RANK[a.sourceSite ?? ""] ?? 9) - (SITE_RANK[b.sourceSite ?? ""] ?? 9);
+    });
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface HostSummary {
   episodesSeen: number;
@@ -64,6 +67,10 @@ export async function runMigrate(opts: {
   limit?: number;
   retry?: boolean; // also re-queue previously-failed episodes
   site?: string; // only episodes whose picked source is from this site
+  /** also migrate episodes that already have a working hotlink (default: only
+   *  migrate episodes whose only sources are locked/rejected — the ones that
+   *  can't play any other way) */
+  all?: boolean;
   gapMs?: number;
   log?: (m: string) => void;
 }): Promise<HostSummary> {
@@ -75,14 +82,18 @@ export async function runMigrate(opts: {
   const episodes = await db(() =>
     prisma.episode.findMany({
       where: {
-        sources: { some: { direct: true } },
+        AND: [
+          { sources: { some: { direct: true } } },
+          // default: only episodes that can't play any other way (no live hotlink)
+          ...(opts.all ? [] : [{ sources: { none: { status: "ACTIVE" as const } } }]),
+        ],
         OR: [
           { bunnyGuid: null },
           ...(opts.retry ? [{ bunnyStatus: "failed" as const }] : []),
         ],
       },
       orderBy: { createdAt: "asc" },
-      take: opts.limit ?? 2000,
+      take: opts.limit ?? 700,
       select: {
         id: true,
         number: true,
@@ -107,62 +118,76 @@ export async function runMigrate(opts: {
     prisma.hostRun.create({ data: {}, select: { id: true } }),
   ).catch(() => null);
 
-  const gap = opts.gapMs ?? 300;
+  // The source CDNs are small nginx boxes — Bunny's fetch workers get rate-
+  // limited / IP-banned if we fire many concurrent fetches. So: one episode at
+  // a time, confirm the fetch actually started before moving on, fall through
+  // to the mirror URL on failure, and pause between episodes.
+  const gap = opts.gapMs ?? 12_000;
+  const confirmMs = 9_000;
+
   for (const ep of episodes) {
     s.episodesSeen++;
     if (ep.series.contentWarnings.includes("possible-minor")) {
       s.skipped++;
       continue;
     }
-    const src = pickSource(ep.sources);
-    if (!src) {
-      s.skipped++;
-      continue;
-    }
-    if (opts.site && src.sourceSite !== opts.site) {
+    let srcs = usableSources(ep.sources);
+    if (opts.site) srcs = srcs.filter((x) => x.sourceSite === opts.site);
+    if (!srcs.length) {
       s.skipped++;
       continue;
     }
 
-    try {
-      // a failed retry: drop the old video first
-      if (ep.bunnyGuid) await deleteVideo(ep.bunnyGuid);
+    if (ep.bunnyGuid) await deleteVideo(ep.bunnyGuid).catch(() => {});
 
-      const title = `${ep.series.title} - E${ep.number}`;
-      const video = await createVideo(title);
-      const headers = src.sourceSite ? SITE_REFERER[src.sourceSite] : undefined;
-      const res = await fetchIntoVideo(
-        video.guid,
-        src.embedUrl,
-        headers ? { Referer: headers } : undefined,
-      );
-      if (!res.success && res.statusCode >= 400) {
-        await deleteVideo(video.guid);
-        throw new Error(`fetch rejected: ${res.message} (${res.statusCode})`);
+    let done = false;
+    for (const src of srcs) {
+      try {
+        const video = await createVideo(`${ep.series.title} - E${ep.number}`);
+        const ref = src.sourceSite ? SITE_REFERER[src.sourceSite] : undefined;
+        const res = await fetchIntoVideo(
+          video.guid,
+          src.embedUrl,
+          ref ? { Referer: ref } : undefined,
+        );
+        if (!res.success && res.statusCode >= 400) {
+          await deleteVideo(video.guid);
+          throw new Error(`fetch rejected ${res.statusCode}: ${res.message}`);
+        }
+
+        // did Bunny actually pull it? status 6 = fetch failed
+        await sleep(confirmMs);
+        const chk = await getVideo(video.guid).catch(() => null);
+        if (chk && chk.status === 6) {
+          await deleteVideo(video.guid);
+          throw new Error(`bunny fetch failed (source rate-limited?)`);
+        }
+
+        await db(() =>
+          prisma.episode.update({
+            where: { id: ep.id },
+            data: { bunnyGuid: video.guid, bunnyStatus: "fetching", bunnyError: null },
+          }),
+        );
+        s.queued++;
+        log(`  ↑ ${ep.series.title} E${ep.number} → ${video.guid} (${src.sourceSite})`);
+        done = true;
+        break;
+      } catch (e) {
+        log(`  · ${ep.series.title} E${ep.number} via ${src.sourceSite}: ${(e as Error).message}`);
       }
+    }
 
+    if (!done) {
+      s.errors.push(`${ep.series.title} E${ep.number}: all mirrors failed`);
       await db(() =>
         prisma.episode.update({
           where: { id: ep.id },
-          data: {
-            bunnyGuid: video.guid,
-            bunnyStatus: "fetching",
-            bunnyError: null,
-          },
-        }),
-      );
-      s.queued++;
-      log(`  ↑ ${ep.series.title} E${ep.number} → ${video.guid} (${src.sourceSite})`);
-    } catch (e) {
-      s.errors.push(`${ep.series.title} E${ep.number}: ${(e as Error).message}`);
-      await db(() =>
-        prisma.episode.update({
-          where: { id: ep.id },
-          data: { bunnyStatus: "failed", bunnyError: (e as Error).message.slice(0, 300) },
+          data: { bunnyStatus: "failed", bunnyError: "all mirrors failed" },
         }),
       ).catch(() => {});
     }
-    if (gap) await new Promise((r) => setTimeout(r, gap));
+    if (gap) await sleep(gap);
   }
 
   s.tookMs = Date.now() - started;

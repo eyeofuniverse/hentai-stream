@@ -12,13 +12,17 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: "max episodes to queue (blank = all)"
+        description: "max episodes to queue (blank = 800)"
         required: false
         default: ""
       site:
         description: "only sources from this site (blank = any)"
         required: false
         default: ""
+      all:
+        description: "also migrate episodes that already have a working hotlink"
+        type: boolean
+        default: false
       retry:
         description: "also re-queue failed episodes"
         type: boolean

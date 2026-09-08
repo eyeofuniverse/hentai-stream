@@ -26,6 +26,7 @@ if (!flag("poll-only")) {
   const s = await runMigrate({
     limit: flag("limit") ? Number(flag("limit")) : undefined,
     retry: !!flag("retry"),
+    all: !!flag("all"),
     site: flag("site"),
     gapMs: flag("gap") ? Number(flag("gap")) : undefined,
     log: (m) => console.log(m),

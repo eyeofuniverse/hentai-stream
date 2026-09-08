@@ -105,7 +105,15 @@ export const watchhentai: SiteAdapter = {
           type: o.type,
         });
         const embed = extractEmbed(body);
-        if (embed) out.push({ embedUrl: embed, hostOrUrl: embed, isCensored: censored });
+        if (embed)
+          out.push({
+            embedUrl: embed,
+            hostOrUrl: embed,
+            isCensored: censored,
+            // watchhentai's DooPlay AJAX returns a bare file URL (hstorage.xyz
+            // mp4 / m3u8), not an iframe embed
+            direct: /\.(mp4|m3u8|webm)(\?|$)/i.test(embed),
+          });
       } catch {
         /* skip this mirror */
       }
