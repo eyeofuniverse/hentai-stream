@@ -1,29 +1,34 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { InfoTip } from "./InfoTip";
 
 /* ─────────────────────────── form field styles ─────────────────────────── */
 
 export const inputCls =
-  "w-full rounded-lg border border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-white/90 outline-none transition-colors placeholder:text-white/25 focus:border-accent/60 focus:ring-1 focus:ring-accent/30 disabled:opacity-50";
+  "w-full rounded-lg border border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-white/90 outline-none transition-colors placeholder:text-white/25 focus:border-accent/60 focus:ring-2 focus:ring-accent/25 disabled:opacity-50";
 
 export const labelCls =
-  "grid gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/40";
+  "grid gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/45";
 
 export function Field({
   label,
   hint,
+  info,
   children,
   className = "",
 }: {
   label: string;
   hint?: string;
+  /** one-line explanation shown behind an (i) on hover / tap */
+  info?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
     <label className={`${labelCls} ${className}`}>
-      <span className="flex items-baseline gap-2">
+      <span className="flex items-center gap-1.5">
         {label}
+        {info && <InfoTip text={info} />}
         {hint && (
           <span className="font-normal normal-case tracking-normal text-white/25">
             {hint}
@@ -189,6 +194,21 @@ const SOURCE_TONE: Record<string, string> = {
 
 export function SourceBadge({ status }: { status: string }) {
   return <Badge tone={SOURCE_TONE[status] ?? "slate"}>{status}</Badge>;
+}
+
+/** Where an episode's video actually comes from. */
+export function HostBadge({
+  bunnyStatus,
+  hasHotlink,
+}: {
+  bunnyStatus: string | null;
+  hasHotlink: boolean;
+}) {
+  if (bunnyStatus === "ready") return <Badge tone="green">Bunny</Badge>;
+  if (bunnyStatus === "failed") return <Badge tone="red">host failed</Badge>;
+  if (bunnyStatus) return <Badge tone="amber">encoding</Badge>;
+  if (hasHotlink) return <Badge tone="violet">hotlink</Badge>;
+  return <Badge tone="slate">no video</Badge>;
 }
 
 /* ───────────────────────────── empty state ───────────────────────────── */

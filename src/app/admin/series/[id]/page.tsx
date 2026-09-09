@@ -20,6 +20,7 @@ import {
   SectionTitle,
   PublishBadge,
   SourceBadge,
+  HostBadge,
   Badge,
   Field,
   inputCls,
@@ -138,21 +139,38 @@ export default async function EditSeriesPage({
           Episodes
         </SectionTitle>
 
-        <Card className="mb-4 p-3">
+        <Card className="mb-4 p-3 sm:p-4">
           <form
             action={createEpisode.bind(null, id)}
-            className="flex flex-wrap items-end gap-2"
+            className="flex flex-wrap items-end gap-3"
           >
-            <Field label="No." className="w-16">
+            <Field
+              label="No."
+              className="w-20"
+              info="Episode number. Decimals allowed for specials (e.g. 5.5). Re-adding an existing number updates it."
+            >
               <input name="number" type="number" step="0.5" required className={inputCls} />
             </Field>
-            <Field label="Part" className="w-14">
+            <Field
+              label="Part"
+              className="w-16"
+              info="For episodes split into parts (1, 2…). Leave at 1 for a normal episode."
+            >
               <input name="part" type="number" defaultValue={1} className={inputCls} />
             </Field>
-            <Field label="Title (optional)" className="min-w-[180px] flex-1">
+            <Field
+              label="Title"
+              hint="optional"
+              className="w-full min-w-[180px] flex-1 sm:w-auto"
+              info="Episode title beyond 'Episode N', if it has one. Great for SEO long-tail keywords."
+            >
               <input name="title" className={inputCls} />
             </Field>
-            <Field label="Runtime s" className="w-20">
+            <Field
+              label="Runtime s"
+              className="w-24"
+              info="Length in seconds. Auto-detected from the hosted video — you rarely need to set this."
+            >
               <input name="runtimeSec" type="number" className={inputCls} />
             </Field>
             <SubmitButton variant="primary" pendingText="…">
@@ -176,17 +194,15 @@ export default async function EditSeriesPage({
                   className="group rounded-xl border border-white/10 bg-surface"
                   open={ep.sources.length > 0}
                 >
-                  <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
-                    <span className="font-semibold text-white/80">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+                    <span className="shrink-0 font-semibold text-white/80">
                       EP {ep.number}
                       {ep.part > 1 && <span className="text-white/40">·{ep.part}</span>}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-white/55">
                       {ep.title || <span className="text-white/25">untitled</span>}
                     </span>
-                    <span className="shrink-0 text-xs text-white/35">
-                      {active}/{ep.sources.length} src
-                    </span>
+                    <HostBadge bunnyStatus={ep.bunnyStatus} hasHotlink={active > 0} />
                     <PublishBadge status={ep.publish} />
                   </summary>
 
@@ -261,34 +277,54 @@ export default async function EditSeriesPage({
 
                     <form
                       action={createSource.bind(null, ep.id)}
-                      className="flex flex-wrap items-end gap-2 border-t border-white/8 pt-3"
+                      className="flex flex-wrap items-end gap-3 border-t border-white/8 pt-3"
                     >
-                      <Field label="Host" className="w-32">
+                      <Field
+                        label="Host"
+                        className="w-full sm:w-32"
+                        info="Which file host serves this. Pick OTHER for a direct .mp4/.m3u8 file or an unlisted host."
+                      >
                         <select name="host" className={inputCls}>
                           {HOSTS.map((h) => (
                             <option key={h}>{h}</option>
                           ))}
                         </select>
                       </Field>
-                      <Field label="Embed URL" className="min-w-[220px] flex-1">
+                      <Field
+                        label="Embed / file URL"
+                        className="w-full min-w-[220px] flex-1 sm:w-auto"
+                        info="The iframe embed URL, or a direct video file URL (.mp4 / .m3u8). Used as-is for playback until Bunny re-hosts it."
+                      >
                         <input
                           name="embedUrl"
                           required
-                          placeholder="https://streamtape.com/e/…"
+                          placeholder="https://… .mp4  or  https://streamtape.com/e/…"
                           className={inputCls}
                         />
                       </Field>
-                      <Field label="Kind" className="w-20">
+                      <Field
+                        label="Kind"
+                        className="w-24"
+                        info="SUB = subtitled · DUB = dubbed · RAW = no subtitles."
+                      >
                         <select name="kind" defaultValue="SUB" className={inputCls}>
                           <option>SUB</option>
                           <option>DUB</option>
                           <option>RAW</option>
                         </select>
                       </Field>
-                      <Field label="Lang" className="w-16">
+                      <Field
+                        label="Lang"
+                        className="w-16"
+                        info="Subtitle / audio language code — en, es, ja, etc."
+                      >
                         <input name="language" defaultValue="en" className={inputCls} />
                       </Field>
-                      <Field label="Quality" className="w-24">
+                      <Field
+                        label="Quality"
+                        className="w-24"
+                        info="Highest resolution this source offers."
+                      >
                         <select name="quality" defaultValue="UNKNOWN" className={inputCls}>
                           {QUALITIES.map((q) => (
                             <option key={q} value={q}>

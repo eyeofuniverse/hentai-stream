@@ -5,9 +5,6 @@ import { cover } from "@/lib/cloudinary";
 import {
   PageHeader,
   LinkButton,
-  Table,
-  Th,
-  Td,
   PublishBadge,
   Badge,
   FilterTabs,
@@ -158,74 +155,68 @@ export default async function AdminSeriesList({
       {rows.length === 0 ? (
         <EmptyState title="No series match these filters." />
       ) : (
-        <Table
-          head={
-            <>
-              <Th className="w-10" />
-              <Th>Title</Th>
-              <Th className="w-16">Type</Th>
-              <Th className="w-14">Year</Th>
-              <Th className="w-24">Episodes</Th>
-              <Th className="w-24">Status</Th>
-              <Th className="w-20">Updated</Th>
-            </>
-          }
-        >
-          {rows.map((s) => {
-            const src = cover(s.coverUrl);
-            const withVideo = s.episodes.length;
-            const flagged = s.contentWarnings.includes("possible-minor");
-            return (
-              <tr key={s.id} className="group hover:bg-white/[0.02]">
-                <Td>
-                  <Link href={`/admin/series/${s.id}`} className="block">
-                    {src ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={src}
-                        alt=""
-                        className="h-12 w-8 rounded object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-12 w-8 rounded bg-white/5" />
-                    )}
-                  </Link>
-                </Td>
-                <Td>
-                  <Link
-                    href={`/admin/series/${s.id}`}
-                    className="font-medium text-white/85 group-hover:text-white"
-                  >
-                    {s.title}
-                  </Link>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                    {s.metadataSource === "mal" && <Badge tone="violet">MAL</Badge>}
-                    {flagged && <Badge tone="pink">⚑ minor?</Badge>}
-                  </div>
-                </Td>
-                <Td className="text-white/50">{s.type}</Td>
-                <Td className="tabular-nums text-white/50">{s.year ?? "—"}</Td>
-                <Td className="tabular-nums text-white/60">
-                  {withVideo}
-                  <span className="text-white/30">
-                    {" "}
-                    / {s._count.episodes || s.totalEpisodes || 0}
-                  </span>
-                  {withVideo > 0 && (
-                    <span className="ml-1 text-emerald-400/70" title="has video">
-                      ●
-                    </span>
+        <div className="overflow-hidden rounded-xl border border-white/10">
+          <div className="hidden items-center gap-3 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/35 sm:flex">
+            <span className="w-8" />
+            <span className="flex-1">Title</span>
+            <span className="w-14">Type</span>
+            <span className="w-12">Year</span>
+            <span className="w-24">Episodes</span>
+            <span className="w-24">Status</span>
+            <span className="w-16 text-right">Updated</span>
+          </div>
+          <div className="divide-y divide-white/[0.06]">
+            {rows.map((s) => {
+              const src = cover(s.coverUrl);
+              const withVideo = s.episodes.length;
+              const flagged = s.contentWarnings.includes("possible-minor");
+              return (
+                <Link
+                  key={s.id}
+                  href={`/admin/series/${s.id}`}
+                  className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.03]"
+                >
+                  {src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={src} alt="" className="h-12 w-8 shrink-0 rounded object-cover" loading="lazy" />
+                  ) : (
+                    <div className="h-12 w-8 shrink-0 rounded bg-white/5" />
                   )}
-                </Td>
-                <Td>
-                  <PublishBadge status={s.publish} />
-                </Td>
-                <Td className="text-xs text-white/35">{timeAgo(s.updatedAt)}</Td>
-              </tr>
-            );
-          })}
-        </Table>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-white/85">{s.title}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {s.metadataSource === "mal" && <Badge tone="violet">MAL</Badge>}
+                      {flagged && <Badge tone="pink">⚑ minor?</Badge>}
+                      {/* meta shown inline on mobile only */}
+                      <span className="text-[11px] text-white/35 sm:hidden">
+                        {s.type} · {s.year ?? "—"} · {withVideo}/{s._count.episodes || s.totalEpisodes || 0} ep
+                      </span>
+                      <span className="sm:hidden">
+                        <PublishBadge status={s.publish} />
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* desktop columns */}
+                  <span className="hidden w-14 text-sm text-white/50 sm:block">{s.type}</span>
+                  <span className="hidden w-12 text-sm tabular-nums text-white/50 sm:block">{s.year ?? "—"}</span>
+                  <span className="hidden w-24 text-sm tabular-nums text-white/60 sm:block">
+                    {withVideo}
+                    <span className="text-white/30"> / {s._count.episodes || s.totalEpisodes || 0}</span>
+                    {withVideo > 0 && <span className="ml-1 text-emerald-400/70">●</span>}
+                  </span>
+                  <span className="hidden w-24 sm:block">
+                    <PublishBadge status={s.publish} />
+                  </span>
+                  <span className="hidden w-16 text-right text-xs text-white/35 sm:block">
+                    {timeAgo(s.updatedAt)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <Pagination

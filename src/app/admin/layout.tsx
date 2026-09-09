@@ -42,17 +42,39 @@ export default async function AdminLayout({
     { href: "/admin/reports", label: "Reports", badge: openReports || undefined, tone: "red" },
   ];
 
-  return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 md:flex-row md:gap-8">
-      <aside className="md:w-52 md:shrink-0">
-        <div className="mb-4 flex items-center justify-between md:mb-6">
-          <Link href="/admin" className="text-sm font-bold tracking-tight">
-            Lust<span className="text-accent">Hentai</span>
-            <span className="ml-1.5 text-white/30">admin</span>
-          </Link>
-        </div>
+  const brand = (
+    <Link href="/admin" className="text-sm font-bold tracking-tight">
+      Lust<span className="text-accent">Hentai</span>
+      <span className="ml-1.5 font-medium text-white/30">admin</span>
+    </Link>
+  );
 
-        <nav className="flex flex-wrap gap-1 md:flex-col md:gap-0.5">
+  return (
+    <div className="mx-auto max-w-6xl md:flex md:gap-8 md:px-4 md:py-6">
+      {/* mobile top bar */}
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-bg/90 backdrop-blur md:hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          {brand}
+          <span className="text-xs text-white/35">@{session.profile.handle}</span>
+        </div>
+        <nav className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 pb-2.5">
+          {nav.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/65"
+            >
+              {n.label}
+              {n.badge != null && <Badge tone={n.tone ?? "slate"}>{n.badge}</Badge>}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      {/* desktop sidebar */}
+      <aside className="hidden md:block md:w-52 md:shrink-0">
+        <div className="mb-6">{brand}</div>
+        <nav className="flex flex-col gap-0.5">
           {nav.map((n) => (
             <Link
               key={n.href}
@@ -60,26 +82,20 @@ export default async function AdminLayout({
               className="flex items-center justify-between rounded-lg px-3 py-1.5 text-sm text-white/60 transition-colors hover:bg-white/5 hover:text-white"
             >
               <span>{n.label}</span>
-              {n.badge != null && (
-                <Badge tone={n.tone ?? "slate"}>{n.badge}</Badge>
-              )}
+              {n.badge != null && <Badge tone={n.tone ?? "slate"}>{n.badge}</Badge>}
             </Link>
           ))}
         </nav>
-
-        <div className="mt-4 hidden border-t border-white/8 pt-4 text-xs text-white/40 md:block">
+        <div className="mt-5 border-t border-white/8 pt-4 text-xs text-white/40">
           <div className="truncate text-white/60">@{session.profile.handle}</div>
           <div className="mt-0.5">{role}</div>
-          <Link
-            href="/"
-            className="mt-2 inline-block text-white/40 hover:text-white"
-          >
+          <Link href="/" className="mt-2 inline-block text-white/40 hover:text-white">
             ↗ view site
           </Link>
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-w-0 flex-1 px-4 py-6 md:p-0">{children}</main>
     </div>
   );
 }
