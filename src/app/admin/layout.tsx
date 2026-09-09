@@ -38,6 +38,7 @@ export default async function AdminLayout({
     { href: "/admin/series", label: "Series", badge: pendingSeries + pendingEps || undefined, tone: "amber" },
     { href: "/admin/review", label: "Review queue", badge: flagged + spotCheck || undefined, tone: "pink" },
     { href: "/admin/unmatched", label: "Unmatched", badge: unmatched || undefined, tone: "amber" },
+    { href: "/admin/search", label: "Search" },
     { href: "/admin/metadata", label: "Metadata" },
     { href: "/admin/reports", label: "Reports", badge: openReports || undefined, tone: "red" },
   ];

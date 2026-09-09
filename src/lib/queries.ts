@@ -140,28 +140,6 @@ export async function popularTags(limit = 30) {
   }
 }
 
-export async function searchSeries(q: string) {
-  const term = q.trim();
-  if (term.length < 2) return [];
-  const ci = { contains: term, mode: "insensitive" as const };
-  return db(() => prisma.series.findMany({
-    where: {
-      publish: "PUBLISHED",
-      OR: [
-        { title: ci }, // trigram GIN index on Series.title backs this
-        { titleRomaji: ci },
-        { titleEnglish: ci },
-        { titleOriginal: ci },
-        { altTitles: { hasSome: [term, ...term.split(/\s+/)] } },
-        { synopsis: ci },
-      ],
-    },
-    orderBy: [{ bayesianRating: "desc" }, { viewCount: "desc" }],
-    take: 30,
-    include: { studio: { select: { name: true, slug: true } } },
-  }));
-}
-
 const seriesCardSelect = {
   slug: true,
   title: true,

@@ -746,3 +746,24 @@ model EnrichRun {
 
   @@index([source, startedAt])
 }
+
+/// Aggregated on-site search analytics — one row per normalized query term,
+/// upserted on every search. Powers "most searched series / genres" and the
+/// content-gap list (terms that return nothing).
+model SearchTermStat {
+  id              String   @id @default(cuid())
+  term            String   @unique // normalized: lowercased, whitespace-collapsed
+  sample          String            // a recent raw form, for display
+  count           Int      @default(1) // total times searched
+  lastResultCount Int      @default(0) // results on the most recent search
+  zeroHitCount    Int      @default(0) // times it returned nothing
+  topSeriesId     String?           // #1 result on the most recent search
+  topSeriesTitle  String?
+  matchedTagSlug  String?           // set when the term is also a tag name/synonym
+  firstSearchedAt DateTime @default(now())
+  lastSearchedAt  DateTime @default(now())
+
+  @@index([count])
+  @@index([lastResultCount])
+  @@index([lastSearchedAt])
+}

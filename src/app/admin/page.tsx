@@ -76,12 +76,13 @@ export default async function AdminHome() {
     ]),
   );
 
-  const [spotCheck, unmatched, scrapeRuns, enrichRuns] = await db(() =>
+  const [spotCheck, unmatched, zeroSearch, scrapeRuns, enrichRuns] = await db(() =>
     Promise.all([
       prisma.series.count({
         where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
       }),
       prisma.unmatchedTitle.count({ where: { status: "PENDING" } }),
+      prisma.searchTermStat.count({ where: { lastResultCount: 0 } }),
       prisma.scrapeRun.findMany({
         orderBy: { startedAt: "desc" },
         take: 5,
@@ -112,7 +113,7 @@ export default async function AdminHome() {
         },
       }),
     ]),
-  ).catch(() => [0, 0, [] as never[], [] as never[]] as const);
+  ).catch(() => [0, 0, 0, [] as never[], [] as never[]] as const);
 
   const hosting = await db(() =>
     prisma.episode.groupBy({ by: ["bunnyStatus"], _count: true }),
@@ -125,6 +126,7 @@ export default async function AdminHome() {
   const attention = [
     { label: "Auto-published — spot check", value: spotCheck, href: "/admin/review" },
     { label: "Unmatched scraped titles", value: unmatched, href: "/admin/unmatched" },
+    { label: "Searches with no results", value: zeroSearch, href: "/admin/search" },
     { label: "Series pending review", value: pendingSeries, href: "/admin/series?publish=PENDING" },
     { label: "Episodes pending review", value: pendingEps, href: "/admin/series?publish=PENDING" },
     { label: "Flagged: possible minor", value: flagged, href: "/admin/review" },
