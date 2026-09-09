@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { getEpisode } from "@/lib/queries";
 import { cover, thumb } from "@/lib/cloudinary";
 import { gradientFor } from "@/lib/gradient";
-import { hlsUrl, thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { buildServers } from "@/lib/stream";
+import { SITE, SITE_NAME, episodeSeo, breadcrumbLd } from "@/lib/seo";
 import { WatchPlayer } from "@/components/WatchPlayer";
 import { ReportBroken } from "@/components/ReportBroken";
 import { ViewPing } from "@/components/ViewPing";
@@ -17,8 +18,6 @@ export function generateStaticParams() {
   return [] as { slug: string; episode: string }[];
 }
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
 export async function generateMetadata({
   params,
 }: {
@@ -26,25 +25,29 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug, episode } = await params;
   const ep = await getEpisode(slug, Number(episode));
-  if (!ep) return { title: "Not found" };
+  if (!ep) return { title: "Not found", robots: { index: false } };
 
-  const t = `${ep.series.title} Episode ${ep.number}${
-    ep.series.isCensored ? "" : " Uncensored"
-  }`;
-  const desc =
-    ep.synopsis?.slice(0, 155) ??
-    `Watch ${ep.series.title} episode ${ep.number} hentai online, subbed. ${ep.sources.length} mirror(s).`;
+  const { title, description } = episodeSeo(ep);
+  const img = thumb(ep.thumbUrl) ?? cover(ep.series.coverUrl);
+  const canonical = `/hentai/${slug}/${ep.number}`;
 
   return {
-    title: t,
-    description: desc,
-    alternates: { canonical: `/hentai/${slug}/${ep.number}` },
+    title,
+    description,
+    alternates: { canonical },
     openGraph: {
-      title: t,
-      description: desc,
-      url: `/hentai/${slug}/${ep.number}`,
+      title,
+      description,
+      url: canonical,
       type: "video.episode",
-      images: cover(ep.series.coverUrl) ? [cover(ep.series.coverUrl)!] : [],
+      siteName: SITE_NAME,
+      images: img ? [{ url: img, width: 480, height: 270 }] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: img ? [img] : [],
     },
   };
 }
@@ -64,37 +67,48 @@ export default async function WatchPage({
   const prev = idx > 0 ? eps[idx - 1] : null;
   const next = idx < eps.length - 1 ? eps[idx + 1] : null;
 
-  const hosted =
-    ep.bunnyGuid && ep.bunnyStatus === "ready"
-      ? {
-          guid: ep.bunnyGuid,
-          hls: hlsUrl(ep.bunnyGuid),
-          poster: thumb(ep.thumbUrl) ?? bunnyThumb(ep.bunnyGuid),
-        }
-      : null;
+  const bunnyReady = ep.bunnyStatus === "ready" && !!ep.bunnyGuid;
+  const servers = buildServers(ep.id, bunnyReady, ep.sources);
+  // poster + schema thumbnails: our own Cloudinary/MAL images only — never the
+  // Bunny CDN host (keeps it out of the page + reachable by crawlers)
+  const poster = thumb(ep.thumbUrl) ?? cover(ep.series.coverUrl);
 
-  const jsonLd = {
+  const { title: seoTitle, description, genres } = episodeSeo(ep);
+  const canonical = `${SITE}/hentai/${slug}/${ep.number}`;
+  const thumbs = [thumb(ep.thumbUrl), cover(ep.series.coverUrl)].filter(
+    (x): x is string => !!x,
+  );
+
+  const videoLd = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
-    name: `${ep.series.title} Episode ${ep.number}`,
-    description: ep.synopsis ?? ep.series.synopsis ?? undefined,
-    thumbnailUrl: [hosted?.poster, thumb(ep.thumbUrl), cover(ep.series.coverUrl)].filter(
-      Boolean,
-    ),
+    name: `${ep.series.title} Episode ${ep.number}${ep.title ? `: ${ep.title}` : ""}`,
+    description,
+    thumbnailUrl: thumbs,
     uploadDate: (ep.airedAt ?? ep.createdAt).toISOString(),
-    duration: ep.runtimeSec ? `PT${ep.runtimeSec}S` : undefined,
-    contentUrl: hosted?.hls,
-    embedUrl: `${SITE}/hentai/${slug}/${ep.number}`,
-    genre: ep.series.tags.map((t) => t.name),
+    ...(ep.runtimeSec ? { duration: `PT${ep.runtimeSec}S` } : {}),
+    embedUrl: canonical,
+    url: canonical,
+    genre: genres || undefined,
+    keywords: ep.series.tags.map((t) => t.name).join(", ") || undefined,
+    inLanguage: "en",
     isFamilyFriendly: false,
-    interactionStatistic: ep.viewCount
+    contentRating: "adult",
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      logo: { "@type": "ImageObject", url: `${SITE}/icon.svg` },
+    },
+    ...(ep.viewCount
       ? {
-          "@type": "InteractionCounter",
-          interactionType: "https://schema.org/WatchAction",
-          userInteractionCount: ep.viewCount,
+          interactionStatistic: {
+            "@type": "InteractionCounter",
+            interactionType: "https://schema.org/WatchAction",
+            userInteractionCount: ep.viewCount,
+          },
         }
-      : undefined,
-    url: `${SITE}/hentai/${slug}/${ep.number}`,
+      : {}),
+    potentialAction: { "@type": "WatchAction", target: canonical },
     partOfSeries: {
       "@type": "TVSeries",
       name: ep.series.title,
@@ -102,13 +116,21 @@ export default async function WatchPage({
     },
   };
 
-  const NavBtn = ({
-    to,
-    children,
-  }: {
-    to: number | null;
-    children: React.ReactNode;
-  }) =>
+  const crumbs = breadcrumbLd([
+    { name: "Home", path: "/" },
+    { name: "Browse", path: "/browse" },
+    { name: ep.series.title, path: `/hentai/${slug}` },
+    { name: `Episode ${ep.number}`, path: `/hentai/${slug}/${ep.number}` },
+  ]);
+
+  const bodyText =
+    ep.synopsis ||
+    ep.series.synopsis ||
+    `${ep.series.title} episode ${ep.number} — ${ep.series.type}${
+      ep.series.year ? `, ${ep.series.year}` : ""
+    }${ep.series.isCensored ? "" : ", uncensored"}. Stream it free in HD on ${SITE_NAME}.`;
+
+  const NavBtn = ({ to, children }: { to: number | null; children: React.ReactNode }) =>
     to ? (
       <Link
         href={`/hentai/${slug}/${to}`}
@@ -124,24 +146,21 @@ export default async function WatchPage({
 
   return (
     <main className="bg-bg">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(videoLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
 
       {/* theater */}
       <div className="border-b border-line bg-black/40">
         <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-4 lg:px-8">
           <ViewPing episodeId={ep.id} />
-          <WatchPlayer sources={ep.sources} hosted={hosted} />
+          <WatchPlayer servers={servers} poster={poster} />
         </div>
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          {/* main column */}
           <div className="min-w-0">
-            <nav className="text-xs text-white/40">
+            <nav className="text-xs text-white/40" aria-label="Breadcrumb">
               <Link href="/" className="hover:text-white">Home</Link>
               <span className="mx-1.5">/</span>
               <Link href={`/hentai/${slug}`} className="hover:text-white">
@@ -154,6 +173,7 @@ export default async function WatchPage({
             <h1 className="mt-2 font-display text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
               {ep.series.title} — Episode {ep.number}
               {ep.title ? `: ${ep.title}` : ""}
+              {!ep.series.isCensored ? " (Uncensored)" : ""}
             </h1>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -164,9 +184,12 @@ export default async function WatchPage({
               <ReportBroken episodeId={ep.id} />
             </div>
 
-            {ep.synopsis && (
-              <p className="mt-5 text-sm leading-relaxed text-white/70">{ep.synopsis}</p>
-            )}
+            {/* always-present descriptive copy for SEO + readers */}
+            <p className="mt-5 text-sm leading-relaxed text-white/70">{bodyText}</p>
+            <p className="mt-2 text-xs text-white/35">
+              {seoTitle} · {ep.series.studio ? `Studio ${ep.series.studio.name} · ` : ""}
+              {servers.length} streaming server{servers.length === 1 ? "" : "s"}
+            </p>
 
             {ep.series.tags.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-1.5">
@@ -196,9 +219,7 @@ export default async function WatchPage({
                   )}
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
-                    Up next
-                  </p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Up next</p>
                   <p className="mt-0.5 text-sm font-semibold text-white/85">
                     Episode {next.number}
                     {next.title ? `: ${next.title}` : ""}
@@ -208,7 +229,6 @@ export default async function WatchPage({
             )}
           </div>
 
-          {/* episode list sidebar */}
           <aside className="lg:sticky lg:top-20 lg:self-start">
             <div className="overflow-hidden rounded-xl border border-line bg-surface/50">
               <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -217,20 +237,21 @@ export default async function WatchPage({
               </div>
               <div className="no-scrollbar max-h-[70vh] overflow-y-auto p-2">
                 {eps.map((e) => {
-                  const cur = e.number === ep.number;
+                  const isCur = e.number === ep.number;
                   return (
                     <Link
                       key={e.number}
                       href={`/hentai/${slug}/${e.number}`}
+                      aria-current={isCur ? "page" : undefined}
                       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
-                        cur
+                        isCur
                           ? "bg-accent/15 text-white"
                           : "text-white/65 hover:bg-white/5 hover:text-white"
                       }`}
                     >
                       <span
                         className={`grid h-7 w-9 shrink-0 place-items-center rounded text-xs font-bold ${
-                          cur ? "bg-accent text-white" : "bg-surface-2 text-white/60"
+                          isCur ? "bg-accent text-white" : "bg-surface-2 text-white/60"
                         }`}
                       >
                         {e.number}

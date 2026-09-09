@@ -6,11 +6,10 @@ import { prisma } from "@/lib/db";
 import { cover, banner, thumb } from "@/lib/cloudinary";
 import { gradientFor } from "@/lib/gradient";
 import { Pill } from "@/components/ui";
+import { SITE, SITE_NAME, abs, excerpt, breadcrumbLd } from "@/lib/seo";
 
 export const revalidate = 600;
 export const dynamicParams = true;
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export async function generateStaticParams() {
   try {
@@ -33,12 +32,24 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const s = await getSeries(slug);
-  if (!s) return { title: "Not found" };
+  if (!s) return { title: "Not found", robots: { index: false } };
 
-  const title = `Watch ${s.title} Hentai${s.year ? ` (${s.year})` : ""}`;
-  const desc =
-    s.synopsis?.slice(0, 155) ??
-    `Stream all ${s.episodes.length} episodes of ${s.title} hentai online, subbed and uncensored.`;
+  const cen = s.isCensored ? "" : " Uncensored";
+  const title = `Watch ${s.title} Hentai${cen}${s.year ? ` (${s.year})` : ""}`;
+  const genres = s.tags.slice(0, 4).map((t) => t.name).join(", ");
+  const desc = excerpt(
+    s.synopsis
+      ? `${s.title} hentai${s.isCensored ? ", subbed" : " uncensored"}${
+          s.year ? ` (${s.year})` : ""
+        } — ${excerpt(s.synopsis, 180)}`
+      : `Stream all ${s.episodes.length} episode${
+          s.episodes.length === 1 ? "" : "s"
+        } of ${s.title} hentai online${s.isCensored ? ", subbed" : " uncensored"}${
+          genres ? `. ${genres}` : ""
+        }. Free HD on ${SITE_NAME}.`,
+    300,
+  );
+  const img = cover(s.coverUrl);
 
   return {
     title,
@@ -48,9 +59,11 @@ export async function generateMetadata({
       title,
       description: desc,
       url: `/hentai/${s.slug}`,
-      images: cover(s.coverUrl) ? [cover(s.coverUrl)!] : [],
+      siteName: SITE_NAME,
+      images: img ? [{ url: img, width: 360, height: 540 }] : [],
       type: "video.tv_show",
     },
+    twitter: { card: "summary_large_image", title, description: desc, images: img ? [img] : [] },
   };
 }
 
@@ -68,28 +81,63 @@ export default async function SeriesPage({
   const firstEp = s.episodes[0]?.number ?? 1;
   const playable = s.episodes.filter((e) => e._count.sources > 0).length;
 
-  const jsonLd = {
+  const genreNames = s.tags.map((t) => t.name);
+  const seriesLd = {
     "@context": "https://schema.org",
     "@type": "TVSeries",
     name: s.title,
-    alternateName: s.altTitles,
-    description: s.synopsis ?? undefined,
-    image: coverSrc ?? undefined,
+    alternateName: s.altTitles.length ? s.altTitles : undefined,
+    description:
+      s.synopsis ??
+      `Watch ${s.title} hentai online — ${s.episodes.length} episode${
+        s.episodes.length === 1 ? "" : "s"
+      }, ${s.isCensored ? "subbed" : "uncensored"}, free HD on ${SITE_NAME}.`,
+    image: coverSrc ? abs(coverSrc) : undefined,
     numberOfEpisodes: s.episodes.length,
     datePublished: s.releaseDate?.toISOString() ?? undefined,
-    genre: s.tags.map((t) => t.name),
+    genre: genreNames.length ? genreNames : undefined,
+    keywords: genreNames.join(", ") || undefined,
+    inLanguage: "en",
+    isFamilyFriendly: false,
+    contentRating: "adult",
     productionCompany: s.studio
       ? { "@type": "Organization", name: s.studio.name }
       : undefined,
+    publisher: { "@type": "Organization", name: SITE_NAME, url: SITE },
+    ...(s.ratingCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(s.ratingAvg.toFixed(2)),
+            ratingCount: s.ratingCount,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+    ...(s.episodes.length
+      ? {
+          episode: s.episodes.slice(0, 100).map((e) => ({
+            "@type": "TVEpisode",
+            episodeNumber: e.number,
+            name: e.title || `Episode ${e.number}`,
+            url: `${SITE}/hentai/${s.slug}/${e.number}`,
+          })),
+        }
+      : {}),
     url: `${SITE}/hentai/${s.slug}`,
   };
 
+  const crumbs = breadcrumbLd([
+    { name: "Home", path: "/" },
+    { name: "Browse", path: "/browse" },
+    { name: s.title, path: `/hentai/${s.slug}` },
+  ]);
+
   return (
     <main>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(seriesLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
 
       {/* backdrop */}
       <div className="relative isolate">
@@ -149,11 +197,16 @@ export default async function SeriesPage({
                 )}
               </div>
 
-              {s.synopsis && (
-                <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70">
-                  {s.synopsis}
-                </p>
-              )}
+              <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70">
+                {s.synopsis ??
+                  `${s.title} is ${
+                    /^[aeiou]/i.test(s.type) ? "an" : "a"
+                  } ${s.type.toLowerCase()} hentai${s.year ? ` from ${s.year}` : ""}${
+                    s.studio ? ` by ${s.studio.name}` : ""
+                  }, ${s.isCensored ? "subbed" : "uncensored"}. Watch all ${
+                    s.episodes.length
+                  } episode${s.episodes.length === 1 ? "" : "s"} free in HD on ${SITE_NAME}.`}
+              </p>
 
               {s.tags.length > 0 && (
                 <div className="mt-5 flex flex-wrap gap-1.5">

@@ -48,10 +48,13 @@ export function SiteHeader() {
 
         <Link
           href="/"
+          aria-label="LustHentai home"
           className="flex shrink-0 items-center gap-2 font-display text-lg font-extrabold tracking-tight"
         >
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-sm text-white shadow-glow">
-            L
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-white shadow-glow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </span>
           <span className="hidden sm:inline">
             Lust<span className="text-accent">Hentai</span>

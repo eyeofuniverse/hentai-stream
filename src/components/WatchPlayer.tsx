@@ -1,39 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-export type PlayerSource = {
-  id: string;
-  host: string;
-  hostName?: string | null;
-  embedUrl: string;
-  kind: string; // SUB | DUB | RAW
-  language: string;
-  quality: string | null;
-  direct?: boolean;
-};
-
-export type HostedVideo = { guid: string; hls: string; poster?: string | null } | null;
-
-const CDN = process.env.NEXT_PUBLIC_BUNNY_CDN_HOST;
-
-const HOST_LABEL: Record<string, string> = {
-  STREAMTAPE: "Streamtape",
-  DOODSTREAM: "Doodstream",
-  MIXDROP: "Mixdrop",
-  VOE: "VOE",
-  STREAMWISH: "Streamwish",
-  FILEMOON: "Filemoon",
-  MP4UPLOAD: "Mp4upload",
-  VIDGUARD: "Vidguard",
-  LULUSTREAM: "Lulustream",
-  BIGWARP: "Bigwarp",
-  YOURUPLOAD: "Yourupload",
-  OTHER: "Mirror",
-};
-
-const qLabel = (q: string | null) =>
-  q && q !== "UNKNOWN" ? q.replace("Q", "") + "p" : null;
+import type { Server } from "@/lib/stream";
 
 /** HLS <video> — native on Safari, hls.js everywhere else. */
 function Hls({ src, poster }: { src: string; poster?: string | null }) {
@@ -76,36 +44,26 @@ function Hls({ src, poster }: { src: string; poster?: string | null }) {
 }
 
 export function WatchPlayer({
-  sources,
-  hosted,
+  servers,
+  poster,
 }: {
-  sources: PlayerSource[];
-  hosted?: HostedVideo;
+  servers: Server[];
+  poster?: string | null;
 }) {
-  // the hosted copy is always option 0 when present
-  const options: (
-    | { kind: "hosted"; hls: string; poster?: string | null }
-    | { kind: "source"; src: PlayerSource }
-  )[] = [
-    ...(hosted && CDN ? [{ kind: "hosted" as const, hls: hosted.hls, poster: hosted.poster }] : []),
-    ...sources.map((s) => ({ kind: "source" as const, src: s })),
-  ];
-
   const [active, setActive] = useState(0);
 
   useEffect(() => {
-    if (hosted) return; // hosted always wins
     try {
-      const pref = localStorage.getItem("hs_host");
-      const i = options.findIndex((o) => o.kind === "source" && o.src.host === pref);
-      if (i >= 0) setActive(i);
+      const pref = localStorage.getItem("lh_server");
+      const i = servers.findIndex((s) => s.key === pref);
+      if (i > 0) setActive(i);
     } catch {
       /* ignore */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sources.length, hosted]);
+  }, [servers.length]);
 
-  const cur = options[active] ?? options[0];
+  const cur = servers[active] ?? servers[0];
 
   if (!cur) {
     return (
@@ -119,12 +77,13 @@ export function WatchPlayer({
     <div>
       <div className="overflow-hidden bg-black shadow-card ring-1 ring-white/10 sm:rounded-xl">
         <div className="aspect-video">
-          {cur.kind === "hosted" ? (
-            <Hls key="hosted" src={cur.hls} poster={cur.poster} />
-          ) : cur.src.direct ? (
+          {cur.type === "hls" ? (
+            <Hls key={cur.key} src={cur.src} poster={poster} />
+          ) : cur.type === "file" ? (
             <video
-              key={cur.src.id}
-              src={cur.src.embedUrl}
+              key={cur.key}
+              src={cur.src}
+              poster={poster ?? undefined}
               controls
               playsInline
               preload="metadata"
@@ -132,34 +91,32 @@ export function WatchPlayer({
             />
           ) : (
             <iframe
-              key={cur.src.id}
-              src={cur.src.embedUrl}
-              title="Player"
+              key={cur.key}
+              src={cur.src}
+              title="Video player"
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
               allowFullScreen
-              referrerPolicy="origin"
+              referrerPolicy="no-referrer"
               className="h-full w-full border-0"
             />
           )}
         </div>
       </div>
 
-      {options.length > 1 && (
+      {servers.length > 1 && (
         <div className="flex flex-wrap gap-2 px-4 pt-3 sm:px-0">
           <span className="w-full text-[11px] font-semibold uppercase tracking-wider text-white/35">
             Servers
           </span>
-          {options.map((o, i) => (
+          {servers.map((sv, i) => (
             <button
-              key={i}
+              key={sv.key}
               onClick={() => {
                 setActive(i);
-                if (o.kind === "source") {
-                  try {
-                    localStorage.setItem("hs_host", o.src.host);
-                  } catch {
-                    /* ignore */
-                  }
+                try {
+                  localStorage.setItem("lh_server", sv.key);
+                } catch {
+                  /* ignore */
                 }
               }}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
@@ -168,42 +125,23 @@ export function WatchPlayer({
                   : "border border-line bg-surface text-white/70 hover:border-accent/40 hover:text-white"
               }`}
             >
-              {o.kind === "hosted" ? (
-                <>
-                  <Dot on={i === active} /> Server {i + 1}
-                  <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">HD</span>
-                </>
-              ) : (
-                <>
-                  <Dot on={i === active} /> Server {i + 1}
-                  <span className="opacity-70">
-                    {o.src.host === "OTHER" && o.src.hostName
-                      ? o.src.hostName
-                      : HOST_LABEL[o.src.host] ?? o.src.host}
-                  </span>
-                  <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
-                    {o.src.kind}
-                    {o.src.language !== "en" ? ` ${o.src.language.toUpperCase()}` : ""}
-                  </span>
-                  {qLabel(o.src.quality) && (
-                    <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
-                      {qLabel(o.src.quality)}
-                    </span>
-                  )}
-                </>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${i === active ? "bg-white" : "bg-good"}`}
+              />
+              Server {i + 1}
+              <span className="opacity-70">{sv.label}</span>
+              <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
+                {sv.kind}
+              </span>
+              {sv.quality && (
+                <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
+                  {sv.quality}
+                </span>
               )}
             </button>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function Dot({ on }: { on: boolean }) {
-  return (
-    <span
-      className={`h-1.5 w-1.5 rounded-full ${on ? "bg-white" : "bg-good"}`}
-    />
   );
 }

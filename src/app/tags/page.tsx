@@ -5,8 +5,11 @@ import { gradientFor } from "@/lib/gradient";
 
 export const revalidate = 600;
 export const metadata: Metadata = {
-  title: "All hentai tags & genres",
-  description: "Every genre, theme and tag on LustHentai.",
+  title: "Hentai Genres & Tags — Browse by Category",
+  description:
+    "Every hentai genre, theme and kink on LustHentai — vanilla, NTR, incest, big breasts, ahegao, tentacles and more. Pick a tag to browse.",
+  alternates: { canonical: "/tags" },
+  openGraph: { title: "Hentai Genres & Tags", url: "/tags" },
 };
 
 function getTags() {

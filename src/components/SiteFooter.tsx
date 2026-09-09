@@ -33,10 +33,12 @@ export function SiteFooter() {
               href="/"
               className="flex items-center gap-2 font-display text-lg font-extrabold tracking-tight"
             >
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-sm text-white">
-                L
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-white">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
               </span>
-              Lust<span className="-ml-1.5 text-accent">Hentai</span>
+              Lust<span className="text-accent">Hentai</span>
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/45">
               Stream subbed, dubbed and uncensored hentai — series, OVAs and movies,

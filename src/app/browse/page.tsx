@@ -4,8 +4,11 @@ import { BrowseClient } from "@/components/BrowseClient";
 
 export const revalidate = 300;
 export const metadata: Metadata = {
-  title: "Browse hentai",
-  description: "Browse the full hentai catalogue by genre, studio, type and status.",
+  title: "Browse Hentai — Full Catalogue",
+  description:
+    "Browse every hentai series, OVA and movie — filter by genre, studio, type, status and year. Free HD streaming, subbed & uncensored.",
+  alternates: { canonical: "/browse" },
+  openGraph: { title: "Browse Hentai", url: "/browse" },
 };
 
 export default async function BrowsePage() {
