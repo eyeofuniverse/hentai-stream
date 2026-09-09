@@ -3,16 +3,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSeries } from "@/lib/queries";
 import { prisma } from "@/lib/db";
-import {
-  cover,
-  coverSet,
-  banner,
-  bannerSet,
-  thumb,
-  thumbSet,
-} from "@/lib/cloudinary";
-import { gradientFor } from "@/lib/gradient";
+import { cover, coverSet, banner, bannerSet, thumb } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { Pill } from "@/components/ui";
+import { SmartImg } from "@/components/SmartImg";
 import { SITE, SITE_NAME, abs, excerpt, breadcrumbLd } from "@/lib/seo";
 
 export const revalidate = 600;
@@ -85,8 +79,11 @@ export default async function SeriesPage({
 
   const coverSrc = cover(s.coverUrl);
   const bannerSrc = banner(s.bannerUrl) ?? coverSrc;
-  const firstEp = s.episodes[0]?.number ?? 1;
-  const playable = s.episodes.filter((e) => e._count.sources > 0).length;
+  // main CTA lands on the first actually-playable episode
+  const playableEp =
+    s.episodes.find((e) => e.bunnyStatus === "ready" || e._count.sources > 0) ??
+    s.episodes[0];
+  const firstEp = playableEp?.number ?? 1;
 
   const genreNames = s.tags.map((t) => t.name);
   const seriesLd = {
@@ -148,23 +145,17 @@ export default async function SeriesPage({
 
       {/* backdrop */}
       <div className="relative isolate">
-        <div className="absolute inset-0 -z-10 h-[420px] overflow-hidden">
-          {bannerSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={bannerSrc}
-              srcSet={
-                (s.bannerUrl ? bannerSet(s.bannerUrl) : coverSet(s.coverUrl)) ?? undefined
-              }
-              sizes="100vw"
-              alt=""
-              aria-hidden="true"
-              decoding="async"
-              className="h-full w-full object-cover opacity-30 blur-sm"
-            />
-          ) : (
-            <div className="h-full w-full opacity-30" style={{ backgroundImage: gradientFor(s.slug) }} />
-          )}
+        <div className="absolute inset-0 -z-10 h-[420px] overflow-hidden opacity-30">
+          <SmartImg
+            src={bannerSrc}
+            seed={s.slug}
+            srcSet={
+              (s.bannerUrl ? bannerSet(s.bannerUrl) : coverSet(s.coverUrl)) ?? undefined
+            }
+            sizes="100vw"
+            alt=""
+            className="h-full w-full object-cover blur-sm"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/85 to-bg/40" />
         </div>
 
@@ -180,22 +171,17 @@ export default async function SeriesPage({
           <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
             <div className="w-40 shrink-0 self-center sm:w-56 sm:self-start">
               <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 shadow-card ring-1 ring-white/10">
-                {coverSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={coverSrc}
-                    srcSet={coverSet(s.coverUrl) ?? undefined}
-                    sizes="(max-width:640px) 40vw, 224px"
-                    alt={s.title}
-                    width={300}
-                    height={450}
-                    fetchPriority="high"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full" style={{ backgroundImage: gradientFor(s.slug) }} />
-                )}
+                <SmartImg
+                  src={coverSrc}
+                  seed={s.slug}
+                  srcSet={coverSet(s.coverUrl) ?? undefined}
+                  sizes="(max-width:640px) 40vw, 224px"
+                  alt={s.title}
+                  width={300}
+                  height={450}
+                  eager
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
 
@@ -271,7 +257,7 @@ export default async function SeriesPage({
           <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
           Episodes
           <span className="text-sm font-normal text-white/35">
-            {playable} of {s.episodes.length} playable
+            {s.episodes.length}
           </span>
         </h2>
 
@@ -282,9 +268,10 @@ export default async function SeriesPage({
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2">
             {s.episodes.map((ep) => {
-              const rawId = ep.thumbUrl ?? s.coverUrl;
-              const src = thumb(rawId);
-              const noSrc = ep._count.sources === 0;
+              const t =
+                ep.bunnyStatus === "ready" && ep.bunnyGuid
+                  ? bunnyThumb(ep.bunnyGuid)
+                  : thumb(s.coverUrl);
               const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
               return (
                 <Link
@@ -293,22 +280,14 @@ export default async function SeriesPage({
                   className="group flex items-center gap-3 rounded-xl border border-line bg-surface/60 p-2 transition hover:border-accent/40 hover:bg-surface"
                 >
                   <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-surface-2 sm:w-32">
-                    {src ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={src}
-                        srcSet={thumbSet(rawId) ?? undefined}
-                        sizes="128px"
-                        alt=""
-                        width={360}
-                        height={203}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover transition group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="h-full w-full" style={{ backgroundImage: gradientFor(s.slug) }} />
-                    )}
+                    <SmartImg
+                      src={t}
+                      fallback={thumb(s.coverUrl)}
+                      seed={`${s.slug}-${ep.number}`}
+                      width={360}
+                      height={203}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
                     <span className="absolute inset-0 grid place-items-center bg-black/20 opacity-0 transition group-hover:opacity-100">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-white drop-shadow">
                         <path d="M8 5v14l11-7z" />
@@ -323,14 +302,9 @@ export default async function SeriesPage({
                     <p className="mt-0.5 line-clamp-1 text-xs text-white/45">
                       {ep.title || `${s.title} episode ${ep.number}`}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-white/35">
-                      {mins && <span>{mins} min</span>}
-                      {noSrc ? (
-                        <span className="text-warn/80">awaiting source</span>
-                      ) : (
-                        <span className="text-good/80">● ready</span>
-                      )}
-                    </div>
+                    {mins && (
+                      <p className="mt-1.5 text-[11px] text-white/35">{mins} min</p>
+                    )}
                   </div>
                 </Link>
               );

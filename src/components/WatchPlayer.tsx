@@ -12,6 +12,12 @@ function Spinner() {
   );
 }
 
+/**
+ * One player, no visible source machinery. Plays the best server; on a playback
+ * error it silently falls through to the next. Bunny-hosted episodes use the
+ * Bunny embed (skinned in the Bunny dashboard); mirrors use a locked-down
+ * <video> (no download, no PiP, no context menu).
+ */
 export function WatchPlayer({
   servers,
   poster,
@@ -25,26 +31,25 @@ export function WatchPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const [active, setActive] = useState(0);
+  const [idx, setIdx] = useState(0);
   const [started, setStarted] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [dead, setDead] = useState(false);
 
-  const cur = servers[active] ?? servers[0];
+  const cur = servers[idx];
 
-  // remembered server preference
-  useEffect(() => {
-    try {
-      const pref = localStorage.getItem("lh_server");
-      const i = servers.findIndex((s) => s.key === pref);
-      if (i > 0) setActive(i);
-    } catch {
-      /* ignore */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // silent failover to the next server
+  const failover = useCallback(() => {
+    setBuffering(false);
+    setIdx((i) => {
+      if (i + 1 < servers.length) return i + 1;
+      setDead(true);
+      return i;
+    });
   }, [servers.length]);
 
-  // HLS / native attach — only after the user hits play (keeps the page light)
+  // HLS attach (only the non-embed hls type; runs after play)
   useEffect(() => {
     if (!started || !cur || cur.type !== "hls") return;
     const video = videoRef.current;
@@ -54,21 +59,24 @@ export function WatchPlayer({
       return;
     }
     let hls: import("hls.js").default | undefined;
-    let dead = false;
+    let killed = false;
     import("hls.js").then(({ default: HlsJs }) => {
-      if (dead || !HlsJs.isSupported()) {
+      if (killed || !HlsJs.isSupported()) {
         video.src = cur.src;
         return;
       }
       hls = new HlsJs({ maxBufferLength: 30 });
       hls.loadSource(cur.src);
       hls.attachMedia(video);
+      hls.on(HlsJs.Events.ERROR, (_e, data) => {
+        if (data.fatal) failover();
+      });
     });
     return () => {
-      dead = true;
+      killed = true;
       hls?.destroy();
     };
-  }, [started, cur]);
+  }, [started, cur, failover]);
 
   // restore volume
   useEffect(() => {
@@ -80,7 +88,7 @@ export function WatchPlayer({
     } catch {
       /* ignore */
     }
-  }, [started]);
+  }, [started, idx]);
 
   const play = useCallback(() => {
     setStarted(true);
@@ -88,43 +96,32 @@ export function WatchPlayer({
     queueMicrotask(() => videoRef.current?.play().catch(() => {}));
   }, []);
 
-  const switchServer = (i: number) => {
-    setActive(i);
-    setStarted(true);
-    try {
-      localStorage.setItem("lh_server", servers[i].key);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  // keyboard shortcuts (when the player has focus / is hovered)
+  // keyboard shortcuts
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const onKey = (e: KeyboardEvent) => {
       const v = videoRef.current;
-      if (!v) return;
       switch (e.key) {
         case " ":
         case "k":
           e.preventDefault();
-          v.paused ? v.play() : v.pause();
+          if (v) v.paused ? v.play() : v.pause();
           break;
         case "ArrowRight":
-          v.currentTime += 10;
+          if (v) v.currentTime += 10;
           break;
         case "ArrowLeft":
-          v.currentTime -= 10;
+          if (v) v.currentTime -= 10;
           break;
         case "ArrowUp":
-          v.volume = Math.min(1, v.volume + 0.1);
+          if (v) v.volume = Math.min(1, v.volume + 0.1);
           break;
         case "ArrowDown":
-          v.volume = Math.max(0, v.volume - 0.1);
+          if (v) v.volume = Math.max(0, v.volume - 0.1);
           break;
         case "m":
-          v.muted = !v.muted;
+          if (v) v.muted = !v.muted;
           break;
         case "f":
           if (document.fullscreenElement) document.exitFullscreen();
@@ -150,21 +147,20 @@ export function WatchPlayer({
     return () => clearTimeout(t);
   }, [countdown, nextHref, router]);
 
-  if (!cur) {
+  if (!cur || dead) {
     return (
-      <div className="grid aspect-video w-full place-items-center bg-surface text-sm text-white/40 sm:rounded-xl">
-        No working sources yet — check back soon.
+      <div className="grid aspect-video w-full place-items-center bg-surface text-center text-sm text-white/40 sm:rounded-xl">
+        Can&apos;t play this episode right now — please check back shortly.
       </div>
     );
   }
-
-  const iframe = started && cur.type === "iframe";
 
   return (
     <div>
       <div
         ref={wrapRef}
         tabIndex={0}
+        onContextMenu={(e) => e.preventDefault()}
         className="group relative aspect-video w-full overflow-hidden bg-black shadow-card outline-none ring-1 ring-white/10 focus-visible:ring-accent/60 sm:rounded-xl"
       >
         {!started ? (
@@ -181,6 +177,9 @@ export function WatchPlayer({
                 alt=""
                 className="h-full w-full object-cover opacity-70 transition group-hover:opacity-90"
                 decoding="async"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
               />
             )}
             <span className="absolute inset-0 grid place-items-center">
@@ -191,7 +190,7 @@ export function WatchPlayer({
               </span>
             </span>
           </button>
-        ) : iframe ? (
+        ) : cur.type === "bunny" || cur.type === "iframe" ? (
           <iframe
             key={cur.key}
             src={cur.src}
@@ -212,11 +211,19 @@ export function WatchPlayer({
               autoPlay
               playsInline
               preload="metadata"
+              controlsList="nodownload noremoteplayback noplaybackrate"
+              disablePictureInPicture
+              disableRemotePlayback
               onWaiting={() => setBuffering(true)}
               onPlaying={() => setBuffering(false)}
+              onError={failover}
+              onStalled={() => setBuffering(true)}
               onVolumeChange={(e) => {
                 try {
-                  localStorage.setItem("lh_vol", String((e.target as HTMLVideoElement).volume));
+                  localStorage.setItem(
+                    "lh_vol",
+                    String((e.target as HTMLVideoElement).volume),
+                  );
                 } catch {
                   /* ignore */
                 }
@@ -232,7 +239,9 @@ export function WatchPlayer({
           <div className="absolute inset-0 grid place-items-center bg-black/70 backdrop-blur-sm">
             <div className="text-center">
               <p className="text-sm text-white/60">Next episode in</p>
-              <p className="my-1 font-display text-5xl font-extrabold text-white">{countdown}</p>
+              <p className="my-1 font-display text-5xl font-extrabold text-white">
+                {countdown}
+              </p>
               <div className="mt-2 flex justify-center gap-2">
                 <button
                   onClick={() => router.push(nextHref)}
@@ -252,41 +261,9 @@ export function WatchPlayer({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-3 sm:px-0">
-        {servers.length > 1 && (
-          <>
-            <span className="w-full text-[11px] font-semibold uppercase tracking-wider text-white/35">
-              Servers
-            </span>
-            {servers.map((sv, i) => (
-              <button
-                key={sv.key}
-                onClick={() => switchServer(i)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  i === active
-                    ? "bg-gradient-to-r from-accent to-accent-2 text-white shadow-glow"
-                    : "border border-line bg-surface text-white/70 hover:border-accent/40 hover:text-white"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${i === active ? "bg-white" : "bg-good"}`}
-                />
-                Server {i + 1}
-                <span className="opacity-70">{sv.label}</span>
-                <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">{sv.kind}</span>
-                {sv.quality && (
-                  <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
-                    {sv.quality}
-                  </span>
-                )}
-              </button>
-            ))}
-          </>
-        )}
-        <span className="ml-auto hidden text-[11px] text-white/25 sm:block">
-          space play · ← → seek · f full · m mute{nextHref ? " · n next" : ""}
-        </span>
-      </div>
+      <p className="mt-2 hidden px-4 text-[11px] text-white/25 sm:block sm:px-0">
+        space play · ← → seek 10s · f fullscreen · m mute{nextHref ? " · n next episode" : ""}
+      </p>
     </div>
   );
 }

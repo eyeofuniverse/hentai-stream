@@ -234,6 +234,10 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
                               alt=""
                               className="h-full w-full object-cover"
                               loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+                              }}
                             />
                           )}
                         </span>

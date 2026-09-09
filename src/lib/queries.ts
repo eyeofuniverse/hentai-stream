@@ -88,6 +88,8 @@ function getSeriesInner(slug: string) {
           isCensored: true,
           airedAt: true,
           createdAt: true,
+          bunnyGuid: true,
+          bunnyStatus: true,
           _count: { select: { sources: { where: { status: "ACTIVE" } } } },
         },
       },
@@ -113,7 +115,12 @@ function getEpisodeInner(seriesSlug: string, number: number) {
           episodes: {
             where: { publish: "PUBLISHED" },
             orderBy: { number: "asc" },
-            select: { number: true, title: true },
+            select: {
+              number: true,
+              title: true,
+              bunnyGuid: true,
+              bunnyStatus: true,
+            },
           },
         },
       },

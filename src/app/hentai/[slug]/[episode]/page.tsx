@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEpisode } from "@/lib/queries";
 import { cover, thumb, thumbSet } from "@/lib/cloudinary";
-import { gradientFor } from "@/lib/gradient";
+import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { SmartImg } from "@/components/SmartImg";
 import { buildServers } from "@/lib/stream";
 import { SITE, SITE_NAME, episodeSeo, breadcrumbLd } from "@/lib/seo";
 import { WatchPlayer } from "@/components/WatchPlayer";
@@ -28,7 +29,9 @@ export async function generateMetadata({
   if (!ep) return { title: "Not found", robots: { index: false } };
 
   const { title, description } = episodeSeo(ep);
-  const img = thumb(ep.thumbUrl) ?? cover(ep.series.coverUrl);
+  // OG / social images must be publicly fetchable — Cloudinary, not the
+  // referer-locked Bunny CDN
+  const img = thumb(ep.series.coverUrl) ?? cover(ep.series.coverUrl);
   const canonical = `/hentai/${slug}/${ep.number}`;
 
   return {
@@ -69,13 +72,13 @@ export default async function WatchPage({
 
   const bunnyReady = ep.bunnyStatus === "ready" && !!ep.bunnyGuid;
   const servers = buildServers(ep.id, bunnyReady, ep.sources);
-  // poster + schema thumbnails: our own Cloudinary/MAL images only — never the
-  // Bunny CDN host (keeps it out of the page + reachable by crawlers)
-  const poster = thumb(ep.thumbUrl) ?? cover(ep.series.coverUrl);
+  const poster = bunnyReady
+    ? bunnyThumb(ep.bunnyGuid!)
+    : cover(ep.series.coverUrl);
 
   const { title: seoTitle, description, genres } = episodeSeo(ep);
   const canonical = `${SITE}/hentai/${slug}/${ep.number}`;
-  const thumbs = [thumb(ep.thumbUrl), cover(ep.series.coverUrl)].filter(
+  const thumbs = [thumb(ep.series.coverUrl), cover(ep.series.coverUrl)].filter(
     (x): x is string => !!x,
   );
 
@@ -215,22 +218,20 @@ export default async function WatchPage({
                 className="mt-6 flex items-center gap-3 rounded-xl border border-line bg-surface/60 p-3 transition hover:border-accent/40"
               >
                 <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-surface-2">
-                  {thumb(ep.series.coverUrl) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={thumb(ep.series.coverUrl)!}
-                      srcSet={thumbSet(ep.series.coverUrl) ?? undefined}
-                      sizes="128px"
-                      alt=""
-                      width={360}
-                      height={203}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full" style={{ backgroundImage: gradientFor(slug) }} />
-                  )}
+                  <SmartImg
+                    src={
+                      next.bunnyStatus === "ready" && next.bunnyGuid
+                        ? bunnyThumb(next.bunnyGuid)
+                        : thumb(ep.series.coverUrl)
+                    }
+                    fallback={thumb(ep.series.coverUrl)}
+                    seed={`${slug}-${next.number}`}
+                    srcSet={thumbSet(ep.series.coverUrl) ?? undefined}
+                    sizes="128px"
+                    width={360}
+                    height={203}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Up next</p>

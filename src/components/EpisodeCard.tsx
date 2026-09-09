@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { thumb, thumbSet, cover, THUMB_SIZES } from "@/lib/cloudinary";
-import { gradientFor } from "@/lib/gradient";
+import { thumb, thumbSet, THUMB_SIZES } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { SmartImg } from "@/components/SmartImg";
 
 export function EpisodeCard({
   ep,
@@ -8,13 +9,14 @@ export function EpisodeCard({
   ep: {
     number: number;
     title?: string | null;
-    thumbUrl?: string | null;
     runtimeSec?: number | null;
+    bunnyGuid?: string | null;
+    bunnyStatus?: string | null;
     series: { slug: string; title: string; coverUrl: string | null };
   };
 }) {
-  const rawId = ep.thumbUrl ?? ep.series.coverUrl;
-  const src = thumb(rawId) ?? cover(ep.series.coverUrl);
+  const hosted = ep.bunnyStatus === "ready" && ep.bunnyGuid;
+  const src = hosted ? bunnyThumb(ep.bunnyGuid!) : thumb(ep.series.coverUrl);
   const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
 
   return (
@@ -23,22 +25,16 @@ export function EpisodeCard({
       className="group block w-[230px] shrink-0 snap-start sm:w-[260px]"
     >
       <div className="relative aspect-video overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/5">
-        {src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src}
-            srcSet={thumbSet(rawId) ?? undefined}
-            sizes={THUMB_SIZES}
-            alt={ep.series.title}
-            width={360}
-            height={203}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="h-full w-full" style={{ backgroundImage: gradientFor(ep.series.slug) }} />
-        )}
+        <SmartImg
+          src={src}
+          fallback={thumb(ep.series.coverUrl)}
+          seed={`${ep.series.slug}-${ep.number}`}
+          srcSet={hosted ? undefined : thumbSet(ep.series.coverUrl) ?? undefined}
+          sizes={THUMB_SIZES}
+          width={360}
+          height={203}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+        />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
 

@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from "crypto";
-import { hlsUrl } from "@/lib/hosting/bunny";
 
 /**
- * Video source URLs are NEVER sent to the browser. The client gets an opaque
- * `/api/stream?e=<ep>&s=<src>&t=<hmac>` link; the route verifies the token,
- * confirms the source belongs to a published episode, and 302-redirects to the
- * real URL. Keeps third-party CDN links out of the page source.
+ * Source URLs are NEVER sent to the browser. The client gets an opaque
+ * `/api/stream?e=<ep>&s=<key>&t=<hmac>` link; the route verifies the token,
+ * confirms it belongs to a published episode, and 302-redirects to the real
+ * target (the Bunny player embed, or a mirror file). Nothing identifiable —
+ * no CDN host, no third-party domain — ever reaches the page.
  */
 const SECRET =
   process.env.STREAM_SECRET ||
@@ -14,30 +14,31 @@ const SECRET =
   process.env.DATABASE_URL ||
   "insecure-dev-secret-set-STREAM_SECRET";
 
-export function signStream(episodeId: string, sourceKey: string): string {
+const LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID ?? "";
+
+export function signStream(episodeId: string, key: string): string {
   return createHmac("sha256", SECRET)
-    .update(`${episodeId}:${sourceKey}`)
+    .update(`${episodeId}:${key}`)
     .digest("base64url")
     .slice(0, 24);
 }
 
-export function verifyStream(episodeId: string, sourceKey: string, token: string): boolean {
-  const want = Buffer.from(signStream(episodeId, sourceKey));
+export function verifyStream(episodeId: string, key: string, token: string): boolean {
+  const want = Buffer.from(signStream(episodeId, key));
   const got = Buffer.from(token);
   return want.length === got.length && timingSafeEqual(want, got);
 }
 
-export function streamPath(episodeId: string, sourceKey: string): string {
-  return `/api/stream?e=${episodeId}&s=${sourceKey}&t=${signStream(episodeId, sourceKey)}`;
+export function streamPath(episodeId: string, key: string): string {
+  return `/api/stream?e=${episodeId}&s=${key}&t=${signStream(episodeId, key)}`;
 }
 
 export type Server = {
   key: string;
-  label: string; // "HD", "SUB 1080p", …
   quality: string | null; // "1080p" | null
   kind: string; // SUB | DUB | RAW
-  type: "hls" | "file" | "iframe";
-  /** tokenised /api/stream URL — no real source URL client-side */
+  type: "bunny" | "hls" | "file" | "iframe";
+  /** tokenised /api/stream URL — resolves server-side, never a real URL */
   src: string;
 };
 
@@ -45,8 +46,6 @@ type SrcRow = {
   id: string;
   embedUrl: string;
   direct: boolean;
-  host: string;
-  hostName: string | null;
   kind: string;
   language: string;
   quality: string | null;
@@ -56,8 +55,9 @@ const qLabel = (q: string | null) =>
   q && q !== "UNKNOWN" ? q.replace(/^Q/, "") + "p" : null;
 
 /**
- * Build the client-safe server list. The Bunny copy (if ready) is first; up to a
- * few tokenised third-party fallbacks follow. Returns [] if nothing plays.
+ * Ordered playback list. The Bunny copy (our own player, designed in the Bunny
+ * dashboard) is first; tokenised mirrors follow for silent auto-failover. The
+ * client shows none of this — it just plays, falling through on error.
  */
 export function buildServers(
   episodeId: string,
@@ -69,10 +69,9 @@ export function buildServers(
   if (bunnyReady) {
     out.push({
       key: "bunny",
-      label: "HD",
       quality: "1080p",
       kind: "SUB",
-      type: "hls",
+      type: "bunny",
       src: streamPath(episodeId, "bunny"),
     });
   }
@@ -82,20 +81,21 @@ export function buildServers(
     if (/\?dt_embed=/.test(s.embedUrl)) continue; // un-embeddable player page
     out.push({
       key: s.id,
-      label:
-        s.host === "OTHER" ? s.hostName || "Mirror" : s.host[0] + s.host.slice(1).toLowerCase(),
       quality: qLabel(s.quality),
       kind: s.kind + (s.language && s.language !== "en" ? ` ${s.language.toUpperCase()}` : ""),
       type: s.direct ? "file" : "iframe",
       src: streamPath(episodeId, s.id),
     });
-    if (out.length >= 5) break;
+    if (out.length >= 6) break;
   }
 
   return out;
 }
 
-/** Resolve a stream key to the real URL — used only server-side by the route. */
-export function bunnyHls(guid: string): string {
-  return hlsUrl(guid);
+/* ── server-side only: resolve a key to its real target ── */
+
+/** Bunny Stream player embed — skinned in the Bunny dashboard (colours, logo,
+ *  no download button, watermark, …). */
+export function bunnyEmbed(guid: string): string {
+  return `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${guid}?autoplay=true&preload=true&responsive=true`;
 }

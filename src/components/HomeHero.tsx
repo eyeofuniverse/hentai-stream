@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { banner, bannerSet, cover, coverSet } from "@/lib/cloudinary";
-import { gradientFor } from "@/lib/gradient";
+import { SmartImg } from "@/components/SmartImg";
 
 export type HeroSeries = {
   slug: string;
@@ -40,24 +40,17 @@ export function HomeHero({ items }: { items: HeroSeries[] }) {
   return (
     <section className="relative isolate w-full overflow-hidden">
       <div className="relative h-[78vw] max-h-[600px] min-h-[420px] w-full">
-        {bg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={s.slug}
-            src={bg}
-            srcSet={bgSet ?? undefined}
-            sizes="100vw"
-            alt=""
-            width={1200}
-            height={450}
-            fetchPriority={first ? "high" : "auto"}
-            loading={first ? "eager" : "lazy"}
-            decoding="async"
-            className="absolute inset-0 h-full w-full animate-slow-zoom object-cover"
-          />
-        ) : (
-          <div className="absolute inset-0" style={{ backgroundImage: gradientFor(s.slug) }} />
-        )}
+        <SmartImg
+          key={s.slug}
+          src={bg}
+          seed={s.slug}
+          srcSet={bgSet ?? undefined}
+          sizes="100vw"
+          width={1200}
+          height={450}
+          eager={first}
+          className="absolute inset-0 h-full w-full animate-slow-zoom object-cover"
+        />
 
         <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/70 to-bg/20" />
         <div className="absolute inset-0 bg-gradient-to-r from-bg/95 via-bg/40 to-transparent" />
@@ -66,16 +59,14 @@ export function HomeHero({ items }: { items: HeroSeries[] }) {
           <div className="mx-auto flex max-w-content items-end gap-8 px-4 pb-10 sm:pb-14 lg:px-8">
             {poster && (
               <div className="hidden w-44 shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-white/10 lg:block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <SmartImg
                   src={poster}
+                  seed={s.slug}
                   srcSet={coverSet(s.coverUrl) ?? undefined}
                   sizes="176px"
                   alt={s.title}
                   width={300}
                   height={450}
-                  loading={first ? "eager" : "lazy"}
-                  decoding="async"
                   className="aspect-[2/3] w-full object-cover"
                 />
               </div>

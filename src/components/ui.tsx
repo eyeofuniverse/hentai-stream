@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { gradientFor } from "@/lib/gradient";
 import { coverSet, COVER_SIZES } from "@/lib/cloudinary";
+import { SmartImg } from "@/components/SmartImg";
 
 export function Pill({
   children,
@@ -81,17 +82,15 @@ export function Poster({
       className={`relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/5 ${className}`}
     >
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SmartImg
           src={src}
+          seed={seed}
           srcSet={coverSet(coverId) ?? undefined}
           sizes={COVER_SIZES}
           alt={title}
           width={300}
           height={450}
-          loading={priority ? "eager" : "lazy"}
-          decoding="async"
-          fetchPriority={priority ? "high" : "auto"}
+          eager={priority}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
       ) : (

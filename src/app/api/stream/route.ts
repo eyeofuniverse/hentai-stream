@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma, db } from "@/lib/db";
-import { verifyStream, bunnyHls } from "@/lib/stream";
+import { verifyStream, bunnyEmbed } from "@/lib/stream";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 // hosts we are willing to redirect to
 const ALLOW =
-  /(?:^|\.)(?:b-cdn\.net|hgasm\d?\.(?:com|net|org)|hstorage\.xyz|miohentai\.com)$/i;
+  /(?:^|\.)(?:mediadelivery\.net|b-cdn\.net|hgasm\d?\.(?:com|net|org)|hstorage\.xyz|miohentai\.com)$/i;
 
 export async function GET(req: Request) {
   const u = new URL(req.url);
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
         select: { bunnyGuid: true },
       }),
     ).catch(() => null);
-    if (ep?.bunnyGuid) realUrl = bunnyHls(ep.bunnyGuid);
+    if (ep?.bunnyGuid) realUrl = bunnyEmbed(ep.bunnyGuid);
   } else {
     const src = await db(() =>
       prisma.videoSource.findFirst({
