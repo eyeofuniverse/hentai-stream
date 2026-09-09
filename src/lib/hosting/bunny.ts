@@ -78,16 +78,55 @@ export function createVideo(title: string): Promise<BunnyVideo> {
   });
 }
 
-/** Ask Bunny to pull a source URL into an existing video. */
-export function fetchIntoVideo(
+/**
+ * Ask Bunny to pull a source URL into an existing video.
+ *
+ * Bunny answers a bad source with HTTP 422 and a JSON body like
+ * `{"success":false,"message":"Origin returned HTTP 404 (Not Found).","statusCode":422}`.
+ * That is a real answer, not a transport error — so we return the body instead
+ * of throwing, and the caller decides (e.g. mark the source DEAD on a 404).
+ * Only genuine transport failures (429 / 5xx / network) throw, so the retry
+ * still helps there.
+ */
+export async function fetchIntoVideo(
   guid: string,
   url: string,
   headers?: Record<string, string>,
 ): Promise<{ success: boolean; message: string; statusCode: number }> {
-  return call("/videos/" + guid + "/fetch", {
-    method: "POST",
-    body: JSON.stringify({ url, ...(headers ? { headers } : {}) }),
-  });
+  const retries = 3;
+  let lastErr: unknown;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(`${API}/videos/${guid}/fetch`, {
+        method: "POST",
+        signal: AbortSignal.timeout(30_000),
+        headers: {
+          AccessKey: API_KEY,
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ url, ...(headers ? { headers } : {}) }),
+      });
+      if (res.status === 429 || res.status >= 500) {
+        throw new Error(`Bunny ${res.status}`);
+      }
+      const text = await res.text();
+      const body = (text ? JSON.parse(text) : {}) as Partial<{
+        success: boolean;
+        message: string;
+        statusCode: number;
+      }>;
+      return {
+        success: body.success ?? res.ok,
+        message: body.message ?? (res.ok ? "" : `HTTP ${res.status}`),
+        statusCode: body.statusCode ?? res.status,
+      };
+    } catch (e) {
+      lastErr = e;
+      if (i < retries) await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+    }
+  }
+  throw lastErr;
 }
 
 export function getVideo(guid: string): Promise<BunnyVideo> {

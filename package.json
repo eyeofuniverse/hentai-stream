@@ -12,6 +12,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx --env-file=.env prisma/seed.ts",
     "metadata:backfill": "tsx --env-file=.env scripts/backfill.mts",
+    "metadata:sync": "tsx --env-file=.env scripts/metadata-sync.mts",
     "backfill:censored": "tsx --env-file=.env scripts/backfill-censored.mts",
     "scrape": "tsx --env-file=.env scripts/scrape.mts",
     "enrich": "tsx --env-file=.env scripts/enrich.mts",

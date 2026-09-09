@@ -1,21 +1,47 @@
 name: Weekly metadata sync
 
-# Pulls new hentai releases from MyAnimeList into the catalogue.
-# Needs two repo secrets:
-#   SITE_URL      e.g. https://yourdomain.com   (no trailing slash)
-#   CRON_SECRET   the same value as in the app env
+# Pulls new hentai releases from MyAnimeList into the catalogue — prev, current
+# and next anime season. Runs straight against the DB on a US runner (like the
+# other pipeline jobs), so there's no SITE_URL / redirect / serverless-timeout
+# fragility. Idempotent (every title is an upsert).
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID
 
 on:
   schedule:
     - cron: "17 4 * * 1" # Mondays 04:17 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      back:
+        description: "extra seasons to walk back for gap-fill (blank = 0)"
+        required: false
+        default: ""
+
+concurrency:
+  group: metadata-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - name: Trigger metadata sync
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
         run: |
-          curl -sS --fail-with-body -m 320 \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.SITE_URL }}/api/cron/metadata?mode=weekly" | tee result.json
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Sync latest seasons
+        run: |
+          ARGS=""
+          [ -n "${{ github.event.inputs.back }}" ] && ARGS="--back=${{ github.event.inputs.back }}"
+          npm run metadata:sync -- $ARGS

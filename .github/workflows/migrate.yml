@@ -64,6 +64,10 @@ jobs:
           ARGS=""
           [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
           [ -n "${{ github.event.inputs.site }}" ] && ARGS="$ARGS --site=${{ github.event.inputs.site }}"
-          [ "${{ github.event.inputs.retry }}" = "true" ] && ARGS="$ARGS --retry"
+          # scheduled runs also re-queue failed episodes — a dead source URL is
+          # marked DEAD on the first 404 so this no longer loops on rotted links
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event.inputs.retry }}" = "true" ]; then
+            ARGS="$ARGS --retry"
+          fi
           [ "${{ github.event.inputs.poll_only }}" = "true" ] && ARGS="$ARGS --poll-only"
           npm run migrate -- $ARGS

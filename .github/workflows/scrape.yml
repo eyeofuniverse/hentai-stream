@@ -62,12 +62,33 @@ jobs:
         run: |
           SITE="${{ github.event.inputs.site || 'hentaigasm' }}"
           MODE="${{ github.event.inputs.mode || 'crawl' }}"
+          REFETCH="${{ github.event.inputs.refetch }}"
+
+          # scheduled runs rotate the sources so every one gets picked up, and
+          # Sunday does a refetch pass to refresh rotated CDN URLs (watchhentai's
+          # hstorage links expire) + a topup for series still missing video
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "$(date -u +%u)" in
+              1|3|5) SITE=hentaigasm;  MODE=crawl ;;
+              2|4|6) SITE=watchhentai; MODE=crawl ;;
+              7)     SITE=watchhentai; MODE=crawl; REFETCH=true ;;
+            esac
+          fi
+
           ARGS="--site=$SITE --mode=$MODE"
           [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
-          [ "${{ github.event.inputs.refetch }}" = "true" ] && ARGS="$ARGS --refetch"
+          [ "$REFETCH" = "true" ] && ARGS="$ARGS --refetch"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
           echo "npm run scrape -- $ARGS"
           npm run scrape -- $ARGS
+
+      - name: Topup — series still missing video (scheduled Sundays)
+        if: ${{ github.event_name == 'schedule' }}
+        continue-on-error: true
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then
+            npm run scrape -- --site=hentaigasm --mode=topup --limit=250
+          fi
 
       - name: Verify sources
         if: ${{ github.event.inputs.dry_run != 'true' }}
