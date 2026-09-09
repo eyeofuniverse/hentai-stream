@@ -43,6 +43,10 @@ export const metadata: Metadata = {
     description: DESC,
   },
   twitter: { card: "summary_large_image", title: SITE_NAME, description: DESC },
+  other: {
+    // ExoClick site verification
+    "6a97888e-site-verification": "a783017d136a5ea8d282872b8d96abb9",
+  },
 };
 
 export default function RootLayout({
