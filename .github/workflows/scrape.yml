@@ -14,7 +14,7 @@ on:
         required: true
         default: "hentaigasm"
       mode:
-        description: "crawl (whole site) | topup (our series missing video)"
+        description: "crawl (whole site) | topup (our series missing video) | repair (re-fetch dead source URLs)"
         required: true
         default: "crawl"
       limit:
@@ -80,11 +80,6 @@ jobs:
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
           echo "npm run scrape -- $ARGS"
           npm run scrape -- $ARGS
-
-      - name: Topup — fill series still missing video (scheduled)
-        if: ${{ github.event_name == 'schedule' && github.event.inputs.dry_run != 'true' }}
-        continue-on-error: true
-        run: npm run scrape -- --site=hentaigasm --mode=topup --limit=150
 
       - name: Verify sources
         if: ${{ always() && github.event.inputs.dry_run != 'true' }}

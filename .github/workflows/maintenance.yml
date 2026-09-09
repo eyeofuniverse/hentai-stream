@@ -1,0 +1,83 @@
+name: Catalogue maintenance
+
+# The light, bounded housekeeping that keeps the catalogue healthy — separate
+# from the heavy site crawl (scrape.yml) so neither blocks the other:
+#   drain     — re-resolve the /admin/unmatched queue (map or bare-create)
+#   topup     — find video for series that still have none (rotates source site)
+#   repair    — re-fetch fresh URLs for episodes whose only sources went DEAD
+#   verify    — re-check playability, publish/unpublish
+#   migrate   — queue newly-playable episodes into Bunny
+#   recompute — weeklyViews / bayesianRating / trendingScore
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*
+
+on:
+  schedule:
+    - cron: "30 13 * * *" # daily 13:30 UTC (well clear of the 03:40 crawl)
+  workflow_dispatch:
+    inputs:
+      skip_topup:
+        type: boolean
+        default: false
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
+            echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
+            echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+          } > .env
+      - run: npx prisma generate
+
+      - name: Drain unmatched queue
+        continue-on-error: true
+        run: npm run unmatched:drain -- --limit=150
+
+      - name: Topup — series still missing video
+        if: ${{ github.event.inputs.skip_topup != 'true' }}
+        continue-on-error: true
+        run: |
+          case "$(date -u +%u)" in
+            2|4|6) SITE=watchhentai ;;
+            *)     SITE=hentaigasm ;;
+          esac
+          npm run scrape -- --site=$SITE --mode=topup --limit=200
+
+      - name: Repair — re-fetch DEAD source URLs
+        continue-on-error: true
+        run: |
+          case "$(date -u +%u)" in
+            2|4|6) SITE=watchhentai ;;
+            *)     SITE=hentaigasm ;;
+          esac
+          npm run scrape -- --site=$SITE --mode=repair --limit=150
+
+      - name: Verify
+        continue-on-error: true
+        run: npm run verify
+
+      - name: Migrate playable episodes into Bunny
+        continue-on-error: true
+        run: npm run migrate -- --retry
+
+      - name: Recompute derived metrics
+        continue-on-error: true
+        run: npm run recompute

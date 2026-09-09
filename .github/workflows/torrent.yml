@@ -35,7 +35,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "0 6 * * 0" # Sundays 06:00 UTC — fill gaps, auto-publish
+    - cron: "0 6 * * 0,3" # Sun + Wed 06:00 UTC — fill gaps, auto-publish
 
 concurrency:
   group: torrent-grab
@@ -67,7 +67,7 @@ jobs:
         run: |
           DIR="$RUNNER_TEMP/torrents"
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            npm run torrent -- --dir="$DIR" --wanted --limit=5 --min-seeders=3 --max-size=6 --no-review
+            npm run torrent -- --dir="$DIR" --wanted --limit=12 --min-seeders=3 --max-size=6 --no-review
           else
             ARGS="--dir=$DIR"
             if [ -n "${{ github.event.inputs.series }}" ]; then

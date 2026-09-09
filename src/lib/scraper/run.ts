@@ -11,7 +11,13 @@ import { normQuality, type EpisodeRef } from "./types";
 
 export interface ScrapeOptions {
   site: string;
-  mode: "crawl" | "topup";
+  /**
+   * crawl  — walk the whole source site, ingest everything new
+   * topup  — for our series that are missing video, search the site by title
+   * repair — for episodes whose only sources are DEAD (a rotated CDN link),
+   *          re-fetch fresh sources by title
+   */
+  mode: "crawl" | "topup" | "repair";
   limit?: number;
   dryRun?: boolean;
   /** re-fetch sources even for episodes we already have from this site */
@@ -52,6 +58,8 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   // the scrape just records sources. --publish-live forces the old behaviour.
   const publishLive = opts.publishLive ?? false;
   const create = (opts.create ?? opts.mode === "crawl") && !opts.dryRun;
+  // repair always re-fetches — the point is to replace a dead source URL
+  const forceRefetch = !!opts.refetch || opts.mode === "repair";
 
   const s: ScrapeSummary = {
     site: opts.site,
@@ -132,7 +140,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
     }
 
     // already have this episode from this site? skip the fetch.
-    if (!opts.refetch) {
+    if (!forceRefetch) {
       const have = await db(() =>
         prisma.videoSource.count({
           where: {
@@ -204,21 +212,41 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
     } else {
       const targets = await db(() =>
         prisma.series.findMany({
-          where: {
-            contentWarnings: { isEmpty: true },
-            OR: [
-              // never got any video
-              { publish: "DRAFT", episodes: { none: { sources: { some: {} } } } },
-              // published but has episode(s) still missing a source (gap-fill)
-              { publish: "PUBLISHED", episodes: { some: { sources: { none: {} } } } },
-            ],
-          },
+          where:
+            opts.mode === "repair"
+              ? {
+                  // every source on the episode is unusable and at least one is
+                  // DEAD (a rotated CDN link) — worth re-fetching a fresh URL
+                  episodes: {
+                    some: {
+                      AND: [
+                        { sources: { some: { status: "DEAD" } } },
+                        { sources: { none: { status: "ACTIVE" } } },
+                        {
+                          OR: [
+                            { bunnyStatus: null },
+                            { bunnyStatus: { not: "ready" } },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                }
+              : {
+                  contentWarnings: { isEmpty: true },
+                  OR: [
+                    // never got any video
+                    { publish: "DRAFT", episodes: { none: { sources: { some: {} } } } },
+                    // published but has episode(s) still missing a source (gap-fill)
+                    { publish: "PUBLISHED", episodes: { some: { sources: { none: {} } } } },
+                  ],
+                },
           orderBy: { bayesianRating: "desc" },
           take: opts.limit ?? 300,
           select: { title: true, titleRomaji: true, titleEnglish: true },
         }),
       );
-      log(`topup: ${targets.length} series missing video`);
+      log(`${opts.mode}: ${targets.length} target series`);
       for (const t of targets) {
         const q = t.titleEnglish || t.title || t.titleRomaji || "";
         try {
@@ -229,7 +257,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
       }
     }
   } catch (e) {
-    s.errors.push(`crawl: ${(e as Error).message}`);
+    s.errors.push(`${opts.mode}: ${(e as Error).message}`);
   }
 
   s.tookMs = Date.now() - started;

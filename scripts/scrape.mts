@@ -5,9 +5,12 @@
  *   npm run scrape -- --site=watchhentai --mode=crawl --limit=30 --dry-run
  *   npm run scrape -- --site=watchhentai --mode=crawl
  *   npm run scrape -- --site=watchhentai --mode=topup --limit=200
+ *   npm run scrape -- --site=watchhentai --mode=repair --limit=150
  *
+ * modes: crawl (whole site) | topup (our series with no video) |
+ *        repair (re-fetch episodes whose only sources went DEAD)
  * --dry-run    : match + report, write nothing
- * --limit N    : stop after N episode records (crawl) / N target series (topup)
+ * --limit N    : stop after N episode records (crawl) / N target series (topup/repair)
  * --gap N      : ms between requests to the site (default 1500)
  * --no-create  : don't create bare series for titles missing from catalogue+MAL
  *                (crawl auto-creates by default; MAL search always runs)
@@ -25,7 +28,7 @@ const flag = (name: string) => {
 };
 
 const site = flag("site");
-const mode = (flag("mode") ?? "crawl") as "crawl" | "topup";
+const mode = (flag("mode") ?? "crawl") as "crawl" | "topup" | "repair";
 if (!site) {
   console.error("--site is required (watchhentai | hentaigasm | miohentai | hentaila)");
   process.exit(1);
