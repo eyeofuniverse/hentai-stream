@@ -125,7 +125,7 @@ function parsePost(html: string, url: string): EpisodeRef | null {
     episodeUrl: url,
     thumbUrl: poster || null,
     airedAt: $("meta[property='article:published_time']").attr("content") ?? null,
-    seriesGenres: genresFrom($),
+    seriesGenres: genresFrom($, "a.my-tag[rel='tag'], a[rel='tag'][href*='/tag/']"),
     sources: [
       {
         embedUrl: src,

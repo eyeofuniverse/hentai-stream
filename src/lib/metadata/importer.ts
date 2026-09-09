@@ -2,6 +2,7 @@ import type { Prisma, TagCategory } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
 import { TAG_DICTIONARY } from "@/lib/metadata/tag-dictionary";
 import { extractTags, flagsMinor, slugify, matchers } from "@/lib/metadata/tags";
+import { isFeaturedSlug } from "@/lib/metadata/tag-canonical";
 import {
   getSeason,
   isHentai,
@@ -71,6 +72,7 @@ async function ensureTag(slug: string, name: string, category: TagCategory) {
         slug,
         name,
         category,
+        featured: isFeaturedSlug(slug),
         bodyMd: LANDING_BY_SLUG.get(slug)
           ? `${name} hentai — every ${name.toLowerCase()} title on the site, newest first.`
           : null,
@@ -184,7 +186,7 @@ export async function importSeries(
     const m = MAL_GENRE_MAP[g];
     if (m) tagSlugs.add(slugify(m.name));
   }
-  for (const s of extractTags(`${n.title}\n${n.synopsis ?? ""}`, matchers())) {
+  for (const s of extractTags(n.title, n.synopsis, matchers())) {
     tagSlugs.add(s);
   }
   if (minor) tagSlugs.add(slugify("Rape")); // conservative surface

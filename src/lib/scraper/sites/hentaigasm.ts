@@ -142,7 +142,7 @@ function parsePost(html: string, url: string): EpisodeRef | null {
     thumbUrl: image || null,
     airedAt:
       $("meta[property='article:published_time']").attr("content") ?? null,
-    seriesGenres: genresFrom($),
+    seriesGenres: genresFrom($, "a[rel='tag'][href*='/genre/']"),
   };
 }
 

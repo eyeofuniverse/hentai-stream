@@ -38,16 +38,29 @@ export interface EpisodeRef {
   seriesGenres?: string[];
 }
 
-/** Pull the genre/tag link texts out of a source-site page. Handles both the
- *  DooPlay `.sgeneros` block and plain WordPress `rel="tag"` links. */
-export function genresFrom($: CheerioAPI): string[] {
+/**
+ * Pull the per-title genre link texts out of a source-site page, given the
+ * adapter's own scoped selector. Defensively skips nav / sidebar / widget /
+ * tag-cloud / studio contexts and strips trailing "(123 items)" counts.
+ */
+export function genresFrom($: CheerioAPI, selector: string): string[] {
   const out = new Set<string>();
-  $(".sgeneros a, .genres a, .generos a, a[rel='tag'], a[href*='/genre/'], a[href*='/genres/'], a[href*='/tag/']").each(
-    (_, el) => {
-      const t = $(el).text().trim();
-      if (t && t.length <= 40 && !/^https?:/i.test(t)) out.add(t);
-    },
-  );
+  $(selector).each((_, el) => {
+    const $el = $(el);
+    if (
+      $el.closest(
+        "nav, header, footer, aside, .widget, .widgets, #sidebar, .sidebar, .tagcloud, .tag-cloud, .menu, .sub-menu, .related, .owl-carousel",
+      ).length
+    )
+      return;
+    if ($el.hasClass("tag-cloud-link") || $el.hasClass("studio-link")) return;
+    const t = $el
+      .text()
+      .trim()
+      .replace(/\s*[·|,]?\s*\(?\d[\d,]*\s*(items?|titles?)?\)?\s*$/i, "")
+      .trim();
+    if (t && t.length >= 2 && t.length <= 40 && !/^https?:/i.test(t)) out.add(t);
+  });
   return [...out].slice(0, 25);
 }
 

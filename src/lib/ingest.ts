@@ -6,7 +6,7 @@ import {
   type SourceStatus,
 } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
-import { canonicalTag } from "@/lib/metadata/tag-canonical";
+import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
 
 /* ───────────────────────────── title matching ───────────────────────────── */
 
@@ -210,7 +210,12 @@ export async function attachSeriesGenres(
       const t = await prisma.tag.upsert({
         where: { slug: c.slug },
         update: {},
-        create: { slug: c.slug, name: c.name, category: c.category },
+        create: {
+          slug: c.slug,
+          name: c.name,
+          category: c.category,
+          featured: isFeaturedSlug(c.slug),
+        },
         select: { id: true },
       });
       ids.push(t.id);

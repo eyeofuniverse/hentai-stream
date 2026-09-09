@@ -34,6 +34,23 @@ export function categorize(name: string): TagCategory {
 
 /* ─────────────────────────── canonicalisation ─────────────────────────── */
 
+/**
+ * Not genres — censorship status, language, release state, quality, and generic
+ * junk that source sites list alongside real genres. `canonicalTag` drops these.
+ */
+const IGNORE = new Set(
+  [
+    "censored", "uncensored", "sub", "subbed", "subtitled", "dub", "dubbed",
+    "raw", "english", "english-sub", "english-subbed", "eng-sub", "hentai",
+    "anime", "ongoing", "completed", "complete", "finished", "upcoming",
+    "airing", "ended", "hd", "sd", "fhd", "uhd", "4k", "1080p", "720p", "480p",
+    "new", "latest", "popular", "trending", "featured", "recommended",
+    "uncategorized", "uncategorised", "other", "others", "misc", "general",
+    "download", "downloads", "stream", "streaming", "watch", "watch-online",
+    "no-genre", "none", "n-a", "tba", "unknown",
+  ],
+);
+
 /** alias slug → the dictionary tag it should collapse onto */
 const ALIAS = new Map<string, CanonicalTag>();
 for (const t of TAG_DICTIONARY) {
@@ -49,11 +66,6 @@ for (const t of TAG_DICTIONARY) {
   }
 }
 
-/** If this slug is a known dictionary alias, the canonical tag it maps to. */
-export function aliasToCanonical(slug: string): CanonicalTag | null {
-  return ALIAS.get(slug) ?? null;
-}
-
 /**
  * Resolve any raw tag string to the tag we should actually store. Dictionary
  * names and synonyms collapse onto one canonical tag; an unknown tag keeps its
@@ -61,9 +73,19 @@ export function aliasToCanonical(slug: string): CanonicalTag | null {
  */
 export function canonicalTag(raw: string): CanonicalTag | null {
   const s = slugify(raw.trim());
-  if (s.length < 2) return null;
-  const hit = ALIAS.get(s);
-  if (hit) return hit;
+  if (s.length < 2 || IGNORE.has(s)) return null;
+
+  // exact, then a couple of cheap singular forms ("maids"→"maid",
+  // "office-ladies"→"office-lady", "demons"→"demon")
+  const forms = [s, s.replace(/ies$/, "y"), s.replace(/s$/, "")].filter(
+    (f) => f.length >= 4,
+  );
+  for (const f of forms) {
+    if (IGNORE.has(f)) return null;
+    const hit = ALIAS.get(f);
+    if (hit) return hit;
+  }
+
   return {
     slug: s,
     name: raw.trim().replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -86,3 +108,11 @@ export const FEATURED_GENRE_SLUGS = [
   "futanari", "tentacles", "bondage", "femdom", "group", "ugly-bastard",
   "pregnant", "3d", "rape",
 ];
+
+const FEATURED_SET = new Set(FEATURED_GENRE_SLUGS);
+
+/** Is this tag slug in the curated homepage-genre set (the default for the
+ *  `featured` flag when a tag is first created)? */
+export function isFeaturedSlug(slug: string): boolean {
+  return FEATURED_SET.has(slug);
+}

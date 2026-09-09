@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import slugify from "slugify";
 import { TAG_DICTIONARY } from "../src/lib/metadata/tag-dictionary";
+import { isFeaturedSlug } from "../src/lib/metadata/tag-canonical";
 
 const prisma = new PrismaClient();
 const slug = (s: string) => slugify(s, { lower: true, strict: true });
@@ -55,7 +56,7 @@ async function main() {
         slug: s,
         category: t.category,
         synonyms: t.synonyms ?? [],
-        hideFromDefault: t.category === "CONTENT_WARNING",
+        featured: isFeaturedSlug(s),
         coverUrl: t.landing ? `https://picsum.photos/seed/genre-${s}/600/240` : null,
         bodyMd: t.landing
           ? `${t.name} hentai — every ${t.name.toLowerCase()} title on the site, newest first. Replace this in /admin with a real intro paragraph.`

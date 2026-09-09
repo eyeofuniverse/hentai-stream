@@ -1,6 +1,6 @@
 import { prisma, db } from "@/lib/db";
 import { slugify } from "@/lib/metadata/tags";
-import { canonicalTag } from "@/lib/metadata/tag-canonical";
+import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
 import type { EnrichResult } from "./types";
 
 export interface ApplyStats {
@@ -114,7 +114,12 @@ export async function applyEnrichment(
         prisma.tag.upsert({
           where: { slug: canon.slug },
           update: {},
-          create: { slug: canon.slug, name: canon.name, category: canon.category },
+          create: {
+            slug: canon.slug,
+            name: canon.name,
+            category: canon.category,
+            featured: isFeaturedSlug(canon.slug),
+          },
           select: { id: true },
         }),
       );

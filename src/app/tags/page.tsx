@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma, db } from "@/lib/db";
-import { FEATURED_GENRE_SLUGS } from "@/lib/metadata/tag-canonical";
 import { gradientFor } from "@/lib/gradient";
 
 export const revalidate = 600;
@@ -15,7 +14,13 @@ function getTags() {
     prisma.tag.findMany({
       where: { seriesCount: { gt: 0 } },
       orderBy: [{ category: "asc" }, { name: "asc" }],
-      select: { slug: true, name: true, category: true, seriesCount: true },
+      select: {
+        slug: true,
+        name: true,
+        category: true,
+        seriesCount: true,
+        featured: true,
+      },
     }),
   );
 }
@@ -33,10 +38,8 @@ export default async function TagsPage() {
     () => [] as Awaited<ReturnType<typeof getTags>>,
   );
 
-  const featured = FEATURED_GENRE_SLUGS.map((s) =>
-    tags.find((t) => t.slug === s),
-  )
-    .filter((t): t is (typeof tags)[number] => !!t)
+  const featured = tags
+    .filter((t) => t.featured)
     .sort((a, b) => b.seriesCount - a.seriesCount);
 
   return (

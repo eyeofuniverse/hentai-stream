@@ -12,26 +12,41 @@ export function matchers(dbTags?: Matchable[]): Matchable[] {
   }));
 }
 
+const LANDING_SLUGS = new Set(
+  TAG_DICTIONARY.filter((t) => t.landing).map((t) => slugify(t.name)),
+);
+
+const clean = (s: string) =>
+  ` ${s.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, " ").replace(/\s+/g, " ")} `;
+
+function phraseHits(hay: string, t: Matchable): boolean {
+  for (const p of [t.name, ...t.synonyms].map((x) => x.toLowerCase().trim())) {
+    if (p.length < 3) continue;
+    const esc = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(?:^|[^\\p{L}])${esc}(?:$|[^\\p{L}])`, "u").test(hay)) return true;
+  }
+  return false;
+}
+
 /**
- * Keyword-extract tag slugs from a title + synopsis. Each phrase is matched on
- * word boundaries, case-insensitively. Conservative — a phrase must be ≥ 3 chars
- * and appear as a whole word/phrase.
+ * Keyword-extract tag slugs from a title + synopsis.
+ *   - a match in the **title** counts for any tag (strong signal)
+ *   - a match in the **synopsis** only counts for a curated `landing` tag —
+ *     niche fetish tags need a real source (scraper genres / enrich), not prose
+ * Phrases match on word boundaries, case-insensitively, ≥ 3 chars.
  */
-export function extractTags(text: string, tagMatchers: Matchable[]): string[] {
-  const hay = ` ${text.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, " ").replace(/\s+/g, " ")} `;
+export function extractTags(
+  title: string,
+  synopsis: string | null,
+  tagMatchers: Matchable[],
+): string[] {
+  const titleHay = clean(title);
+  const synHay = clean(synopsis ?? "");
   const hits = new Set<string>();
 
   for (const t of tagMatchers) {
-    const phrases = [t.name, ...t.synonyms].map((p) => p.toLowerCase().trim());
-    for (const p of phrases) {
-      if (p.length < 3) continue;
-      const esc = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(`(?:^|[^\\p{L}])${esc}(?:$|[^\\p{L}])`, "u");
-      if (re.test(hay)) {
-        hits.add(t.slug);
-        break;
-      }
-    }
+    if (phraseHits(titleHay, t)) hits.add(t.slug);
+    else if (LANDING_SLUGS.has(t.slug) && phraseHits(synHay, t)) hits.add(t.slug);
   }
   return [...hits];
 }

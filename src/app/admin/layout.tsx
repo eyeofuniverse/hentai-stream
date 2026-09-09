@@ -39,6 +39,7 @@ export default async function AdminLayout({
     { href: "/admin/review", label: "Review queue", badge: flagged + spotCheck || undefined, tone: "pink" },
     { href: "/admin/unmatched", label: "Unmatched", badge: unmatched || undefined, tone: "amber" },
     { href: "/admin/search", label: "Search" },
+    { href: "/admin/tags", label: "Tags" },
     { href: "/admin/metadata", label: "Metadata" },
     { href: "/admin/reports", label: "Reports", badge: openReports || undefined, tone: "red" },
   ];

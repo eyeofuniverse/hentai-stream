@@ -142,5 +142,10 @@ function parseSeries(html: string, url: string) {
     seen.add(num);
     episodes.push({ number: num, url: href.split("?")[0] });
   });
-  return { title, year, episodes, genres: genresFrom($) };
+  return {
+    title,
+    year,
+    episodes,
+    genres: genresFrom($, ".sgeneros a, .genres a[rel='tag']"),
+  };
 }

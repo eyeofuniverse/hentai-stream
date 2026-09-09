@@ -16,7 +16,11 @@
 import { writeFileSync } from "node:fs";
 import { Prisma } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
-import { aliasToCanonical, categorize } from "@/lib/metadata/tag-canonical";
+import {
+  canonicalTag,
+  categorize,
+  FEATURED_GENRE_SLUGS,
+} from "@/lib/metadata/tag-canonical";
 import { recountTaxonomy } from "@/lib/metadata/importer";
 
 const DRY = process.argv.includes("--dry");
@@ -31,16 +35,18 @@ async function main() {
 
   type Merge = { from: (typeof tags)[number]; toSlug: string; toName: string; toCat: string };
   const merges: Merge[] = [];
+  const merged = new Set<string>();
   for (const t of tags) {
-    const canon = aliasToCanonical(t.slug);
+    const canon = canonicalTag(t.name);
     if (canon && canon.slug !== t.slug) {
       merges.push({ from: t, toSlug: canon.slug, toName: canon.name, toCat: canon.category });
+      merged.add(t.slug);
     }
   }
 
   const recat: { slug: string; from: string; to: string }[] = [];
   for (const t of tags) {
-    if (aliasToCanonical(t.slug)) continue;
+    if (merged.has(t.slug)) continue;
     const want = categorize(t.name);
     if (want !== t.category) recat.push({ slug: t.slug, from: t.category, to: want });
   }
@@ -105,6 +111,14 @@ async function main() {
 
   await db(() =>
     prisma.tag.updateMany({ where: { hideFromDefault: true }, data: { hideFromDefault: false } }),
+  );
+
+  // seed the curated featured set (admin can toggle individually afterwards)
+  await db(() =>
+    prisma.tag.updateMany({
+      where: { slug: { in: FEATURED_GENRE_SLUGS } },
+      data: { featured: true },
+    }),
   );
 
   await recountTaxonomy();

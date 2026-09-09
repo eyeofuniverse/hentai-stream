@@ -253,6 +253,8 @@ model Tag {
   seoDescription String?
   coverUrl       String?
   hideFromDefault Boolean    @default(false)
+  /// promoted on the homepage genre grid + genre nav (curated subset)
+  featured       Boolean     @default(false)
   seriesCount    Int         @default(0)
   createdAt      DateTime    @default(now())
   updatedAt DateTime @default(now()) @updatedAt

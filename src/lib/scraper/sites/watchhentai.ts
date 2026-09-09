@@ -162,7 +162,7 @@ function parseSeries(html: string, url: string) {
     episodes.push({ number: num, url: href });
   });
 
-  return { title, year, episodes, genres: genresFrom($) };
+  return { title, year, episodes, genres: genresFrom($, ".sgeneros a") };
 }
 
 /** AJAX response is JSON { embed_url } where embed_url is a bare URL or an
