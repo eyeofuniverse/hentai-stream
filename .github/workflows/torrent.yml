@@ -1,0 +1,72 @@
+name: Grab from torrent
+
+# Downloads missing episodes from sukebei.nyaa.si, uploads them to Bunny, and
+# holds them in the review queue (they never auto-publish). Manual only — this
+# is a reviewed batch tool, not a firehose.
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_*, MAL_CLIENT_ID
+
+on:
+  workflow_dispatch:
+    inputs:
+      series:
+        description: "one series slug (blank = use the wanted list)"
+        required: false
+        default: ""
+      limit:
+        description: "how many series from the wanted list"
+        required: false
+        default: "3"
+      min_seeders:
+        description: "skip torrents below this seeder count"
+        required: false
+        default: "2"
+      max_size:
+        description: "skip torrents bigger than this (GiB)"
+        required: false
+        default: "8"
+      dry_run:
+        description: "search + report only, download nothing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: torrent-grab
+  cancel-in-progress: false
+
+jobs:
+  grab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y aria2
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
+            echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Grab
+        run: |
+          ARGS="--dir=$RUNNER_TEMP/torrents"
+          [ -n "${{ github.event.inputs.series }}" ] && ARGS="$ARGS --series=${{ github.event.inputs.series }}" || ARGS="$ARGS --wanted --limit=${{ github.event.inputs.limit }}"
+          [ -n "${{ github.event.inputs.min_seeders }}" ] && ARGS="$ARGS --min-seeders=${{ github.event.inputs.min_seeders }}"
+          [ -n "${{ github.event.inputs.max_size }}" ] && ARGS="$ARGS --max-size=${{ github.event.inputs.max_size }}"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          npm run torrent -- $ARGS
+      - name: Poll Bunny transcodes
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm run migrate -- --poll-only
+      - name: Clean scratch
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/torrents"

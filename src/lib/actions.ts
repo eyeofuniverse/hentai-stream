@@ -322,6 +322,50 @@ export async function setPublish(
   await bust(seriesId);
 }
 
+/** Torrent-grabbed episode passed spot-check → clear the hold and publish it. */
+export async function approveTorrentEpisode(id: string) {
+  await requireRole("ADMIN", "MODERATOR");
+  const e = await prisma.episode.update({
+    where: { id },
+    data: { needsReview: false },
+    select: { seriesId: true },
+  });
+  const { publishIfLive } = await import("@/lib/verify");
+  await publishIfLive(id).catch(() => {});
+  revalidatePath("/admin/review");
+  await bust(e.seriesId);
+}
+
+/** Torrent grab was wrong (bad episode / language / quality) → bin the Bunny
+ *  copy and leave the episode without a source. */
+export async function rejectTorrentEpisode(id: string) {
+  await requireRole("ADMIN", "MODERATOR");
+  const e = await prisma.episode.findUnique({
+    where: { id },
+    select: { seriesId: true, bunnyGuid: true },
+  });
+  if (e?.bunnyGuid) {
+    const { deleteVideo } = await import("@/lib/hosting/bunny");
+    await deleteVideo(e.bunnyGuid).catch(() => {});
+  }
+  await prisma.videoSource
+    .deleteMany({ where: { episodeId: id, sourceSite: "nyaa" } })
+    .catch(() => {});
+  await prisma.episode.update({
+    where: { id },
+    data: {
+      needsReview: false,
+      publish: "DRAFT",
+      bunnyGuid: null,
+      bunnyStatus: null,
+      bunnyError: null,
+      hostedAt: null,
+    },
+  });
+  revalidatePath("/admin/review");
+  if (e) await bust(e.seriesId);
+}
+
 export async function resolveReport(id: string, action: "RESOLVED" | "DISMISSED") {
   const me = await requireRole("ADMIN", "MODERATOR");
   await prisma.report.update({

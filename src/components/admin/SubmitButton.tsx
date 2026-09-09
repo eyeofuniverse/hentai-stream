@@ -11,6 +11,7 @@ export function SubmitButton({
   size = "md",
   className = "",
   confirm,
+  disabled,
 }: {
   children: React.ReactNode;
   pendingText?: string;
@@ -18,12 +19,13 @@ export function SubmitButton({
   size?: "sm" | "md";
   className?: string;
   confirm?: string;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       onClick={
         confirm
           ? (e) => {

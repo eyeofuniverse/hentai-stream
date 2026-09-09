@@ -18,3 +18,5 @@ next-env.d.ts
 scripts/.metadata-backfill-progress.json
 # tag-consolidation backups
 scripts/.tag-consolidate-*.json
+# torrent download scratch
+.torrents/

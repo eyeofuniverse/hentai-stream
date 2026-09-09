@@ -390,6 +390,10 @@ model Episode {
   bunnyError  String?
   hostedAt    DateTime?
 
+  /// grabbed from a torrent — held from auto-publish until a moderator approves
+  /// it in the review queue (wrong episode / language / quality happens)
+  needsReview Boolean @default(false)
+
   createdById String?  @db.Uuid
   createdBy   Profile? @relation("EpisodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -405,6 +409,7 @@ model Episode {
   @@unique([seriesId, number, part])
   @@index([publish, createdAt])
   @@index([seriesId, publish])
+  @@index([needsReview])
 }
 
 model VideoSource {
@@ -728,6 +733,21 @@ model HostRun {
   ready        Int       @default(0)
   failed       Int       @default(0)
   errors       String[]  @default([])
+
+  @@index([startedAt])
+}
+
+/// One run of the torrent grabber (nyaa → download → Bunny → review queue).
+model TorrentRun {
+  id             String    @id @default(cuid())
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  ok             Boolean   @default(false)
+  seriesSeen     Int       @default(0)
+  seriesGrabbed  Int       @default(0)
+  episodesAdded  Int       @default(0)
+  bytesDown      BigInt    @default(0)
+  errors         String[]  @default([])
 
   @@index([startedAt])
 }

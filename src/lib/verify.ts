@@ -81,6 +81,7 @@ export async function publishIfLive(episodeId: string): Promise<{
         publish: true,
         seriesId: true,
         bunnyStatus: true,
+        needsReview: true,
         series: { select: { publish: true, contentWarnings: true } },
         _count: { select: { sources: { where: { status: "ACTIVE" } } } },
       },
@@ -88,7 +89,8 @@ export async function publishIfLive(episodeId: string): Promise<{
   );
   if (!ep) return { episodePublished: false, seriesPublished: false };
 
-  const blocked = ep.series.contentWarnings.includes("possible-minor");
+  // possible-minor OR awaiting a torrent-grab spot-check → never auto-publish
+  const blocked = ep.series.contentWarnings.includes("possible-minor") || ep.needsReview;
   // playable = a ready hosted copy, or (transition) a live hotlinkable source
   const playable = ep.bunnyStatus === "ready" || ep._count.sources > 0;
   let episodePublished = false;

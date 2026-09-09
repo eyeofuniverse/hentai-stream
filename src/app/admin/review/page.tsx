@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { prisma, db } from "@/lib/db";
-import { reviewFlag, setSeriesPublish } from "@/lib/actions";
+import {
+  reviewFlag,
+  setSeriesPublish,
+  approveTorrentEpisode,
+  rejectTorrentEpisode,
+} from "@/lib/actions";
 import { confirmAutoPublish } from "@/lib/scraper-actions";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { HlsPreview } from "@/components/admin/HlsPreview";
 import {
   PageHeader,
   Card,
@@ -17,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false } };
 
 export default async function ReviewQueue() {
-  const [flagged, autoPub] = await db(() =>
+  const [flagged, autoPub, torrentEps] = await db(() =>
     Promise.all([
       prisma.series.findMany({
         where: {
@@ -49,6 +55,18 @@ export default async function ReviewQueue() {
           _count: { select: { episodes: { where: { publish: "PUBLISHED" } } } },
         },
       }),
+      prisma.episode.findMany({
+        where: { needsReview: true },
+        orderBy: [{ seriesId: "asc" }, { number: "asc" }],
+        take: 200,
+        select: {
+          id: true,
+          number: true,
+          bunnyStatus: true,
+          bunnyGuid: true,
+          series: { select: { title: true, id: true, year: true } },
+        },
+      }),
     ]),
   );
 
@@ -58,6 +76,55 @@ export default async function ReviewQueue() {
         title="Review queue"
         subtitle="Content flagged for a look, and series the scraper auto-published for a spot-check."
       />
+
+      <SectionTitle>
+        Torrent grabs — spot check{torrentEps.length > 0 ? ` (${torrentEps.length})` : ""}
+      </SectionTitle>
+      {torrentEps.length === 0 ? (
+        <EmptyState title="No torrent-grabbed episodes waiting." />
+      ) : (
+        <div className="mb-8 grid gap-2">
+          {torrentEps.map((e) => (
+            <Card key={e.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
+              <Badge tone="violet">torrent</Badge>
+              <Link
+                href={`/admin/series/${e.series.id}`}
+                className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
+              >
+                {e.series.title} · EP {e.number}
+              </Link>
+              <span className="text-xs text-white/35">
+                {e.series.year ?? "—"} · bunny {e.bunnyStatus ?? "?"}
+              </span>
+              {e.bunnyGuid && (
+                <HlsPreview guid={e.bunnyGuid} ready={e.bunnyStatus === "ready"} />
+              )}
+              <div className="flex gap-1.5">
+                <form action={approveTorrentEpisode.bind(null, e.id)}>
+                  <SubmitButton
+                    variant="secondary"
+                    size="sm"
+                    pendingText="…"
+                    disabled={e.bunnyStatus !== "ready"}
+                  >
+                    Approve &amp; publish
+                  </SubmitButton>
+                </form>
+                <form action={rejectTorrentEpisode.bind(null, e.id)}>
+                  <SubmitButton
+                    variant="danger"
+                    size="sm"
+                    confirm={`Bin the torrent grab for ${e.series.title} EP ${e.number}?`}
+                    pendingText="…"
+                  >
+                    Reject
+                  </SubmitButton>
+                </form>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <SectionTitle>
         Auto-published — spot check{autoPub.length > 0 ? ` (${autoPub.length})` : ""}

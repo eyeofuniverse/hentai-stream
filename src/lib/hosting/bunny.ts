@@ -94,6 +94,33 @@ export function getVideo(guid: string): Promise<BunnyVideo> {
   return call<BunnyVideo>("/videos/" + guid, { method: "GET" });
 }
 
+/**
+ * Upload a local video file into an existing Bunny video (PUT the raw bytes).
+ * Bunny transcodes to HLS afterwards, same as a remote fetch.
+ */
+export async function uploadVideoFile(
+  guid: string,
+  filePath: string,
+): Promise<void> {
+  const { createReadStream, statSync } = await import("node:fs");
+  const { Readable } = await import("node:stream");
+  const size = statSync(filePath).size;
+
+  const init: RequestInit & { duplex: "half" } = {
+    method: "PUT",
+    duplex: "half",
+    headers: {
+      AccessKey: API_KEY,
+      "content-type": "application/octet-stream",
+      "content-length": String(size),
+    },
+    body: Readable.toWeb(createReadStream(filePath)) as unknown as ReadableStream,
+    signal: AbortSignal.timeout(60 * 60_000), // 1h for a big file
+  };
+  const res = await fetch(`${API}/videos/${guid}`, init);
+  if (!res.ok) throw new Error(`Bunny upload ${res.status}: ${await res.text()}`);
+}
+
 export async function deleteVideo(guid: string): Promise<void> {
   await call("/videos/" + guid, { method: "DELETE", retries: 1 }).catch(() => {});
 }
