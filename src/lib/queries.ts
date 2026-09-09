@@ -9,6 +9,8 @@ export type BrowseParams = {
   type?: string;
   status?: string;
   year?: string;
+  /** "false" = uncensored only, "true" = censored only */
+  censored?: string;
   sort?: "new" | "updated" | "popular" | "trending" | "rating" | "az";
   page?: number;
 };
@@ -25,6 +27,11 @@ export async function browseSeries(params: BrowseParams) {
       ? { status: params.status.toUpperCase() as SeriesStatus }
       : {}),
     ...(params.year ? { year: Number(params.year) || undefined } : {}),
+    ...(params.censored === "false"
+      ? { isCensored: false }
+      : params.censored === "true"
+        ? { isCensored: true }
+        : {}),
   };
 
   const orderBy: Prisma.SeriesOrderByWithRelationInput =
@@ -154,17 +161,22 @@ const seriesCardSelect = {
   year: true,
   type: true,
   status: true,
+  isCensored: true,
+  externalScore: true,
   _count: { select: { episodes: { where: { publish: "PUBLISHED" as const } } } },
 };
 
 const EMPTY_HOME = {
-  featured: [] as never[],
+  hero: [] as never[],
+  heroYear: null as number | null,
   trending: [] as never[],
   recentEpisodes: [] as never[],
   newSeries: [] as never[],
   topRated: [] as never[],
   ongoing: [] as never[],
+  uncensored: [] as never[],
   genres: [] as never[],
+  tagRows: [] as never[],
 };
 
 export async function homeSections() {
@@ -178,63 +190,233 @@ export async function homeSections() {
 async function homeSectionsInner() {
   const pub = { publish: "PUBLISHED" as const };
 
-  const [featured, trending, recentEpisodes, newSeries, topRated, ongoing, genres] =
-    await Promise.all([
-      // hero — newest series that has a banner, else newest overall
-      prisma.series.findMany({
-        where: pub,
-        orderBy: [{ bannerUrl: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }],
-        take: 5,
-        include: {
-          tags: { take: 4, orderBy: { name: "asc" } },
-          studio: { select: { name: true, slug: true } },
-          episodes: {
-            where: pub,
-            orderBy: { number: "asc" },
-            take: 1,
-            select: { number: true },
-          },
-        },
-      }),
-      prisma.series.findMany({
-        where: pub,
-        orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
-        take: 14,
-        select: seriesCardSelect,
-      }),
-      prisma.episode.findMany({
-        where: { ...pub, series: pub },
-        orderBy: { createdAt: "desc" },
-        take: 14,
-        include: {
-          series: { select: { slug: true, title: true, coverUrl: true } },
-        },
-      }),
-      prisma.series.findMany({
-        where: pub,
-        orderBy: { createdAt: "desc" },
-        take: 14,
-        select: seriesCardSelect,
-      }),
-      prisma.series.findMany({
-        where: { ...pub, ratingCount: { gte: 1 } },
-        orderBy: [{ bayesianRating: "desc" }, { ratingCount: "desc" }],
-        take: 14,
-        select: seriesCardSelect,
-      }),
-      prisma.series.findMany({
-        where: { ...pub, status: "ONGOING" },
-        orderBy: { updatedAt: "desc" },
-        take: 14,
-        select: seriesCardSelect,
-      }),
-      prisma.tag.findMany({
-        where: { featured: true, seriesCount: { gt: 0 } },
-        orderBy: { seriesCount: "desc" },
-        take: 12,
-        select: { slug: true, name: true, seriesCount: true },
-      }),
-    ]);
+  // hero shows only the most recent release year we actually have
+  const latestYearRow = await prisma.series.findFirst({
+    where: { ...pub, year: { not: null } },
+    orderBy: { year: "desc" },
+    select: { year: true },
+  });
+  const heroYear = latestYearRow?.year ?? null;
 
-  return { featured, trending, recentEpisodes, newSeries, topRated, ongoing, genres };
+  // curated genre rails for the homepage (variety over raw size)
+  const RAIL_SLUGS = [
+    "harem",
+    "big-breasts",
+    "school",
+    "milf",
+    "vanilla",
+    "ntr",
+  ];
+
+  const [
+    hero,
+    trending,
+    recentEpisodes,
+    newSeries,
+    topRated,
+    ongoing,
+    uncensored,
+    featuredTags,
+    railTags,
+  ] = await Promise.all([
+    prisma.series.findMany({
+      where: { ...pub, ...(heroYear ? { year: heroYear } : {}) },
+      orderBy: [
+        { releaseDate: { sort: "desc", nulls: "last" } },
+        { createdAt: "desc" },
+      ],
+      take: 7,
+      include: {
+        tags: { take: 4, orderBy: { name: "asc" } },
+        studio: { select: { name: true, slug: true } },
+        episodes: {
+          where: pub,
+          orderBy: { number: "asc" },
+          take: 1,
+          select: { number: true },
+        },
+        _count: { select: { episodes: { where: pub } } },
+      },
+    }),
+    prisma.series.findMany({
+      where: pub,
+      orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
+      take: 18,
+      select: seriesCardSelect,
+    }),
+    prisma.episode.findMany({
+      where: { ...pub, series: pub },
+      orderBy: { createdAt: "desc" },
+      take: 18,
+      include: {
+        series: { select: { slug: true, title: true, coverUrl: true } },
+      },
+    }),
+    prisma.series.findMany({
+      where: pub,
+      orderBy: { createdAt: "desc" },
+      take: 18,
+      select: seriesCardSelect,
+    }),
+    prisma.series.findMany({
+      where: {
+        ...pub,
+        OR: [{ ratingCount: { gte: 1 } }, { externalScore: { not: null } }],
+      },
+      orderBy: [
+        { bayesianRating: "desc" },
+        { externalScore: { sort: "desc", nulls: "last" } },
+        { ratingCount: "desc" },
+      ],
+      take: 18,
+      select: seriesCardSelect,
+    }),
+    prisma.series.findMany({
+      where: { ...pub, status: "ONGOING" },
+      orderBy: { updatedAt: "desc" },
+      take: 18,
+      select: seriesCardSelect,
+    }),
+    prisma.series.findMany({
+      where: { ...pub, isCensored: false },
+      orderBy: { createdAt: "desc" },
+      take: 18,
+      select: seriesCardSelect,
+    }),
+    prisma.tag.findMany({
+      where: { featured: true, seriesCount: { gt: 0 } },
+      orderBy: { seriesCount: "desc" },
+      take: 14,
+      select: { slug: true, name: true, seriesCount: true },
+    }),
+    prisma.tag.findMany({
+      where: { slug: { in: RAIL_SLUGS } },
+      select: {
+        slug: true,
+        name: true,
+        seriesCount: true,
+        series: {
+          where: pub,
+          orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
+          take: 12,
+          select: seriesCardSelect,
+        },
+      },
+    }),
+  ]);
+
+  const genres = featuredTags.map((t) => ({
+    slug: t.slug,
+    name: t.name,
+    seriesCount: t.seriesCount,
+  }));
+
+  // keep the curated rail order; only show rails with enough titles to fill a row
+  const railBySlug = new Map(railTags.map((t) => [t.slug, t]));
+  const tagRows = RAIL_SLUGS.map((slug) => railBySlug.get(slug))
+    .filter((t): t is NonNullable<typeof t> => !!t && t.series.length >= 6)
+    .map((t) => ({
+      slug: t.slug,
+      name: t.name,
+      seriesCount: t.seriesCount,
+      series: t.series,
+    }));
+
+  return {
+    hero,
+    heroYear,
+    trending,
+    recentEpisodes,
+    newSeries,
+    topRated,
+    ongoing,
+    uncensored,
+    genres,
+    tagRows,
+  };
+}
+
+/* ── release calendar ── */
+
+export type CalendarEntry = {
+  seriesSlug: string;
+  seriesTitle: string;
+  coverUrl: string | null;
+  number: number;
+  airedAt: Date;
+  bunnyGuid: string | null;
+  bunnyStatus: string | null;
+};
+
+export async function calendarMonth(year: number, month1to12: number) {
+  const start = new Date(Date.UTC(year, month1to12 - 1, 1));
+  const end = new Date(Date.UTC(year, month1to12, 1));
+  try {
+    return await db(() => calendarMonthInner(start, end));
+  } catch {
+    return { entries: [] as CalendarEntry[], latestAiredAt: null as Date | null };
+  }
+}
+
+async function calendarMonthInner(start: Date, end: Date) {
+  const [eps, latest] = await Promise.all([
+    prisma.episode.findMany({
+      where: {
+        publish: "PUBLISHED",
+        series: { publish: "PUBLISHED" },
+        airedAt: { gte: start, lt: end },
+      },
+      orderBy: { airedAt: "asc" },
+      select: {
+        number: true,
+        airedAt: true,
+        bunnyGuid: true,
+        bunnyStatus: true,
+        series: { select: { slug: true, title: true, coverUrl: true } },
+      },
+    }),
+    prisma.episode.findFirst({
+      where: { publish: "PUBLISHED", airedAt: { not: null } },
+      orderBy: { airedAt: "desc" },
+      select: { airedAt: true },
+    }),
+  ]);
+
+  const entries: CalendarEntry[] = eps.map((e) => ({
+    seriesSlug: e.series.slug,
+    seriesTitle: e.series.title,
+    coverUrl: e.series.coverUrl,
+    number: e.number,
+    airedAt: e.airedAt as Date,
+    bunnyGuid: e.bunnyGuid,
+    bunnyStatus: e.bunnyStatus,
+  }));
+
+  return { entries, latestAiredAt: latest?.airedAt ?? null };
+}
+
+/** Two small series lists for secondary rails (calendar page, empty states). */
+export async function miniLists() {
+  const pub = { publish: "PUBLISHED" as const };
+  try {
+    return await db(async () => {
+      const [popular, fresh] = await Promise.all([
+        prisma.series.findMany({
+          where: pub,
+          orderBy: [{ viewCount: "desc" }, { trendingScore: "desc" }],
+          take: 10,
+          select: seriesCardSelect,
+        }),
+        prisma.series.findMany({
+          where: pub,
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: seriesCardSelect,
+        }),
+      ]);
+      return { popular, fresh };
+    });
+  } catch {
+    return { popular: [], fresh: [] };
+  }
 }

@@ -20,14 +20,19 @@ export function BrowseClient({
   initial,
   initialTotal,
   initialPages,
+  initialFilters,
   tags,
 }: {
   initial: S[];
   initialTotal: number;
   initialPages: number;
+  initialFilters?: Record<string, string>;
   tags: Tag[];
 }) {
-  const [f, setF] = useState<Record<string, string>>({ sort: "updated" });
+  const [f, setF] = useState<Record<string, string>>({
+    sort: "updated",
+    ...initialFilters,
+  });
   const [items, setItems] = useState<S[]>(initial);
   const [total, setTotal] = useState(initialTotal);
   const [pages, setPages] = useState(initialPages);
@@ -127,6 +132,15 @@ export function BrowseClient({
               {s[0] + s.slice(1).toLowerCase()}
             </Chip>
           ))}
+        </Row>
+        <Row label="Version">
+          <Chip on={!f.censored} onClick={() => set("censored")}>All</Chip>
+          <Chip on={f.censored === "false"} onClick={() => set("censored", "false")}>
+            Uncensored
+          </Chip>
+          <Chip on={f.censored === "true"} onClick={() => set("censored", "true")}>
+            Censored
+          </Chip>
         </Row>
         <Row label="Genre">
           <Chip on={!f.tag} onClick={() => set("tag")}>All</Chip>

@@ -8,6 +8,8 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/browse?sort=new", label: "Latest additions" },
       { href: "/browse?sort=popular", label: "Most viewed" },
       { href: "/browse?status=ongoing", label: "Ongoing" },
+      { href: "/browse?censored=false", label: "Uncensored" },
+      { href: "/calendar", label: "Release calendar" },
       { href: "/tags", label: "Genres & tags" },
     ],
   },

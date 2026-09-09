@@ -86,8 +86,15 @@ export const watchhentai: SiteAdapter = {
   async fetchSources(http, ref) {
     const html = await http.get(ref.episodeUrl);
     const $ = cheerio.load(html);
-    const censored =
-      /\bcensored\b/i.test(ref.episodeUrl) && !/uncensored/i.test(ref.episodeUrl);
+    // only a positive read either way; an ambiguous URL stays null (unknown)
+    // rather than being recorded as uncensored, which it usually isn't
+    const isUncensored = /uncensored/i.test(ref.episodeUrl);
+    const isCensored =
+      /\bcensored\b/i.test(ref.episodeUrl) && !isUncensored
+        ? true
+        : isUncensored
+          ? false
+          : null;
 
     const opts: { type: string; post: string; nume: string }[] = [];
     $("li.dooplay_player_option").each((_, el) => {
@@ -112,7 +119,7 @@ export const watchhentai: SiteAdapter = {
           out.push({
             embedUrl: embed,
             hostOrUrl: embed,
-            isCensored: censored,
+            isCensored,
             // watchhentai's DooPlay AJAX returns a bare file URL (hstorage.xyz
             // mp4 / m3u8), not an iframe embed
             direct: /\.(mp4|m3u8|webm)(\?|$)/i.test(embed),

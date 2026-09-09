@@ -3,7 +3,6 @@ import { homeSections } from "@/lib/queries";
 import { HomeHero } from "@/components/HomeHero";
 import { ScrollRow } from "@/components/ScrollRow";
 import { GenreGrid } from "@/components/GenreGrid";
-import { SectionHeader } from "@/components/ui";
 import { SeriesCard } from "@/components/SeriesCard";
 import { EpisodeCard } from "@/components/EpisodeCard";
 
@@ -13,10 +12,7 @@ export default async function HomePage() {
   const h = await homeSections();
 
   const hasAnything =
-    h.featured.length +
-      h.trending.length +
-      h.recentEpisodes.length +
-      h.newSeries.length >
+    h.hero.length + h.trending.length + h.recentEpisodes.length + h.newSeries.length >
     0;
 
   if (!hasAnything) {
@@ -38,9 +34,10 @@ export default async function HomePage() {
 
   return (
     <>
-      {h.featured.length > 0 && (
+      {h.hero.length > 0 && (
         <HomeHero
-          items={h.featured.map((s) => ({
+          heroYear={h.heroYear}
+          items={h.hero.map((s) => ({
             slug: s.slug,
             title: s.title,
             synopsis: s.synopsis,
@@ -49,17 +46,28 @@ export default async function HomePage() {
             type: s.type,
             year: s.year,
             status: s.status,
+            isCensored: s.isCensored,
+            externalScore: s.externalScore,
+            episodeCount: s._count.episodes,
+            firstEpisode: s.episodes[0]?.number ?? 1,
             tags: s.tags.map((t) => ({ slug: t.slug, name: t.name })),
-            episodes: s.episodes,
           }))}
         />
       )}
 
       <main className="mx-auto max-w-content pb-8 lg:px-8">
         {h.recentEpisodes.length > 0 && (
-          <ScrollRow title="Recently added" href="/browse?sort=new">
+          <ScrollRow title="Latest episodes" href="/browse?sort=new">
             {h.recentEpisodes.map((ep) => (
               <EpisodeCard key={ep.id} ep={ep} />
+            ))}
+          </ScrollRow>
+        )}
+
+        {h.newSeries.length > 0 && (
+          <ScrollRow title="New series" href="/browse?sort=new">
+            {h.newSeries.map((s) => (
+              <SeriesCard key={s.slug} series={s} inRow />
             ))}
           </ScrollRow>
         )}
@@ -72,15 +80,23 @@ export default async function HomePage() {
           </ScrollRow>
         )}
 
-        <GenreGrid genres={h.genres} />
-
-        {h.newSeries.length > 0 && (
-          <ScrollRow title="New series" href="/browse?sort=new">
-            {h.newSeries.map((s) => (
+        {h.uncensored.length > 0 && (
+          <ScrollRow title="Uncensored" href="/browse?censored=false">
+            {h.uncensored.map((s) => (
               <SeriesCard key={s.slug} series={s} inRow />
             ))}
           </ScrollRow>
         )}
+
+        <GenreGrid genres={h.genres} />
+
+        {h.tagRows.map((row) => (
+          <ScrollRow key={row.slug} title={row.name} href={`/tag/${row.slug}`}>
+            {row.series.map((s) => (
+              <SeriesCard key={s.slug} series={s} inRow />
+            ))}
+          </ScrollRow>
+        ))}
 
         {h.ongoing.length > 0 && (
           <ScrollRow title="Ongoing" href="/browse?status=ongoing">
@@ -98,8 +114,7 @@ export default async function HomePage() {
           </ScrollRow>
         )}
 
-        <section className="mt-14 px-4 lg:px-0">
-          <SectionHeader title="All titles" href="/browse" linkLabel="Open catalogue" />
+        <section className="mt-14 grid gap-3 px-4 sm:grid-cols-2 lg:px-0">
           <Link
             href="/browse"
             className="flex items-center justify-between rounded-2xl border border-line bg-surface/50 p-6 transition hover:border-accent/30"
@@ -107,7 +122,19 @@ export default async function HomePage() {
             <div>
               <p className="font-display text-base font-bold">Browse the full catalogue</p>
               <p className="mt-1 text-sm text-white/45">
-                Filter by genre, studio, type, status and more.
+                Filter by genre, studio, type, status and year.
+              </p>
+            </div>
+            <span className="text-2xl text-accent">→</span>
+          </Link>
+          <Link
+            href="/calendar"
+            className="flex items-center justify-between rounded-2xl border border-line bg-surface/50 p-6 transition hover:border-accent/30"
+          >
+            <div>
+              <p className="font-display text-base font-bold">Release calendar</p>
+              <p className="mt-1 text-sm text-white/45">
+                See what dropped and what&apos;s coming, day by day.
               </p>
             </div>
             <span className="text-2xl text-accent">→</span>

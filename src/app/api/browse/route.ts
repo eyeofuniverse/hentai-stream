@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     type: sp.get("type") ?? undefined,
     status: sp.get("status") ?? undefined,
     year: sp.get("year") ?? undefined,
+    censored: sp.get("censored") ?? undefined,
     sort: (sp.get("sort") as never) ?? undefined,
     page: Number(sp.get("page")) || 1,
   });
