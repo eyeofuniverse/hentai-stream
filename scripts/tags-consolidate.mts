@@ -2,28 +2,31 @@
  * One-off (re-runnable, resumable) tag cleanup:
  *   1. merge duplicate tags onto their canonical dictionary tag
  *      (nakadashi → creampie, fellatio → blowjob, non-consensual → rape, …)
- *   2. re-categorise tags that drifted (external tags dumped into THEME)
- *   3. un-hide content-warning tags so they browse like any other genre
- *   4. recompute seriesCount
+ *   2. PURGE non-genres — AniList cast / demographic / sport / hobby / narrative
+ *      -technical tags (male-protagonist, tennis, achronological-order, …)
+ *   3. re-categorise tags that drifted; un-hide content-warning tags
+ *   4. seed the curated `featured` set; recompute seriesCount
  *
  * Dry run:   npx tsx --env-file=.env scripts/tags-consolidate.mts --dry
  * Execute:   npx tsx --env-file=.env scripts/tags-consolidate.mts
  *
- * Idempotent — re-planned from current DB state each run, so a mid-run drop is
- * fine, just run it again. A backup of every affected relation is written to
- * scripts/.tag-consolidate-<ts>.json first.
+ * Idempotent — re-planned from current DB state each run. A backup of every
+ * affected relation is written to scripts/.tag-consolidate-<ts>.json first.
  */
 import { writeFileSync } from "node:fs";
 import { Prisma } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
+import { TAG_DICTIONARY } from "@/lib/metadata/tag-dictionary";
 import {
   canonicalTag,
   categorize,
   FEATURED_GENRE_SLUGS,
 } from "@/lib/metadata/tag-canonical";
+import { slugify } from "@/lib/metadata/tags";
 import { recountTaxonomy } from "@/lib/metadata/importer";
 
 const DRY = process.argv.includes("--dry");
+const DICT = new Set(TAG_DICTIONARY.map((t) => slugify(t.name)));
 
 async function main() {
   const tags = await db(() =>
@@ -35,18 +38,25 @@ async function main() {
 
   type Merge = { from: (typeof tags)[number]; toSlug: string; toName: string; toCat: string };
   const merges: Merge[] = [];
-  const merged = new Set<string>();
+  const purges: (typeof tags)[number][] = [];
+  const handled = new Set<string>();
+
   for (const t of tags) {
-    const canon = canonicalTag(t.name);
-    if (canon && canon.slug !== t.slug) {
+    if (DICT.has(t.slug)) continue;
+    const canon = canonicalTag(t.name); // allowNew: true
+    if (!canon) {
+      // stoplisted non-genre (cast / demo / sport / hobby / …) — delete it
+      purges.push(t);
+      handled.add(t.slug);
+    } else if (canon.slug !== t.slug) {
       merges.push({ from: t, toSlug: canon.slug, toName: canon.name, toCat: canon.category });
-      merged.add(t.slug);
+      handled.add(t.slug);
     }
   }
 
   const recat: { slug: string; from: string; to: string }[] = [];
   for (const t of tags) {
-    if (merged.has(t.slug)) continue;
+    if (handled.has(t.slug)) continue;
     const want = categorize(t.name);
     if (want !== t.category) recat.push({ slug: t.slug, from: t.category, to: want });
   }
@@ -54,7 +64,9 @@ async function main() {
   const toUnhide = tags.filter((t) => t.hideFromDefault).length;
 
   console.log(`${merges.length} merges:`);
-  for (const m of merges) console.log(`  ${m.from.slug.padEnd(22)} → ${m.toSlug}`);
+  for (const m of merges) console.log(`  ${m.from.slug.padEnd(24)} → ${m.toSlug}`);
+  console.log(`\n${purges.length} purges:`);
+  for (const p of purges) console.log(`  ✗ ${p.slug}`);
   console.log(`\n${recat.length} re-categorise, ${toUnhide} un-hide`);
 
   if (DRY) {
@@ -65,19 +77,19 @@ async function main() {
 
   // backup every relation we will touch
   const backup: Record<string, string[]> = {};
-  for (const m of merges) {
+  for (const t of [...merges.map((m) => m.from), ...purges]) {
     const rows = await db(() =>
       prisma.$queryRaw<{ A: string }[]>(
-        Prisma.sql`SELECT "A" FROM "_SeriesTags" WHERE "B" = ${m.from.id}`,
+        Prisma.sql`SELECT "A" FROM "_SeriesTags" WHERE "B" = ${t.id}`,
       ),
     );
-    backup[m.from.slug] = rows.map((r) => r.A);
+    backup[t.slug] = rows.map((r) => r.A);
   }
   const file = `scripts/.tag-consolidate-${Date.now()}.json`;
-  writeFileSync(file, JSON.stringify({ merges: backup }, null, 2));
+  writeFileSync(file, JSON.stringify({ backup }, null, 2));
   console.log(`\nbackup → ${file}\n`);
 
-  // execute merges — 3 bulk statements each, retry-wrapped
+  // merges — 3 bulk statements each, retry-wrapped
   for (const m of merges) {
     const target =
       bySlug.get(m.toSlug) ??
@@ -100,7 +112,16 @@ async function main() {
       prisma.$executeRaw(Prisma.sql`DELETE FROM "_SeriesTags" WHERE "B" = ${m.from.id}`),
     );
     await db(() => prisma.tag.delete({ where: { id: m.from.id } }));
-    console.log(`  ✓ ${m.from.slug} → ${m.toSlug} (${backup[m.from.slug]?.length ?? 0} series)`);
+    console.log(`  ✓ ${m.from.slug} → ${m.toSlug} (${backup[m.from.slug]?.length ?? 0})`);
+  }
+
+  // purges — detach then delete
+  for (const p of purges) {
+    await db(() =>
+      prisma.$executeRaw(Prisma.sql`DELETE FROM "_SeriesTags" WHERE "B" = ${p.id}`),
+    );
+    await db(() => prisma.tag.delete({ where: { id: p.id } }).catch(() => {}));
+    console.log(`  ✗ purged ${p.slug} (${backup[p.slug]?.length ?? 0})`);
   }
 
   for (const r of recat) {
@@ -112,8 +133,6 @@ async function main() {
   await db(() =>
     prisma.tag.updateMany({ where: { hideFromDefault: true }, data: { hideFromDefault: false } }),
   );
-
-  // seed the curated featured set (admin can toggle individually afterwards)
   await db(() =>
     prisma.tag.updateMany({
       where: { slug: { in: FEATURED_GENRE_SLUGS } },

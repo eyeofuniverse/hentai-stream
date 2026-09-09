@@ -108,7 +108,8 @@ export async function applyEnrichment(
   if (r.tags?.length) {
     const ids = new Set<string>();
     for (const raw of r.tags) {
-      const canon = canonicalTag(raw);
+      // low-trust source — only dictionary + recognised content terms
+      const canon = canonicalTag(raw, { allowNew: false });
       if (!canon) continue;
       const t = await db(() =>
         prisma.tag.upsert({

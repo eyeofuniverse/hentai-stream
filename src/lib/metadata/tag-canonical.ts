@@ -1,6 +1,7 @@
 import type { TagCategory } from "@prisma/client";
 import { TAG_DICTIONARY } from "./tag-dictionary";
 import { slugify } from "./tags";
+import { isNotAGenre } from "./tag-stoplist";
 
 export type CanonicalTag = { slug: string; name: string; category: TagCategory };
 
@@ -14,22 +15,27 @@ const DICT_CAT = new Map<string, TagCategory>(
 );
 
 const CW =
-  /\b(rape|non[- ]?con|guro|gore|scat|vore|snuff|ryona|torture|bestial|necro|drug|abuse|violat)/i;
+  /\b(rape|non[- ]?con|guro|gore|scat|vore|snuff|ryona|torture|bestial|zoophil|beast|necro|cannibal|drug|abuse|violat|asphyxia|strangl)/i;
 const FETISH =
-  /\b(creampie|nakadashi|paizuri|titf|boobjob|ahegao|bukkake|gokkun|gangbang|orgy|ntr|netorare|netori|anal|footjob|handjob|blowjob|deepthroat|fellatio|irrumatio|cunnilingus|rimjob|squirt|lactation|tentacle|futanari|yuri|yaoi|femdom|maledom|bondage|bdsm|exhibition|x[- ]?ray|double penetration|spitroast|facesit|pregnant|impregnation|urination|enema|prolapse|fisting|threesome|groupsex|group sex)/i;
+  /\b(creampie|nakadashi|paizuri|titf|boobjob|ahegao|bukkake|gokkun|gangbang|orgy|ntr|netorare|netori|anal|footjob|handjob|blowjob|deepthroat|fellatio|irrumatio|cunnilingus|rimjob|squirt|lactation|tentacle|futanari|yuri|yaoi|femdom|maledom|matriarch|bondage|bdsm|exhibition|x[- ]?ray|double penetration|spitroast|facesit|pregnant|impregnation|urination|omorashi|watersport|enema|prolapse|fisting|threesome|groupsex|group sex|armpit|waki|pet.?play|human.?pet|leash|breath.?play|choking|sweat|crossdress|otokonoko|cervix|portio|spanking|hair.?pulling|choukyou|dark.?skin|mind.?break|mesugaki|bimbo|corrupt)/i;
 const FORMAT = /\b(3d|3dcg|cgi|cg|flash|motion anime|motion comic|live action)\b/i;
 const GENRE =
-  /\b(comedy|drama|romance|fantasy|sci[- ]?fi|horror|action|mystery|slice of life|vanilla|isekai|adventure)\b/i;
+  /\b(comedy|drama|romance|fantasy|sci[- ]?fi|science fiction|horror|thriller|action|mystery|adventure|isekai|vanilla|supernatural|paranormal|magical|mecha|apocalyp|superhero|super power|psychological)\b/i;
 
-/** Best-guess a category for a tag name coming from an external source. */
-export function categorize(name: string): TagCategory {
+/** Category if the name matches a known pattern, else null (didn't recognise). */
+export function categorizeStrict(name: string): TagCategory | null {
   const known = DICT_CAT.get(slugify(name));
   if (known) return known;
   if (CW.test(name)) return "CONTENT_WARNING";
   if (FORMAT.test(name)) return "FORMAT";
   if (FETISH.test(name)) return "FETISH";
   if (GENRE.test(name)) return "GENRE";
-  return "THEME";
+  return null;
+}
+
+/** Best-guess a category for a tag name coming from an external source. */
+export function categorize(name: string): TagCategory {
+  return categorizeStrict(name) ?? "THEME";
 }
 
 /* ─────────────────────────── canonicalisation ─────────────────────────── */
@@ -67,13 +73,20 @@ for (const t of TAG_DICTIONARY) {
 }
 
 /**
- * Resolve any raw tag string to the tag we should actually store. Dictionary
- * names and synonyms collapse onto one canonical tag; an unknown tag keeps its
- * own slug with a best-guess category. Returns null for junk (< 2 chars).
+ * Resolve any raw tag string to the tag we should actually store.
+ *   - dictionary names + synonyms collapse onto one canonical tag
+ *   - status / language / non-genre (cast, sport, hobby, …) terms → null
+ *   - `allowNew: false` (used for the AniList/nhentai firehose) additionally
+ *     rejects anything that doesn't match a known content pattern, so enrich
+ *     can't mint junk THEME tags. Source-site genres pass `allowNew: true`.
  */
-export function canonicalTag(raw: string): CanonicalTag | null {
+export function canonicalTag(
+  raw: string,
+  opts: { allowNew?: boolean } = {},
+): CanonicalTag | null {
+  const allowNew = opts.allowNew ?? true;
   const s = slugify(raw.trim());
-  if (s.length < 2 || IGNORE.has(s)) return null;
+  if (s.length < 2 || IGNORE.has(s) || isNotAGenre(s)) return null;
 
   // exact, then a couple of cheap singular forms ("maids"→"maid",
   // "office-ladies"→"office-lady", "demons"→"demon")
@@ -81,15 +94,18 @@ export function canonicalTag(raw: string): CanonicalTag | null {
     (f) => f.length >= 4,
   );
   for (const f of forms) {
-    if (IGNORE.has(f)) return null;
+    if (IGNORE.has(f) || isNotAGenre(f)) return null;
     const hit = ALIAS.get(f);
     if (hit) return hit;
   }
 
+  const cat = allowNew ? categorize(raw) : categorizeStrict(raw);
+  if (!cat) return null; // unknown term from a low-trust source — drop it
+
   return {
     slug: s,
     name: raw.trim().replace(/\b\w/g, (c) => c.toUpperCase()),
-    category: categorize(raw),
+    category: cat,
   };
 }
 
