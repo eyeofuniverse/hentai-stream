@@ -7,6 +7,9 @@ import {
 } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
 import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
+import { slugify } from "@/lib/metadata/tags";
+import { malEnabled, malSearch, normalize, isHentai } from "@/lib/metadata/mal";
+import { importSeries, emptyImportStats } from "@/lib/metadata/importer";
 
 /* ───────────────────────────── title matching ───────────────────────────── */
 
@@ -146,6 +149,136 @@ export async function resolveSeries(opts: {
   }
 
   return best && best.confidence >= 0.62 ? best : null;
+}
+
+export interface ResolvedSeries {
+  seriesId: string;
+  origin: "existing" | "mal-relink" | "mal-import" | "created";
+}
+
+async function freeSeriesSlug(title: string): Promise<string> {
+  const base = slugify(title).slice(0, 90) || `series-${Date.now().toString(36)}`;
+  for (let i = 0; i < 30; i++) {
+    const cand = i === 0 ? base : `${base}-${i + 1}`;
+    const hit = await db(() =>
+      prisma.series.findUnique({ where: { slug: cand }, select: { id: true } }),
+    );
+    if (!hit) return cand;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+/**
+ * Like `resolveSeries`, but falls back to a MAL free-text search (which matches
+ * localised titles like "Cream Lemon"), importing the series if MAL has it, and
+ * — when `create` is set — creating a bare DRAFT series from the scraped data so
+ * a stream site's whole catalogue can be ingested even for titles MAL/AniList
+ * never indexed. Enrich fills the metadata later.
+ */
+export async function resolveOrImportSeries(opts: {
+  title: string;
+  year?: number | null;
+  genres?: string[];
+  create?: boolean;
+}): Promise<ResolvedSeries | null> {
+  const direct = await resolveSeries({ title: opts.title, year: opts.year });
+  if (direct) return { seriesId: direct.seriesId, origin: "existing" };
+
+  const norm = normalizeTitle(opts.title);
+  if (norm.length < 2) return null;
+  const nTok = tokens(norm);
+
+  // MAL search — handles EN ⇄ JP titles
+  if (malEnabled()) {
+    const hits = await malSearch(opts.title).catch(() => []);
+    for (const a of hits) {
+      const variants = [
+        a.title,
+        a.alternative_titles?.en,
+        a.alternative_titles?.ja,
+        ...(a.alternative_titles?.synonyms ?? []),
+      ]
+        .filter(Boolean)
+        .map((v) => normalizeTitle(v as string));
+      const yearOk =
+        opts.year == null ||
+        !a.start_season?.year ||
+        Math.abs(a.start_season.year - opts.year) <= 2;
+      const j = Math.max(...variants.map((v) => jaccard(nTok, tokens(v))), 0);
+      const exact = variants.includes(norm);
+      if (!yearOk || (!exact && j < 0.8)) continue;
+      // the stream site listed it as adult; accept MAL's "rx" always, and a
+      // softer adult rating only on an exact title + year match
+      if (!isHentai(a) && !(exact && ["r+", "r"].includes(a.rating ?? ""))) continue;
+
+      const existing = await db(() =>
+        prisma.series.findUnique({
+          where: { malId: a.id },
+          select: { id: true, altTitles: true },
+        }),
+      );
+      if (existing) {
+        if (!existing.altTitles.map(normalizeTitle).includes(norm)) {
+          await db(() =>
+            prisma.series.update({
+              where: { id: existing.id },
+              data: { altTitles: { push: opts.title.trim().slice(0, 200) } },
+            }),
+          ).catch(() => {});
+        }
+        return { seriesId: existing.id, origin: "mal-relink" };
+      }
+
+      await importSeries(normalize(a), emptyImportStats()).catch(() => {});
+      const made = await db(() =>
+        prisma.series.findUnique({ where: { malId: a.id }, select: { id: true } }),
+      );
+      if (made) return { seriesId: made.id, origin: "mal-import" };
+    }
+  }
+
+  if (!opts.create) return null;
+
+  // near-duplicate guard, then bare create
+  const near = await db(() =>
+    prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM "Series"
+      WHERE similarity(title, ${opts.title}) > 0.6
+      ORDER BY similarity(title, ${opts.title}) DESC
+      LIMIT 1
+    `),
+  ).catch(() => [] as { id: string }[]);
+  if (near[0]) {
+    await db(() =>
+      prisma.series.update({
+        where: { id: near[0].id },
+        data: { altTitles: { push: opts.title.trim().slice(0, 200) } },
+      }),
+    ).catch(() => {});
+    return { seriesId: near[0].id, origin: "existing" };
+  }
+
+  const slug = await freeSeriesSlug(opts.title);
+  const created = await db(() =>
+    prisma.series.create({
+      data: {
+        slug,
+        title: opts.title.trim().slice(0, 200),
+        type: "OVA",
+        status: "COMPLETED",
+        year: opts.year ?? null,
+        publish: "DRAFT",
+        metadataSource: "scrape",
+      },
+      select: { id: true },
+    }),
+  ).catch(() => null);
+  if (!created) return null;
+
+  if (opts.genres?.length)
+    await attachSeriesGenres(created.id, opts.genres).catch(() => {});
+
+  return { seriesId: created.id, origin: "created" };
 }
 
 /** Record a title the scraper couldn't map. Deduped per site. */

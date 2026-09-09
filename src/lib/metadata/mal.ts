@@ -110,6 +110,24 @@ export function getAnime(id: number): Promise<MalAnime> {
 }
 
 /**
+ * Free-text search — MAL matches English *and* Japanese titles, so this is how
+ * we resolve a stream site's localised title ("Cream Lemon") to the catalogue.
+ */
+export async function malSearch(query: string, limit = 10): Promise<MalAnime[]> {
+  const q = query.trim().replace(/\s+/g, " ").slice(0, 64);
+  if (q.length < 3) return [];
+  try {
+    const page = await malGet<{ data: { node: MalAnime }[] }>(
+      `/anime?q=${encodeURIComponent(q)}&nsfw=true&limit=${limit}&fields=${MAL_FIELDS}`,
+      3,
+    );
+    return page.data.map((d) => d.node);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Every anime in a season (hentai included), following pagination.
  * Returns the raw MalAnime nodes.
  */

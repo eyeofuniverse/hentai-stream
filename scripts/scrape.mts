@@ -6,9 +6,11 @@
  *   npm run scrape -- --site=watchhentai --mode=crawl
  *   npm run scrape -- --site=watchhentai --mode=topup --limit=200
  *
- * --dry-run  : match + report, write nothing
- * --limit N  : stop after N episode records (crawl) / N target series (topup)
- * --gap N    : ms between requests to the site (default 1500)
+ * --dry-run    : match + report, write nothing
+ * --limit N    : stop after N episode records (crawl) / N target series (topup)
+ * --gap N      : ms between requests to the site (default 1500)
+ * --no-create  : don't create bare series for titles missing from catalogue+MAL
+ *                (crawl auto-creates by default; MAL search always runs)
  */
 import { runScrape } from "@/lib/scraper/run";
 import { recountTaxonomy } from "@/lib/metadata/importer";
@@ -36,6 +38,7 @@ const summary = await runScrape({
   dryRun: !!flag("dry-run"),
   refetch: !!flag("refetch"),
   publishLive: !!flag("publish-live"),
+  create: flag("no-create") ? false : undefined,
   minGapMs: flag("gap") ? Number(flag("gap")) : undefined,
   log: (m) => console.log(m),
 });

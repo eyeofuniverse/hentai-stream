@@ -47,7 +47,7 @@ export interface ImportStats {
   errors: string[];
 }
 
-const empty = (): ImportStats => ({
+export const emptyImportStats = (): ImportStats => ({
   scanned: 0,
   created: 0,
   updated: 0,
@@ -56,6 +56,7 @@ const empty = (): ImportStats => ({
   episodeStubs: 0,
   errors: [],
 });
+const empty = emptyImportStats;
 
 // in-process caches — a backfill touches the same tags/studios thousands of times
 const tagCache = new Map<string, string>();

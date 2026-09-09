@@ -1,6 +1,6 @@
 import { prisma, db } from "@/lib/db";
 import {
-  resolveSeries,
+  resolveOrImportSeries,
   recordUnmatched,
   ingestEpisode,
   attachSeriesGenres,
@@ -20,6 +20,9 @@ export interface ScrapeOptions {
    *  (proxy / re-host) exists — scraped links are referer-locked / X-Frame-blocked
    *  and won't play as raw embeds. */
   publishLive?: boolean;
+  /** when a title matches nothing in the catalogue or MAL, create a bare DRAFT
+   *  series from the scraped data (crawl only). Default on for crawl. */
+  create?: boolean;
   minGapMs?: number;
   log?: (msg: string) => void;
 }
@@ -48,6 +51,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   // publishing is `verify`'s job (it checks the link actually streams first) —
   // the scrape just records sources. --publish-live forces the old behaviour.
   const publishLive = opts.publishLive ?? false;
+  const create = (opts.create ?? opts.mode === "crawl") && !opts.dryRun;
 
   const s: ScrapeSummary = {
     site: opts.site,
@@ -90,9 +94,14 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
     let seriesId = matchCache.get(ref.seriesTitle);
     let matchLabel = "cache";
     if (seriesId === undefined) {
-      const m = await resolveSeries({ title: ref.seriesTitle, year: ref.year });
+      const m = await resolveOrImportSeries({
+        title: ref.seriesTitle,
+        year: ref.year,
+        genres: ref.seriesGenres,
+        create,
+      }).catch(() => null);
       seriesId = m?.seriesId ?? null;
-      matchLabel = m ? `${m.method} ${m.confidence.toFixed(2)}` : "none";
+      matchLabel = m?.origin ?? "none";
       matchCache.set(ref.seriesTitle, seriesId);
     }
 

@@ -4,7 +4,7 @@ name: Scrape video sources
 # series (auto-publishing + spot-check per the ingest rules). Runs on a US
 # runner, straight against the DB.
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL  (MAL_CLIENT_ID not needed here)
+# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID (title fallback search)
 
 on:
   workflow_dispatch:
@@ -48,6 +48,7 @@ jobs:
           {
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
             echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
