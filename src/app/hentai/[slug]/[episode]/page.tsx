@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEpisode } from "@/lib/queries";
-import { cover, thumb } from "@/lib/cloudinary";
+import { cover, thumb, thumbSet } from "@/lib/cloudinary";
 import { gradientFor } from "@/lib/gradient";
 import { buildServers } from "@/lib/stream";
 import { SITE, SITE_NAME, episodeSeo, breadcrumbLd } from "@/lib/seo";
@@ -153,7 +153,11 @@ export default async function WatchPage({
       <div className="border-b border-line bg-black/40">
         <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-4 lg:px-8">
           <ViewPing episodeId={ep.id} />
-          <WatchPlayer servers={servers} poster={poster} />
+          <WatchPlayer
+            servers={servers}
+            poster={poster}
+            nextHref={next ? `/hentai/${slug}/${next.number}` : null}
+          />
         </div>
       </div>
 
@@ -213,7 +217,17 @@ export default async function WatchPage({
                 <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-surface-2">
                   {thumb(ep.series.coverUrl) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={thumb(ep.series.coverUrl)!} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={thumb(ep.series.coverUrl)!}
+                      srcSet={thumbSet(ep.series.coverUrl) ?? undefined}
+                      sizes="128px"
+                      alt=""
+                      width={360}
+                      height={203}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="h-full w-full" style={{ backgroundImage: gradientFor(slug) }} />
                   )}

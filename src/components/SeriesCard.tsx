@@ -27,7 +27,12 @@ export function SeriesCard({
         inRow ? "w-[136px] shrink-0 snap-start sm:w-[160px]" : ""
       }`}
     >
-      <Poster src={cover(series.coverUrl)} title={series.title} seed={series.slug}>
+      <Poster
+        src={cover(series.coverUrl)}
+        coverId={series.coverUrl}
+        title={series.title}
+        seed={series.slug}
+      >
         <PlayGlyph />
         {series.type && (
           <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">

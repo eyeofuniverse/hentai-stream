@@ -55,7 +55,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, 170);
+    }, 260);
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -219,13 +219,14 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
                   {sug.series.map((s, i) => (
                     <li key={s.slug}>
                       <button
+                        type="button"
                         onClick={() => pickSeries(s)}
                         onMouseEnter={() => setActive(i)}
                         className={`flex w-full items-center gap-3 rounded-lg p-2 text-left transition ${
                           active === i ? "bg-white/8" : "hover:bg-white/5"
                         }`}
                       >
-                        <div className="h-16 w-11 shrink-0 overflow-hidden rounded bg-surface-2">
+                        <span className="block h-16 w-11 shrink-0 overflow-hidden rounded bg-surface-2">
                           {s.cover && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -235,17 +236,17 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
                               loading="lazy"
                             />
                           )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-white/90">
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-white/90">
                             {s.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-white/40">
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-white/40">
                             {[s.type, s.year, s.episodes > 0 && `${s.episodes} ep`]
                               .filter(Boolean)
                               .join(" · ")}
-                          </p>
-                        </div>
+                          </span>
+                        </span>
                       </button>
                     </li>
                   ))}

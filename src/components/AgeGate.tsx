@@ -1,24 +1,17 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
 const KEY = "hs_age_ok";
 
+/**
+ * Server-rendered so it paints with the initial HTML (no JS wait). A tiny inline
+ * script removes it instantly for visitors who've already confirmed, and wires
+ * the Enter button — no React, no bundle dependency.
+ */
 export function AgeGate() {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    try {
-      setShow(localStorage.getItem(KEY) !== "1");
-    } catch {
-      setShow(true);
-    }
-  }, []);
-
-  if (!show) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-6 backdrop-blur-md">
+    <div
+      id="age-gate"
+      data-nosnippet
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-6 backdrop-blur-md"
+    >
       <div className="w-full max-w-md animate-rise rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
         <div className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-2 text-white shadow-glow">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -40,14 +33,8 @@ export function AgeGate() {
         </p>
         <div className="mt-6 flex flex-col gap-2.5">
           <button
-            onClick={() => {
-              try {
-                localStorage.setItem(KEY, "1");
-              } catch {
-                /* ignore */
-              }
-              setShow(false);
-            }}
+            id="age-gate-enter"
+            type="button"
             className="rounded-xl bg-gradient-to-r from-accent to-accent-2 py-3 text-sm font-bold text-white shadow-glow transition hover:-translate-y-0.5"
           >
             I am 18 or older — Enter
@@ -60,6 +47,11 @@ export function AgeGate() {
           </a>
         </div>
       </div>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){var g=document.getElementById('age-gate');if(!g)return;try{if(localStorage.getItem('${KEY}')==='1'){g.remove();return;}}catch(e){}var b=document.getElementById('age-gate-enter');if(b)b.addEventListener('click',function(){try{localStorage.setItem('${KEY}','1')}catch(e){}g.remove();});})();`,
+        }}
+      />
     </div>
   );
 }

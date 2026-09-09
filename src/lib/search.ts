@@ -35,16 +35,22 @@ export type TagHit = {
 
 type RawSeries = Omit<SeriesHit, "episodes"> & { episodes: number };
 
-async function seriesSearch(term: string, limit: number): Promise<SeriesHit[]> {
+async function seriesSearch(
+  term: string,
+  limit: number,
+  withCounts: boolean,
+): Promise<SeriesHit[]> {
   const q = term.slice(0, 120);
   const prefix = `${q}%`;
   const infix = `%${q}%`;
+  const episodesCol = withCounts
+    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED')`
+    : Prisma.sql`0`;
   return db(() =>
     prisma.$queryRaw<RawSeries[]>(Prisma.sql`
       SELECT s.id, s.slug, s.title, s."titleEnglish", s."coverUrl", s.year,
              s.type::text AS type, s.status::text AS status, s.synopsis,
-             (SELECT count(*)::int FROM "Episode" e
-                WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED') AS episodes,
+             ${episodesCol} AS episodes,
              GREATEST(
                similarity(s.title, ${q}),
                similarity(coalesce(s."titleEnglish", ''), ${q}),
@@ -88,7 +94,7 @@ export async function searchSuggest(q: string) {
   const term = q.trim();
   if (term.length < 2) return { series: [] as SeriesHit[], tags: [] as TagHit[] };
   const [series, tags] = await Promise.all([
-    seriesSearch(term, 7),
+    seriesSearch(term, 7, false),
     tagSearch(term, 4),
   ]);
   return { series, tags };
@@ -99,7 +105,7 @@ export async function searchResults(q: string) {
   const term = q.trim();
   if (term.length < 2) return { series: [] as SeriesHit[], tags: [] as TagHit[] };
   const [series, tags] = await Promise.all([
-    seriesSearch(term, 48),
+    seriesSearch(term, 48, true),
     tagSearch(term, 12),
   ]);
   return { series, tags };

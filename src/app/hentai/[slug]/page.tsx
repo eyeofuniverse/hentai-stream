@@ -3,7 +3,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSeries } from "@/lib/queries";
 import { prisma } from "@/lib/db";
-import { cover, banner, thumb } from "@/lib/cloudinary";
+import {
+  cover,
+  coverSet,
+  banner,
+  bannerSet,
+  thumb,
+  thumbSet,
+} from "@/lib/cloudinary";
 import { gradientFor } from "@/lib/gradient";
 import { Pill } from "@/components/ui";
 import { SITE, SITE_NAME, abs, excerpt, breadcrumbLd } from "@/lib/seo";
@@ -144,7 +151,17 @@ export default async function SeriesPage({
         <div className="absolute inset-0 -z-10 h-[420px] overflow-hidden">
           {bannerSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={bannerSrc} alt="" className="h-full w-full object-cover opacity-30 blur-sm" />
+            <img
+              src={bannerSrc}
+              srcSet={
+                (s.bannerUrl ? bannerSet(s.bannerUrl) : coverSet(s.coverUrl)) ?? undefined
+              }
+              sizes="100vw"
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              className="h-full w-full object-cover opacity-30 blur-sm"
+            />
           ) : (
             <div className="h-full w-full opacity-30" style={{ backgroundImage: gradientFor(s.slug) }} />
           )}
@@ -165,7 +182,17 @@ export default async function SeriesPage({
               <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 shadow-card ring-1 ring-white/10">
                 {coverSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverSrc} alt={s.title} className="h-full w-full object-cover" />
+                  <img
+                    src={coverSrc}
+                    srcSet={coverSet(s.coverUrl) ?? undefined}
+                    sizes="(max-width:640px) 40vw, 224px"
+                    alt={s.title}
+                    width={300}
+                    height={450}
+                    fetchPriority="high"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <div className="h-full w-full" style={{ backgroundImage: gradientFor(s.slug) }} />
                 )}
@@ -255,7 +282,8 @@ export default async function SeriesPage({
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2">
             {s.episodes.map((ep) => {
-              const src = thumb(ep.thumbUrl) ?? thumb(s.coverUrl);
+              const rawId = ep.thumbUrl ?? s.coverUrl;
+              const src = thumb(rawId);
               const noSrc = ep._count.sources === 0;
               const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
               return (
@@ -267,7 +295,17 @@ export default async function SeriesPage({
                   <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-surface-2 sm:w-32">
                     {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={src} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                      <img
+                        src={src}
+                        srcSet={thumbSet(rawId) ?? undefined}
+                        sizes="128px"
+                        alt=""
+                        width={360}
+                        height={203}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
                     ) : (
                       <div className="h-full w-full" style={{ backgroundImage: gradientFor(s.slug) }} />
                     )}

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 type Me = { handle: string; role: string } | null;
 
@@ -72,6 +71,7 @@ export function AccountMenu() {
             )}
             <button
               onClick={async () => {
+                const { createClient } = await import("@/lib/supabase/client");
                 await createClient().auth.signOut();
                 setMe(null);
                 router.refresh();

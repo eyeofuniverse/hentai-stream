@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { thumb, cover } from "@/lib/cloudinary";
+import { thumb, thumbSet, cover, THUMB_SIZES } from "@/lib/cloudinary";
 import { gradientFor } from "@/lib/gradient";
 
 export function EpisodeCard({
@@ -13,7 +13,8 @@ export function EpisodeCard({
     series: { slug: string; title: string; coverUrl: string | null };
   };
 }) {
-  const src = thumb(ep.thumbUrl) ?? thumb(ep.series.coverUrl) ?? cover(ep.series.coverUrl);
+  const rawId = ep.thumbUrl ?? ep.series.coverUrl;
+  const src = thumb(rawId) ?? cover(ep.series.coverUrl);
   const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
 
   return (
@@ -26,8 +27,13 @@ export function EpisodeCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={src}
+            srcSet={thumbSet(rawId) ?? undefined}
+            sizes={THUMB_SIZES}
             alt={ep.series.title}
+            width={360}
+            height={203}
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (

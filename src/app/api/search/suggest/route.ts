@@ -24,6 +24,10 @@ export async function GET(req: Request) {
       })),
       tags: tags.map((t) => ({ slug: t.slug, name: t.name, count: t.seriesCount })),
     },
-    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=86400",
+      },
+    },
   );
 }

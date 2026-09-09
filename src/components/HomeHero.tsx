@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { banner, cover } from "@/lib/cloudinary";
+import { banner, bannerSet, cover, coverSet } from "@/lib/cloudinary";
 import { gradientFor } from "@/lib/gradient";
 
 export type HeroSeries = {
@@ -32,8 +32,10 @@ export function HomeHero({ items }: { items: HeroSeries[] }) {
   if (items.length === 0) return null;
   const s = items[i];
   const bg = banner(s.bannerUrl) ?? cover(s.coverUrl);
+  const bgSet = s.bannerUrl ? bannerSet(s.bannerUrl) : coverSet(s.coverUrl);
   const poster = cover(s.coverUrl);
   const firstEp = s.episodes[0]?.number ?? 1;
+  const first = i === 0;
 
   return (
     <section className="relative isolate w-full overflow-hidden">
@@ -43,7 +45,14 @@ export function HomeHero({ items }: { items: HeroSeries[] }) {
           <img
             key={s.slug}
             src={bg}
+            srcSet={bgSet ?? undefined}
+            sizes="100vw"
             alt=""
+            width={1200}
+            height={450}
+            fetchPriority={first ? "high" : "auto"}
+            loading={first ? "eager" : "lazy"}
+            decoding="async"
             className="absolute inset-0 h-full w-full animate-slow-zoom object-cover"
           />
         ) : (
@@ -58,7 +67,17 @@ export function HomeHero({ items }: { items: HeroSeries[] }) {
             {poster && (
               <div className="hidden w-44 shrink-0 overflow-hidden rounded-xl shadow-card ring-1 ring-white/10 lg:block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={poster} alt={s.title} className="aspect-[2/3] w-full object-cover" />
+                <img
+                  src={poster}
+                  srcSet={coverSet(s.coverUrl) ?? undefined}
+                  sizes="176px"
+                  alt={s.title}
+                  width={300}
+                  height={450}
+                  loading={first ? "eager" : "lazy"}
+                  decoding="async"
+                  className="aspect-[2/3] w-full object-cover"
+                />
               </div>
             )}
 

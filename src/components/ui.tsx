@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { gradientFor } from "@/lib/gradient";
+import { coverSet, COVER_SIZES } from "@/lib/cloudinary";
 
 export function Pill({
   children,
@@ -59,14 +60,19 @@ export function SectionHeader({
 /** Portrait artwork with a deterministic gradient fallback and hover zoom. */
 export function Poster({
   src,
+  coverId,
   title,
   seed,
+  priority,
   className = "",
   children,
 }: {
   src: string | null;
+  /** raw stored cover value — enables a responsive srcset */
+  coverId?: string | null;
   title: string;
   seed: string;
+  priority?: boolean;
   className?: string;
   children?: ReactNode;
 }) {
@@ -78,8 +84,14 @@ export function Poster({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
+          srcSet={coverSet(coverId) ?? undefined}
+          sizes={COVER_SIZES}
           alt={title}
-          loading="lazy"
+          width={300}
+          height={450}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={priority ? "high" : "auto"}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
       ) : (
