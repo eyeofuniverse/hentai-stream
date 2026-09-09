@@ -1,6 +1,7 @@
 import { prisma, db } from "@/lib/db";
 import { slugify } from "@/lib/metadata/tags";
-import { categorize, type EnrichResult } from "./types";
+import { canonicalTag } from "@/lib/metadata/tag-canonical";
+import type { EnrichResult } from "./types";
 
 export interface ApplyStats {
   fieldsFilled: number;
@@ -103,30 +104,25 @@ export async function applyEnrichment(
       data.altTitles = [...cur.altTitles, r.parody];
   }
 
-  // tags — additive
+  // tags — additive, canonicalised (dictionary aliases collapse onto one tag)
   if (r.tags?.length) {
-    const ids: string[] = [];
-    for (const raw of [...new Set(r.tags.map((t) => t.trim()).filter(Boolean))]) {
-      const slug = slugify(raw);
-      if (slug.length < 2) continue;
+    const ids = new Set<string>();
+    for (const raw of r.tags) {
+      const canon = canonicalTag(raw);
+      if (!canon) continue;
       const t = await db(() =>
         prisma.tag.upsert({
-          where: { slug },
+          where: { slug: canon.slug },
           update: {},
-          create: {
-            slug,
-            name: raw.replace(/\b\w/g, (c) => c.toUpperCase()),
-            category: categorize(raw),
-            hideFromDefault: categorize(raw) === "CONTENT_WARNING",
-          },
+          create: { slug: canon.slug, name: canon.name, category: canon.category },
           select: { id: true },
         }),
       );
-      ids.push(t.id);
+      ids.add(t.id);
     }
-    if (ids.length) {
-      data.tags = { connect: ids.map((id) => ({ id })) };
-      stats.tagsAdded += ids.length;
+    if (ids.size) {
+      data.tags = { connect: [...ids].map((id) => ({ id })) };
+      stats.tagsAdded += ids.size;
     }
   }
 

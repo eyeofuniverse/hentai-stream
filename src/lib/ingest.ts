@@ -6,6 +6,7 @@ import {
   type SourceStatus,
 } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
+import { canonicalTag } from "@/lib/metadata/tag-canonical";
 
 /* ───────────────────────────── title matching ───────────────────────────── */
 
@@ -176,6 +177,50 @@ export async function recordUnmatched(opts: {
       },
     }),
   );
+}
+
+/**
+ * Attach genre/tag names scraped off a source site to a matched series.
+ * Canonicalised through the dictionary (aliases collapse onto one tag), additive
+ * only, and skipped entirely for hand-managed (`metadataSource: "manual"`) rows.
+ */
+export async function attachSeriesGenres(
+  seriesId: string,
+  rawGenres: string[],
+): Promise<number> {
+  const canon = [
+    ...new Map(
+      rawGenres
+        .map((g) => canonicalTag(g))
+        .filter((c): c is NonNullable<typeof c> => !!c)
+        .map((c) => [c.slug, c] as const),
+    ).values(),
+  ];
+  if (!canon.length) return 0;
+
+  return db(async () => {
+    const series = await prisma.series.findUnique({
+      where: { id: seriesId },
+      select: { metadataSource: true },
+    });
+    if (!series || series.metadataSource === "manual") return 0;
+
+    const ids: string[] = [];
+    for (const c of canon) {
+      const t = await prisma.tag.upsert({
+        where: { slug: c.slug },
+        update: {},
+        create: { slug: c.slug, name: c.name, category: c.category },
+        select: { id: true },
+      });
+      ids.push(t.id);
+    }
+    await prisma.series.update({
+      where: { id: seriesId },
+      data: { tags: { connect: ids.map((id) => ({ id })) } },
+    });
+    return ids.length;
+  });
 }
 
 /* ─────────────────────────────── host mapping ───────────────────────────── */

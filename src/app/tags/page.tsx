@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma, db } from "@/lib/db";
+import { FEATURED_GENRE_SLUGS } from "@/lib/metadata/tag-canonical";
+import { gradientFor } from "@/lib/gradient";
 
 export const revalidate = 600;
 export const metadata: Metadata = {
@@ -11,18 +13,19 @@ export const metadata: Metadata = {
 function getTags() {
   return db(() =>
     prisma.tag.findMany({
+      where: { seriesCount: { gt: 0 } },
       orderBy: [{ category: "asc" }, { name: "asc" }],
-      include: { _count: { select: { series: true } } },
+      select: { slug: true, name: true, category: true, seriesCount: true },
     }),
   );
 }
 
 const CATS: { key: string; label: string }[] = [
   { key: "GENRE", label: "Genres" },
-  { key: "THEME", label: "Themes" },
-  { key: "FETISH", label: "Fetishes & kinks" },
+  { key: "THEME", label: "Themes & settings" },
+  { key: "FETISH", label: "Kinks & body" },
   { key: "FORMAT", label: "Format" },
-  { key: "CW", label: "Content warnings" },
+  { key: "CONTENT_WARNING", label: "Content warnings" },
 ];
 
 export default async function TagsPage() {
@@ -30,25 +33,62 @@ export default async function TagsPage() {
     () => [] as Awaited<ReturnType<typeof getTags>>,
   );
 
+  const featured = FEATURED_GENRE_SLUGS.map((s) =>
+    tags.find((t) => t.slug === s),
+  )
+    .filter((t): t is (typeof tags)[number] => !!t)
+    .sort((a, b) => b.seriesCount - a.seriesCount);
+
   return (
     <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
       <h1 className="font-display text-2xl font-extrabold tracking-tight">
         Genres &amp; tags
       </h1>
       <p className="mt-1 text-sm text-white/45">
-        {tags.length.toLocaleString()} tags across the catalogue.
+        {tags.length.toLocaleString()} tags with content across the catalogue.
       </p>
 
+      {featured.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 flex items-center gap-2.5 font-display text-base font-bold">
+            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
+            Popular genres
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {featured.map((g) => (
+              <Link
+                key={g.slug}
+                href={`/tag/${g.slug}`}
+                className="group relative flex h-20 items-end overflow-hidden rounded-xl p-3 ring-1 ring-white/5"
+              >
+                <div
+                  className="absolute inset-0 transition duration-500 group-hover:scale-105"
+                  style={{ backgroundImage: gradientFor(g.slug) }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/5" />
+                <div className="relative">
+                  <p className="font-display text-sm font-bold text-white drop-shadow">
+                    {g.name}
+                  </p>
+                  <p className="text-[11px] font-medium text-white/75">
+                    {g.seriesCount} titles
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {CATS.map((cat) => {
-        const group = tags
-          .filter((t) => (t.category ?? "THEME") === cat.key)
-          .filter((t) => t._count.series > 0);
+        const group = tags.filter((t) => (t.category ?? "THEME") === cat.key);
         if (group.length === 0) return null;
         return (
           <section key={cat.key} className="mt-10">
             <h2 className="mb-3 flex items-center gap-2.5 font-display text-base font-bold">
               <span className="h-4 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
               {cat.label}
+              <span className="text-xs font-normal text-white/30">{group.length}</span>
             </h2>
             <div className="flex flex-wrap gap-2">
               {group.map((t) => (
@@ -61,7 +101,7 @@ export default async function TagsPage() {
                     {t.name}
                   </span>
                   <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[11px] font-semibold text-white/45">
-                    {t._count.series}
+                    {t.seriesCount}
                   </span>
                 </Link>
               ))}

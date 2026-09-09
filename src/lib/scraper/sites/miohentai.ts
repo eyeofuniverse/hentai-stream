@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { Http, sitemapLocs, decodeEntities } from "../http";
 import {
   episodeNumFrom,
+  genresFrom,
   yearFrom,
   type EpisodeRef,
   type ScrapedSource,
@@ -124,6 +125,7 @@ function parsePost(html: string, url: string): EpisodeRef | null {
     episodeUrl: url,
     thumbUrl: poster || null,
     airedAt: $("meta[property='article:published_time']").attr("content") ?? null,
+    seriesGenres: genresFrom($),
     sources: [
       {
         embedUrl: src,

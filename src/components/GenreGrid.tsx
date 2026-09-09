@@ -5,7 +5,7 @@ import { SectionHeader } from "@/components/ui";
 export function GenreGrid({
   genres,
 }: {
-  genres: { slug: string; name: string; _count: { series: number } }[];
+  genres: { slug: string; name: string; seriesCount: number }[];
 }) {
   if (genres.length === 0) return null;
   return (
@@ -28,7 +28,7 @@ export function GenreGrid({
                 {g.name}
               </p>
               <p className="text-[11px] font-medium text-white/75">
-                {g._count.series} titles
+                {g.seriesCount} titles
               </p>
             </div>
           </Link>

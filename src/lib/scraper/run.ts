@@ -1,5 +1,10 @@
 import { prisma, db } from "@/lib/db";
-import { resolveSeries, recordUnmatched, ingestEpisode } from "@/lib/ingest";
+import {
+  resolveSeries,
+  recordUnmatched,
+  ingestEpisode,
+  attachSeriesGenres,
+} from "@/lib/ingest";
 import { Http } from "./http";
 import { getAdapter } from "./sites";
 import { normQuality, type EpisodeRef } from "./types";
@@ -72,6 +77,8 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   const seenTitles = new Set<string>();
   // remember title→match so repeat episodes of one series don't re-resolve
   const matchCache = new Map<string, string | null>();
+  // series we've already attached scraped genres to this run
+  const genresDone = new Set<string>();
 
   const handle = async (ref: EpisodeRef) => {
     s.refsSeen++;
@@ -103,6 +110,17 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
       return;
     }
     s.matched++;
+
+    // attach the source site's own genres to the series (once per run)
+    if (ref.seriesGenres?.length && !genresDone.has(seriesId) && !opts.dryRun) {
+      genresDone.add(seriesId);
+      try {
+        const added = await attachSeriesGenres(seriesId, ref.seriesGenres);
+        if (added) log(`  # ${ref.seriesTitle}: +${added} genres`);
+      } catch (e) {
+        s.errors.push(`genres ${ref.seriesTitle}: ${(e as Error).message}`);
+      }
+    }
 
     // already have this episode from this site? skip the fetch.
     if (!opts.refetch) {

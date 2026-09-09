@@ -10,6 +10,7 @@
  * Non-destructive: only fills empty fields, only adds tags/characters.
  */
 import { runEnrich } from "@/lib/enrich/run";
+import { recountTaxonomy } from "@/lib/metadata/importer";
 import { prisma } from "@/lib/db";
 
 const args = process.argv.slice(2);
@@ -33,6 +34,10 @@ const summary = await runEnrich({
   minGapMs: flag("gap") ? Number(flag("gap")) : undefined,
   log: (m) => console.log(m),
 });
+
+if (!flag("dry-run")) {
+  await recountTaxonomy().catch((e) => console.error("recount:", e));
+}
 
 console.log("\n── done ──");
 console.log(JSON.stringify(summary, null, 2));

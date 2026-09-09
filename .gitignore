@@ -16,3 +16,5 @@ next-env.d.ts
 
 # local backfill resume state
 scripts/.metadata-backfill-progress.json
+# tag-consolidation backups
+scripts/.tag-consolidate-*.json

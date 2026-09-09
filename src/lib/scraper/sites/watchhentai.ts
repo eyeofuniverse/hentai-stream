@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { Http, sitemapLocs, decodeEntities } from "../http";
 import {
   episodeNumFrom,
+  genresFrom,
   yearFrom,
   type EpisodeRef,
   type ScrapedSource,
@@ -46,6 +47,7 @@ export const watchhentai: SiteAdapter = {
           year: parsed.year,
           number: ep.number,
           episodeUrl: ep.url,
+          seriesGenres: parsed.genres,
         };
       }
     }
@@ -74,6 +76,7 @@ export const watchhentai: SiteAdapter = {
           year: parsed.year,
           number: ep.number,
           episodeUrl: ep.url,
+          seriesGenres: parsed.genres,
         });
       }
     }
@@ -159,7 +162,7 @@ function parseSeries(html: string, url: string) {
     episodes.push({ number: num, url: href });
   });
 
-  return { title, year, episodes };
+  return { title, year, episodes, genres: genresFrom($) };
 }
 
 /** AJAX response is JSON { embed_url } where embed_url is a bare URL or an

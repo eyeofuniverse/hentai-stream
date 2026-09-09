@@ -1,5 +1,6 @@
 import { prisma, db } from "@/lib/db";
 import type { Prisma, SeriesStatus, SeriesType } from "@prisma/client";
+import { FEATURED_GENRE_SLUGS } from "@/lib/metadata/tag-canonical";
 
 const PAGE = 24;
 
@@ -222,10 +223,10 @@ async function homeSectionsInner() {
         select: seriesCardSelect,
       }),
       prisma.tag.findMany({
-        where: { category: { in: ["GENRE", "THEME"] } },
-        orderBy: { series: { _count: "desc" } },
+        where: { slug: { in: FEATURED_GENRE_SLUGS }, seriesCount: { gt: 0 } },
+        orderBy: { seriesCount: "desc" },
         take: 12,
-        include: { _count: { select: { series: true } } },
+        select: { slug: true, name: true, seriesCount: true },
       }),
     ]);
 

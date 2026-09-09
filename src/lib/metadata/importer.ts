@@ -71,7 +71,6 @@ async function ensureTag(slug: string, name: string, category: TagCategory) {
         slug,
         name,
         category,
-        hideFromDefault: category === "CONTENT_WARNING",
         bodyMd: LANDING_BY_SLUG.get(slug)
           ? `${name} hentai — every ${name.toLowerCase()} title on the site, newest first.`
           : null,
@@ -188,7 +187,7 @@ export async function importSeries(
   for (const s of extractTags(`${n.title}\n${n.synopsis ?? ""}`, matchers())) {
     tagSlugs.add(s);
   }
-  if (minor) tagSlugs.add(slugify("Non-Consensual")); // conservative surface
+  if (minor) tagSlugs.add(slugify("Rape")); // conservative surface
 
   const tagIds: string[] = [];
   if (!adminOwned) {

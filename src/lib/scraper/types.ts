@@ -1,3 +1,4 @@
+import type { CheerioAPI } from "cheerio";
 import type { Http } from "./http";
 
 export interface ScrapedSource {
@@ -32,6 +33,22 @@ export interface EpisodeRef {
   sources?: ScrapedSource[];
   thumbUrl?: string | null;
   airedAt?: string | null;
+  /** raw genre/tag names shown on the source site for this series — the
+   *  orchestrator canonicalises them and attaches them to the matched series */
+  seriesGenres?: string[];
+}
+
+/** Pull the genre/tag link texts out of a source-site page. Handles both the
+ *  DooPlay `.sgeneros` block and plain WordPress `rel="tag"` links. */
+export function genresFrom($: CheerioAPI): string[] {
+  const out = new Set<string>();
+  $(".sgeneros a, .genres a, .generos a, a[rel='tag'], a[href*='/genre/'], a[href*='/genres/'], a[href*='/tag/']").each(
+    (_, el) => {
+      const t = $(el).text().trim();
+      if (t && t.length <= 40 && !/^https?:/i.test(t)) out.add(t);
+    },
+  );
+  return [...out].slice(0, 25);
 }
 
 export interface SiteAdapter {
