@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma, db } from "@/lib/db";
 import { browseSeries } from "@/lib/queries";
@@ -45,16 +46,38 @@ export default async function StudioPage({
   ).catch(() => null);
   if (!studio) notFound();
 
-  const { items, total, pages } = await browseSeries({ studio: slug, sort: "updated" });
+  const { items, total, pages } = await browseSeries({
+    studio: slug,
+    sort: "updated",
+  });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="text-xl font-bold">{studio.name}</h1>
-      {studio.description && (
-        <p className="mt-2 max-w-2xl text-sm text-white/60">{studio.description}</p>
-      )}
-      <p className="mb-3 mt-3 text-xs text-white/40">{total} series</p>
-      <SeriesGridLoadMore initial={items} totalPages={pages} query={{ studio: slug }} />
+    <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
+      <div className="mb-8 border-b border-line pb-6">
+        <p className="text-xs font-semibold uppercase tracking-wider text-accent">
+          Studio
+        </p>
+        <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+          {studio.name}
+        </h1>
+        {studio.description && (
+          <p className="mt-2 max-w-2xl text-sm text-white/60">{studio.description}</p>
+        )}
+        <p className="mt-3 text-xs text-white/40">{total.toLocaleString()} series</p>
+      </div>
+
+      <SeriesGridLoadMore
+        initial={items}
+        totalPages={pages}
+        query={{ studio: slug }}
+      />
+
+      <Link
+        href="/browse"
+        className="mt-10 inline-block text-xs text-white/40 hover:text-accent"
+      >
+        ← Browse everything
+      </Link>
     </main>
   );
 }

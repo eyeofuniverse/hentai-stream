@@ -1,27 +1,78 @@
 import Link from "next/link";
 
+const COLS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Browse",
+    links: [
+      { href: "/browse", label: "All titles" },
+      { href: "/browse?sort=new", label: "Latest additions" },
+      { href: "/browse?sort=popular", label: "Most viewed" },
+      { href: "/browse?status=ongoing", label: "Ongoing" },
+      { href: "/tags", label: "Genres & tags" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { href: "/dmca", label: "DMCA" },
+      { href: "/2257", label: "18 U.S.C. § 2257" },
+      { href: "/terms", label: "Terms of use" },
+      { href: "/privacy", label: "Privacy policy" },
+      { href: "/report-content", label: "Report content" },
+    ],
+  },
+];
+
 export function SiteFooter() {
   return (
-    <footer className="mt-16 border-t border-white/8 bg-surface/40">
-      <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-white/50">
-        <div className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/browse">Browse</Link>
-          <Link href="/tags">Tags</Link>
-          <Link href="/dmca">DMCA</Link>
-          <Link href="/2257">2257 Statement</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/report-content">Report content</Link>
+    <footer className="mt-20 border-t border-line bg-surface/30">
+      <div className="mx-auto max-w-content px-4 py-12 lg:px-8">
+        <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
+          <div className="md:col-span-2">
+            <Link
+              href="/"
+              className="flex items-center gap-2 font-display text-lg font-extrabold tracking-tight"
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-sm text-white">
+                L
+              </span>
+              Lust<span className="-ml-1.5 text-accent">Hentai</span>
+            </Link>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/45">
+              Stream subbed, dubbed and uncensored hentai — series, OVAs and movies,
+              in your own player. Updated daily.
+            </p>
+          </div>
+
+          {COLS.map((c) => (
+            <div key={c.title}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">
+                {c.title}
+              </h3>
+              <ul className="mt-3 space-y-2 text-sm text-white/55">
+                {c.links.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className="hover:text-white">
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
-        <p className="mt-6 text-xs leading-relaxed text-white/35">
-          LustHentai streams animated adult content. All characters depicted are
-          fictional and represented as adults (18+). No real persons appear in any
-          content, so the record-keeping requirements of 18 U.S.C. § 2257 do not
-          apply. 18+ only.
-        </p>
-        <p className="mt-3 text-xs text-white/25">
-          © {new Date().getFullYear()} LustHentai
-        </p>
+
+        <div className="mt-12 border-t border-line pt-6">
+          <p className="text-xs leading-relaxed text-white/30">
+            LustHentai streams animated adult content. All characters depicted are
+            fictional and represented as adults (18+). No real persons appear in any
+            content, so the record-keeping requirements of 18 U.S.C. § 2257 do not
+            apply. 18+ only.
+          </p>
+          <p className="mt-3 text-xs text-white/25">
+            © {new Date().getFullYear()} LustHentai. All rights reserved.
+          </p>
+        </div>
       </div>
     </footer>
   );

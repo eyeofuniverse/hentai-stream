@@ -4,20 +4,46 @@
 
 :root {
   color-scheme: dark;
+  --edge: 14, 14, 21;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html,
 body {
-  background: #0b0b0f;
+  background: #09090e;
   color: #ececf1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 60rem at 85% -10%, rgba(139, 92, 246, 0.1), transparent 60%),
+    radial-gradient(50rem 50rem at 0% 0%, rgba(255, 61, 127, 0.08), transparent 55%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 a {
   color: inherit;
+}
+
+::selection {
+  background: rgba(255, 61, 127, 0.32);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(255, 61, 127, 0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar {
@@ -25,8 +51,12 @@ a {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a38;
+  background: #2a2a3b;
   border-radius: 10px;
+  border: 2px solid #09090e;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4f;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -37,6 +67,25 @@ a {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/* fade the trailing edge of a horizontal scroller */
+.edge-fade-r {
+  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 @keyframes fadein {

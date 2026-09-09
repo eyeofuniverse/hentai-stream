@@ -109,7 +109,7 @@ export function WatchPlayer({
 
   if (!cur) {
     return (
-      <div className="grid aspect-video place-items-center rounded-xl bg-surface text-sm text-white/40">
+      <div className="grid aspect-video w-full place-items-center bg-surface text-sm text-white/40 sm:rounded-xl">
         No working sources yet — check back soon.
       </div>
     );
@@ -117,7 +117,7 @@ export function WatchPlayer({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
+      <div className="overflow-hidden bg-black shadow-card ring-1 ring-white/10 sm:rounded-xl">
         <div className="aspect-video">
           {cur.kind === "hosted" ? (
             <Hls key="hosted" src={cur.hls} poster={cur.poster} />
@@ -145,7 +145,10 @@ export function WatchPlayer({
       </div>
 
       {options.length > 1 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2 px-4 pt-3 sm:px-0">
+          <span className="w-full text-[11px] font-semibold uppercase tracking-wider text-white/35">
+            Servers
+          </span>
           {options.map((o, i) => (
             <button
               key={i}
@@ -159,31 +162,34 @@ export function WatchPlayer({
                   }
                 }
               }}
-              className={`rounded-lg px-3 py-1.5 text-xs ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 i === active
-                  ? "bg-accent font-semibold"
-                  : "bg-surface text-white/70 hover:bg-surface-2"
+                  ? "bg-gradient-to-r from-accent to-accent-2 text-white shadow-glow"
+                  : "border border-line bg-surface text-white/70 hover:border-accent/40 hover:text-white"
               }`}
             >
               {o.kind === "hosted" ? (
-                <>Server {i + 1} · HD</>
+                <>
+                  <Dot on={i === active} /> Server {i + 1}
+                  <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">HD</span>
+                </>
               ) : (
                 <>
-                  Server {i + 1} ·{" "}
-                  {o.src.host === "OTHER" && o.src.hostName
-                    ? o.src.hostName
-                    : HOST_LABEL[o.src.host] ?? o.src.host}
-                  <span className="ml-1.5 inline-flex gap-1 align-middle">
-                    <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
-                      {o.src.kind}
-                      {o.src.language !== "en" ? ` ${o.src.language.toUpperCase()}` : ""}
-                    </span>
-                    {qLabel(o.src.quality) && (
-                      <span className="rounded bg-black/25 px-1 py-px text-[10px] font-semibold">
-                        {qLabel(o.src.quality)}
-                      </span>
-                    )}
+                  <Dot on={i === active} /> Server {i + 1}
+                  <span className="opacity-70">
+                    {o.src.host === "OTHER" && o.src.hostName
+                      ? o.src.hostName
+                      : HOST_LABEL[o.src.host] ?? o.src.host}
                   </span>
+                  <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
+                    {o.src.kind}
+                    {o.src.language !== "en" ? ` ${o.src.language.toUpperCase()}` : ""}
+                  </span>
+                  {qLabel(o.src.quality) && (
+                    <span className="rounded bg-black/25 px-1 py-px text-[10px] font-bold">
+                      {qLabel(o.src.quality)}
+                    </span>
+                  )}
                 </>
               )}
             </button>
@@ -191,5 +197,13 @@ export function WatchPlayer({
         </div>
       )}
     </div>
+  );
+}
+
+function Dot({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`h-1.5 w-1.5 rounded-full ${on ? "bg-white" : "bg-good"}`}
+    />
   );
 }

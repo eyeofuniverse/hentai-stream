@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { gradientFor } from "@/lib/gradient";
+import { SectionHeader } from "@/components/ui";
 
 export function GenreGrid({
   genres,
@@ -8,33 +9,31 @@ export function GenreGrid({
 }) {
   if (genres.length === 0) return null;
   return (
-    <section className="mt-9 px-4 sm:px-0">
-      <h2 className="mb-3 text-lg font-bold tracking-tight sm:text-xl">
-        <span className="mr-2 inline-block h-4 w-1 translate-y-0.5 rounded bg-accent" />
-        Browse by genre
-      </h2>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+    <section className="mt-12 px-4 lg:px-0">
+      <SectionHeader title="Browse by genre" href="/tags" linkLabel="All genres & tags" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {genres.map((g) => (
           <Link
             key={g.slug}
             href={`/tag/${g.slug}`}
-            className="group relative flex h-20 items-end overflow-hidden rounded-xl p-3"
-            style={{ backgroundImage: gradientFor(g.slug) }}
+            className="group relative flex h-24 items-end overflow-hidden rounded-xl p-3.5 ring-1 ring-white/5"
           >
-            <div className="absolute inset-0 bg-black/25 transition group-hover:bg-black/10" />
+            <div
+              className="absolute inset-0 transition duration-500 group-hover:scale-105"
+              style={{ backgroundImage: gradientFor(g.slug) }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/5 transition group-hover:from-black/45" />
             <div className="relative">
-              <p className="font-bold leading-tight drop-shadow">{g.name}</p>
-              <p className="text-[11px] text-white/80">{g._count.series} titles</p>
+              <p className="font-display font-bold leading-tight text-white drop-shadow">
+                {g.name}
+              </p>
+              <p className="text-[11px] font-medium text-white/75">
+                {g._count.series} titles
+              </p>
             </div>
           </Link>
         ))}
       </div>
-      <Link
-        href="/tags"
-        className="mt-3 inline-block text-xs text-white/40 hover:text-white"
-      >
-        All genres & tags →
-      </Link>
     </section>
   );
 }

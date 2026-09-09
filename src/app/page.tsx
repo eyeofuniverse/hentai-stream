@@ -3,6 +3,7 @@ import { homeSections } from "@/lib/queries";
 import { HomeHero } from "@/components/HomeHero";
 import { ScrollRow } from "@/components/ScrollRow";
 import { GenreGrid } from "@/components/GenreGrid";
+import { SectionHeader } from "@/components/ui";
 import { SeriesCard } from "@/components/SeriesCard";
 import { EpisodeCard } from "@/components/EpisodeCard";
 
@@ -20,8 +21,8 @@ export default async function HomePage() {
 
   if (!hasAnything) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-20 text-center">
-        <h1 className="text-2xl font-black">
+      <main className="mx-auto max-w-content px-4 py-24 text-center">
+        <h1 className="font-display text-2xl font-extrabold">
           Lust<span className="text-accent">Hentai</span>
         </h1>
         <p className="mt-2 text-sm text-white/50">
@@ -37,22 +38,24 @@ export default async function HomePage() {
 
   return (
     <>
-      <HomeHero
-        items={h.featured.map((s) => ({
-          slug: s.slug,
-          title: s.title,
-          synopsis: s.synopsis,
-          coverUrl: s.coverUrl,
-          bannerUrl: s.bannerUrl,
-          type: s.type,
-          year: s.year,
-          status: s.status,
-          tags: s.tags.map((t) => ({ slug: t.slug, name: t.name })),
-          episodes: s.episodes,
-        }))}
-      />
+      {h.featured.length > 0 && (
+        <HomeHero
+          items={h.featured.map((s) => ({
+            slug: s.slug,
+            title: s.title,
+            synopsis: s.synopsis,
+            coverUrl: s.coverUrl,
+            bannerUrl: s.bannerUrl,
+            type: s.type,
+            year: s.year,
+            status: s.status,
+            tags: s.tags.map((t) => ({ slug: t.slug, name: t.name })),
+            episodes: s.episodes,
+          }))}
+        />
+      )}
 
-      <main className="mx-auto max-w-6xl pb-4 sm:px-4">
+      <main className="mx-auto max-w-content pb-8 lg:px-8">
         {h.recentEpisodes.length > 0 && (
           <ScrollRow title="Recently added" href="/browse?sort=new">
             {h.recentEpisodes.map((ep) => (
@@ -94,6 +97,22 @@ export default async function HomePage() {
             ))}
           </ScrollRow>
         )}
+
+        <section className="mt-14 px-4 lg:px-0">
+          <SectionHeader title="All titles" href="/browse" linkLabel="Open catalogue" />
+          <Link
+            href="/browse"
+            className="flex items-center justify-between rounded-2xl border border-line bg-surface/50 p-6 transition hover:border-accent/30"
+          >
+            <div>
+              <p className="font-display text-base font-bold">Browse the full catalogue</p>
+              <p className="mt-1 text-sm text-white/45">
+                Filter by genre, studio, type, status and more.
+              </p>
+            </div>
+            <span className="text-2xl text-accent">→</span>
+          </Link>
+        </section>
       </main>
     </>
   );

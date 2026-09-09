@@ -23,11 +23,12 @@ export default async function SearchPage({
   const results = await searchSeries(q);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="text-lg font-bold">
+    <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
+      <h1 className="font-display text-xl font-extrabold tracking-tight">
         {q ? (
           <>
-            Results for “{q}” <span className="text-white/40">({results.length})</span>
+            Results for “{q}”{" "}
+            <span className="text-white/35">({results.length})</span>
           </>
         ) : (
           "Search"
@@ -35,23 +36,28 @@ export default async function SearchPage({
       </h1>
 
       {q && results.length === 0 && (
-        <p className="mt-8 text-sm text-white/40">
-          Nothing found. Try a different spelling or an alternate title.
-        </p>
+        <div className="mt-16 text-center">
+          <p className="text-sm text-white/45">
+            Nothing found for “{q}”.
+          </p>
+          <p className="mt-1 text-xs text-white/30">
+            Try a different spelling or an alternate title.
+          </p>
+          <Link
+            href="/browse"
+            className="mt-5 inline-block rounded-xl border border-line bg-surface px-6 py-2.5 text-sm hover:border-accent/40"
+          >
+            Browse the catalogue
+          </Link>
+        </div>
       )}
 
-      <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-        {results.map((s) => (
-          <SeriesCard key={s.slug} series={s} />
-        ))}
-      </div>
-
       {results.length > 0 && (
-        <p className="mt-6 text-xs text-white/30">
-          <Link href="/browse" className="underline">
-            Browse everything →
-          </Link>
-        </p>
+        <div className="mt-6 grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          {results.map((s) => (
+            <SeriesCard key={s.slug} series={s} />
+          ))}
+        </div>
       )}
     </main>
   );

@@ -41,14 +41,16 @@ export function AuthForm() {
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <div className="flex rounded-full border border-white/10 bg-surface p-1 text-sm">
+      <div className="flex rounded-xl border border-line bg-surface p-1 text-sm">
         {(["in", "up"] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`flex-1 rounded-full py-2 ${
-              mode === m ? "bg-accent font-semibold" : "text-white/55"
+            className={`flex-1 rounded-lg py-2 font-medium transition ${
+              mode === m
+                ? "bg-gradient-to-r from-accent to-accent-2 text-white"
+                : "text-white/55 hover:text-white"
             }`}
           >
             {m === "in" ? "Sign in" : "Create account"}
@@ -63,7 +65,7 @@ export function AuthForm() {
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-surface p-3.5 text-sm outline-none focus:border-white/25"
+        className="w-full rounded-xl border border-line bg-surface p-3.5 text-sm outline-none transition focus:border-accent/60"
       />
       <input
         type="password"
@@ -73,7 +75,7 @@ export function AuthForm() {
         autoComplete={mode === "in" ? "current-password" : "new-password"}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-surface p-3.5 text-sm outline-none focus:border-white/25"
+        className="w-full rounded-xl border border-line bg-surface p-3.5 text-sm outline-none transition focus:border-accent/60"
       />
 
       {msg && <p className="text-sm text-accent">{msg}</p>}
@@ -81,7 +83,7 @@ export function AuthForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-full bg-accent py-3.5 text-sm font-semibold disabled:opacity-50"
+        className="w-full rounded-xl bg-gradient-to-r from-accent to-accent-2 py-3.5 text-sm font-bold text-white shadow-glow transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
       >
         {busy ? "…" : mode === "in" ? "Sign in" : "Create account"}
       </button>

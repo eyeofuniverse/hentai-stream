@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSeries } from "@/lib/queries";
 import { prisma } from "@/lib/db";
-import { cover, banner } from "@/lib/cloudinary";
+import { cover, banner, thumb } from "@/lib/cloudinary";
+import { gradientFor } from "@/lib/gradient";
+import { Pill } from "@/components/ui";
 
 export const revalidate = 600;
 export const dynamicParams = true;
@@ -62,7 +64,9 @@ export default async function SeriesPage({
   if (!s) notFound();
 
   const coverSrc = cover(s.coverUrl);
-  const bannerSrc = banner(s.bannerUrl);
+  const bannerSrc = banner(s.bannerUrl) ?? coverSrc;
+  const firstEp = s.episodes[0]?.number ?? 1;
+  const playable = s.episodes.filter((e) => e._count.sources > 0).length;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -74,105 +78,175 @@ export default async function SeriesPage({
     numberOfEpisodes: s.episodes.length,
     datePublished: s.releaseDate?.toISOString() ?? undefined,
     genre: s.tags.map((t) => t.name),
-    productionCompany: s.studio ? { "@type": "Organization", name: s.studio.name } : undefined,
+    productionCompany: s.studio
+      ? { "@type": "Organization", name: s.studio.name }
+      : undefined,
     url: `${SITE}/hentai/${s.slug}`,
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6">
+    <main>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {bannerSrc && (
-        <div className="relative -mx-4 mb-6 h-40 overflow-hidden sm:h-56">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={bannerSrc} alt="" className="h-full w-full object-cover opacity-40" />
-          <div className="absolute inset-0 bg-gradient-to-t from-bg to-transparent" />
-        </div>
-      )}
-
-      <nav className="mb-3 text-xs text-white/40">
-        <Link href="/">Home</Link> / <Link href="/browse">Browse</Link> / {s.title}
-      </nav>
-
-      <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="w-40 shrink-0 self-start sm:w-52">
-          <div className="aspect-[2/3] overflow-hidden rounded-xl bg-surface-2">
-            {coverSrc && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={coverSrc} alt={s.title} className="h-full w-full object-cover" />
-            )}
-          </div>
+      {/* backdrop */}
+      <div className="relative isolate">
+        <div className="absolute inset-0 -z-10 h-[420px] overflow-hidden">
+          {bannerSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={bannerSrc} alt="" className="h-full w-full object-cover opacity-30 blur-sm" />
+          ) : (
+            <div className="h-full w-full opacity-30" style={{ backgroundImage: gradientFor(s.slug) }} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/85 to-bg/40" />
         </div>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold">{s.title}</h1>
-          {s.altTitles.length > 0 && (
-            <p className="mt-1 text-sm text-white/45">{s.altTitles.join(" · ")}</p>
-          )}
+        <div className="mx-auto max-w-5xl px-4 pb-2 pt-6 lg:px-8">
+          <nav className="mb-5 text-xs text-white/40">
+            <Link href="/" className="hover:text-white">Home</Link>
+            <span className="mx-1.5">/</span>
+            <Link href="/browse" className="hover:text-white">Browse</Link>
+            <span className="mx-1.5">/</span>
+            <span className="text-white/60">{s.title}</span>
+          </nav>
 
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <Meta>{s.type}</Meta>
-            <Meta>{s.status[0] + s.status.slice(1).toLowerCase()}</Meta>
-            {s.year && <Meta>{s.year}</Meta>}
-            <Meta>{s.isCensored ? "Censored" : "Uncensored"}</Meta>
-            {s.studio && (
-              <Link href={`/studio/${s.studio.slug}`} className="rounded-full bg-surface px-2.5 py-1 hover:bg-surface-2">
-                {s.studio.name}
-              </Link>
-            )}
-          </div>
-
-          {s.synopsis && (
-            <p className="mt-4 text-sm leading-relaxed text-white/75">{s.synopsis}</p>
-          )}
-
-          {s.tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {s.tags.map((t) => (
-                <Link
-                  key={t.slug}
-                  href={`/tag/${t.slug}`}
-                  className="rounded-full bg-surface px-2.5 py-1 text-xs text-white/70 hover:bg-surface-2 hover:text-white"
-                >
-                  {t.name}
-                </Link>
-              ))}
+          <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
+            <div className="w-40 shrink-0 self-center sm:w-56 sm:self-start">
+              <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 shadow-card ring-1 ring-white/10">
+                {coverSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={coverSrc} alt={s.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full" style={{ backgroundImage: gradientFor(s.slug) }} />
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-2xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+                {s.title}
+              </h1>
+              {s.altTitles.length > 0 && (
+                <p className="mt-2 text-sm text-white/40">{s.altTitles.slice(0, 3).join(" · ")}</p>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                <Pill tone="accent">{s.type}</Pill>
+                <Pill>{s.status[0] + s.status.slice(1).toLowerCase()}</Pill>
+                {s.year && <Pill>{s.year}</Pill>}
+                <Pill tone={s.isCensored ? "default" : "good"}>
+                  {s.isCensored ? "Censored" : "Uncensored"}
+                </Pill>
+                <Pill>
+                  {s.episodes.length} episode{s.episodes.length === 1 ? "" : "s"}
+                </Pill>
+                {s.studio && (
+                  <Link href={`/studio/${s.studio.slug}`}>
+                    <Pill className="hover:bg-white/15">{s.studio.name}</Pill>
+                  </Link>
+                )}
+              </div>
+
+              {s.synopsis && (
+                <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70">
+                  {s.synopsis}
+                </p>
+              )}
+
+              {s.tags.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-1.5">
+                  {s.tags.map((t) => (
+                    <Link
+                      key={t.slug}
+                      href={`/tag/${t.slug}`}
+                      className="rounded-full bg-surface px-3 py-1 text-xs text-white/65 transition hover:bg-surface-2 hover:text-white"
+                    >
+                      {t.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {s.episodes.length > 0 && (
+                <Link
+                  href={`/hentai/${s.slug}/${firstEp}`}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-6 py-3 text-sm font-bold text-white shadow-glow transition hover:-translate-y-0.5"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Watch episode {firstEp}
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      <h2 className="mb-3 mt-8 text-lg font-bold">Episodes</h2>
-      {s.episodes.length === 0 ? (
-        <p className="text-sm text-white/40">No episodes published yet.</p>
-      ) : (
-        <div className="grid gap-2">
-          {s.episodes.map((ep) => (
-            <Link
-              key={ep.id}
-              href={`/hentai/${s.slug}/${ep.number}`}
-              className="flex items-center gap-3 rounded-lg border border-white/8 bg-surface px-3 py-2.5 text-sm hover:border-accent/40"
-            >
-              <span className="grid h-7 w-9 shrink-0 place-items-center rounded bg-surface-2 text-xs font-bold">
-                {ep.number}
-              </span>
-              <span className="min-w-0 flex-1 truncate">
-                {ep.title ?? `Episode ${ep.number}`}
-              </span>
-              {ep._count.sources === 0 && (
-                <span className="shrink-0 text-[10px] text-white/30">no sources</span>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
+      {/* episodes */}
+      <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 lg:px-8">
+        <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
+          <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
+          Episodes
+          <span className="text-sm font-normal text-white/35">
+            {playable} of {s.episodes.length} playable
+          </span>
+        </h2>
+
+        {s.episodes.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line px-6 py-12 text-center text-sm text-white/40">
+            No episodes published yet — check back soon.
+          </p>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {s.episodes.map((ep) => {
+              const src = thumb(ep.thumbUrl) ?? thumb(s.coverUrl);
+              const noSrc = ep._count.sources === 0;
+              const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
+              return (
+                <Link
+                  key={ep.id}
+                  href={`/hentai/${s.slug}/${ep.number}`}
+                  className="group flex items-center gap-3 rounded-xl border border-line bg-surface/60 p-2 transition hover:border-accent/40 hover:bg-surface"
+                >
+                  <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-surface-2 sm:w-32">
+                    {src ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={src} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                    ) : (
+                      <div className="h-full w-full" style={{ backgroundImage: gradientFor(s.slug) }} />
+                    )}
+                    <span className="absolute inset-0 grid place-items-center bg-black/20 opacity-0 transition group-hover:opacity-100">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-white drop-shadow">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1 py-1 pr-2">
+                    <p className="text-sm font-semibold text-white/85">
+                      Episode {ep.number}
+                      {ep.part > 1 && <span className="text-white/40"> · pt {ep.part}</span>}
+                    </p>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-white/45">
+                      {ep.title || `${s.title} episode ${ep.number}`}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-white/35">
+                      {mins && <span>{mins} min</span>}
+                      {noSrc ? (
+                        <span className="text-warn/80">awaiting source</span>
+                      ) : (
+                        <span className="text-good/80">● ready</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </main>
   );
-}
-
-function Meta({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full bg-surface px-2.5 py-1">{children}</span>;
 }

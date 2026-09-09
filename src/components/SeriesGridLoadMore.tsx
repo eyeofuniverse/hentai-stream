@@ -37,17 +37,17 @@ export function SeriesGridLoadMore({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+      <div className="grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         {items.map((s) => (
           <SeriesCard key={s.slug} series={s} />
         ))}
       </div>
       {page < totalPages && (
-        <div className="mt-8 text-center">
+        <div className="mt-10 text-center">
           <button
             onClick={more}
             disabled={loading}
-            className="rounded-full bg-surface px-6 py-2.5 text-sm hover:bg-surface-2 disabled:opacity-50"
+            className="rounded-xl border border-line bg-surface px-8 py-3 text-sm font-medium transition hover:border-accent/40 disabled:opacity-50"
           >
             {loading ? "Loading…" : "Load more"}
           </button>

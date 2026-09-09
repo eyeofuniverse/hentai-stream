@@ -15,14 +15,19 @@ export default async function BrowsePage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-4 text-xl font-bold">Browse</h1>
-      <BrowseClient
-        initial={items}
-        initialTotal={total}
-        initialPages={pages}
-        tags={tags.map((t) => ({ slug: t.slug, name: t.name }))}
-      />
+    <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
+      <h1 className="font-display text-2xl font-extrabold tracking-tight">Browse</h1>
+      <p className="mt-1 text-sm text-white/45">
+        The full catalogue — filter it down to exactly what you want.
+      </p>
+      <div className="mt-6">
+        <BrowseClient
+          initial={items}
+          initialTotal={total}
+          initialPages={pages}
+          tags={tags.map((t) => ({ slug: t.slug, name: t.name }))}
+        />
+      </div>
     </main>
   );
 }
