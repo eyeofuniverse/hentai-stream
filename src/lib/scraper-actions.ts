@@ -57,16 +57,19 @@ export async function searchSeriesForPicker(q: string) {
   await requireRole("ADMIN", "MODERATOR");
   const term = q.trim();
   if (term.length < 2) return [];
+  const ci = { contains: term, mode: "insensitive" as const };
   return prisma.series.findMany({
     where: {
       OR: [
-        { title: { contains: term, mode: "insensitive" } },
-        { titleEnglish: { contains: term, mode: "insensitive" } },
-        { titleRomaji: { contains: term, mode: "insensitive" } },
+        { title: ci },
+        { titleEnglish: ci },
+        { titleRomaji: ci },
+        { titleOriginal: ci },
+        { altTitles: { hasSome: [term] } },
       ],
     },
     orderBy: { bayesianRating: "desc" },
-    take: 8,
+    take: 10,
     select: { id: true, title: true, year: true, _count: { select: { episodes: true } } },
   });
 }

@@ -178,16 +178,20 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
       const targets = await db(() =>
         prisma.series.findMany({
           where: {
-            publish: "DRAFT",
             contentWarnings: { isEmpty: true },
-            episodes: { none: { sources: { some: {} } } },
+            OR: [
+              // never got any video
+              { publish: "DRAFT", episodes: { none: { sources: { some: {} } } } },
+              // published but has episode(s) still missing a source (gap-fill)
+              { publish: "PUBLISHED", episodes: { some: { sources: { none: {} } } } },
+            ],
           },
           orderBy: { bayesianRating: "desc" },
           take: opts.limit ?? 300,
           select: { title: true, titleRomaji: true, titleEnglish: true },
         }),
       );
-      log(`topup: ${targets.length} series without video`);
+      log(`topup: ${targets.length} series missing video`);
       for (const t of targets) {
         const q = t.titleEnglish || t.title || t.titleRomaji || "";
         try {
