@@ -21,6 +21,10 @@ on:
         description: "stop after N episode records (blank = no limit)"
         required: false
         default: ""
+      refetch:
+        description: "re-fetch sources for episodes we already have (refresh rotated CDN URLs)"
+        type: boolean
+        default: false
       dry_run:
         description: "match + report only, write nothing"
         type: boolean
@@ -60,6 +64,7 @@ jobs:
           MODE="${{ github.event.inputs.mode || 'crawl' }}"
           ARGS="--site=$SITE --mode=$MODE"
           [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
+          [ "${{ github.event.inputs.refetch }}" = "true" ] && ARGS="$ARGS --refetch"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
           echo "npm run scrape -- $ARGS"
           npm run scrape -- $ARGS
