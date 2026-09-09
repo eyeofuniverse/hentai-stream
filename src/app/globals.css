@@ -96,3 +96,8 @@ a {
     opacity: 1;
   }
 }
+
+/* age gate — hidden once the visitor has confirmed (see AgeGate + inline script) */
+html.vok #lh-vg {
+  display: none !important;
+}

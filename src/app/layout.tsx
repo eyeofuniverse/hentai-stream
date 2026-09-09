@@ -64,16 +64,16 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-screen bg-bg font-sans text-[#ececf1] antialiased"
       >
+        <SiteHeader />
+        <div className="min-h-[60vh]">{children}</div>
+        <SiteFooter />
+        <AgeGate />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify([organizationLd(), websiteLd()]),
           }}
         />
-        <AgeGate />
-        <SiteHeader />
-        <div className="min-h-[60vh]">{children}</div>
-        <SiteFooter />
       </body>
     </html>
   );
