@@ -38,7 +38,11 @@ type Src = {
 function usableSources(sources: Src[]): Src[] {
   return sources
     .filter(
-      (s) => s.direct && /^https?:\/\//.test(s.embedUrl) && !/\?dt_embed=/.test(s.embedUrl),
+      (s) =>
+        s.status !== "DEAD" &&
+        s.direct &&
+        /^https?:\/\//.test(s.embedUrl) &&
+        !/\?dt_embed=/.test(s.embedUrl),
     )
     .sort((a, b) => {
       const act = (a.status === "ACTIVE" ? 0 : 1) - (b.status === "ACTIVE" ? 0 : 1);
@@ -83,7 +87,7 @@ export async function runMigrate(opts: {
     prisma.episode.findMany({
       where: {
         AND: [
-          { sources: { some: { direct: true } } },
+          { sources: { some: { direct: true, status: { not: "DEAD" as const } } } },
           // default: only episodes that can't play any other way (no live hotlink)
           ...(opts.all ? [] : [{ sources: { none: { status: "ACTIVE" as const } } }]),
         ],
@@ -152,6 +156,17 @@ export async function runMigrate(opts: {
         );
         if (!res.success && res.statusCode >= 400) {
           await deleteVideo(video.guid);
+          // the source URL itself is gone (stream sites rotate their CDN links)
+          // — mark it DEAD so verify/re-scrape replaces it instead of retrying
+          if (/\b(404|410|not found|gone)\b/i.test(res.message ?? "")) {
+            await db(() =>
+              prisma.videoSource.update({
+                where: { id: src.id },
+                data: { status: "DEAD", lastCheckedAt: new Date() },
+              }),
+            ).catch(() => {});
+            throw new Error(`source dead (${res.message})`);
+          }
           throw new Error(`fetch rejected ${res.statusCode}: ${res.message}`);
         }
 

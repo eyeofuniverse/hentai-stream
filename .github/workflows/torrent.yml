@@ -1,10 +1,11 @@
 name: Grab from torrent
 
-# Downloads missing episodes from sukebei.nyaa.si, uploads them to Bunny, and
-# holds them in the review queue (they never auto-publish). Manual only — this
-# is a reviewed batch tool, not a firehose.
+# Downloads missing episodes from sukebei.nyaa.si, uploads them to Bunny.
+#   - manual dispatch: held in /admin/review by default
+#   - weekly schedule: auto-publishes once Bunny transcodes (successful transcode
+#     proves it's a real video); wrong episode/lang is rare and reportable
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_*, MAL_CLIENT_ID
+# Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_*
 
 on:
   workflow_dispatch:
@@ -24,11 +25,17 @@ on:
       max_size:
         description: "skip torrents bigger than this (GiB)"
         required: false
-        default: "8"
+        default: "6"
+      review:
+        description: "hold grabbed episodes in the review queue"
+        type: boolean
+        default: true
       dry_run:
         description: "search + report only, download nothing"
         type: boolean
         default: false
+  schedule:
+    - cron: "0 6 * * 0" # Sundays 06:00 UTC — fill gaps, auto-publish
 
 concurrency:
   group: torrent-grab
@@ -58,14 +65,23 @@ jobs:
       - run: npx prisma generate
       - name: Grab
         run: |
-          ARGS="--dir=$RUNNER_TEMP/torrents"
-          [ -n "${{ github.event.inputs.series }}" ] && ARGS="$ARGS --series=${{ github.event.inputs.series }}" || ARGS="$ARGS --wanted --limit=${{ github.event.inputs.limit }}"
-          [ -n "${{ github.event.inputs.min_seeders }}" ] && ARGS="$ARGS --min-seeders=${{ github.event.inputs.min_seeders }}"
-          [ -n "${{ github.event.inputs.max_size }}" ] && ARGS="$ARGS --max-size=${{ github.event.inputs.max_size }}"
-          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
-          npm run torrent -- $ARGS
+          DIR="$RUNNER_TEMP/torrents"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            npm run torrent -- --dir="$DIR" --wanted --limit=5 --min-seeders=3 --max-size=6 --no-review
+          else
+            ARGS="--dir=$DIR"
+            if [ -n "${{ github.event.inputs.series }}" ]; then
+              ARGS="$ARGS --series=${{ github.event.inputs.series }}"
+            else
+              ARGS="$ARGS --wanted --limit=${{ github.event.inputs.limit }}"
+            fi
+            ARGS="$ARGS --min-seeders=${{ github.event.inputs.min_seeders }} --max-size=${{ github.event.inputs.max_size }}"
+            [ "${{ github.event.inputs.review }}" = "false" ] && ARGS="$ARGS --no-review"
+            [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+            npm run torrent -- $ARGS
+          fi
       - name: Poll Bunny transcodes
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.dry_run != 'true' }}
         run: npm run migrate -- --poll-only
       - name: Clean scratch
         if: always()

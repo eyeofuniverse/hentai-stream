@@ -7,7 +7,7 @@ import {
 } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
 import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
-import { slugify } from "@/lib/metadata/tags";
+import { slugify, flagsMinor } from "@/lib/metadata/tags";
 import { malEnabled, malSearch, normalize, isHentai } from "@/lib/metadata/mal";
 import { importSeries, emptyImportStats } from "@/lib/metadata/importer";
 
@@ -269,6 +269,7 @@ export async function resolveOrImportSeries(opts: {
         year: opts.year ?? null,
         publish: "DRAFT",
         metadataSource: "scrape",
+        contentWarnings: flagsMinor(opts.title) ? ["possible-minor"] : [],
       },
       select: { id: true },
     }),

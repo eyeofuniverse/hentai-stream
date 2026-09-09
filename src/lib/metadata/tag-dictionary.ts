@@ -115,21 +115,57 @@ export const TAG_DICTIONARY: TagDef[] = [
   { name: "Ryona", category: "CONTENT_WARNING", synonyms: ["brutal", "beaten", "abuse", "violence"] },
 ];
 
-/** Words that suggest apparent-minor content — flag for manual review, never auto-publish. */
+/**
+ * Phrases that suggest apparent-minor content → flag for manual review, NEVER
+ * auto-publish. Kept tight so it rarely fires on false positives ("12 years
+ * ago", "childlike wonder") — but each real hit is a 10-second yes/no, so when
+ * in doubt a term stays.
+ */
 export const MINOR_FLAG_TERMS = [
+  // unambiguous hentai terms for underage-coded characters
   "loli",
+  "lolicon",
   "lolita",
   "shota",
   "shotacon",
-  "lolicon",
+  "toddlercon",
+  // explicit age statements (need "old" / "aged" so "12 years ago" is ignored)
+  "8 years old",
+  "9 years old",
+  "10 years old",
+  "11 years old",
+  "12 years old",
+  "13 years old",
+  "8-year-old",
+  "9-year-old",
+  "10-year-old",
+  "11-year-old",
+  "12-year-old",
+  "13-year-old",
+  "aged 8",
+  "aged 9",
+  "aged 10",
+  "aged 11",
+  "aged 12",
+  "aged 13",
+  // school level (a hentai set here warrants a look regardless)
   "elementary school",
   "grade school",
   "primary school",
-  "12 year",
-  "12-year",
-  "11 year",
-  "10 year",
-  "little sister who is",
-  "childlike",
+  "kindergarten",
+  // body / development descriptors (specific forms, not bare "childlike")
+  "childlike body",
+  "childlike figure",
+  "child-like body",
+  "body of a child",
   "prepubescent",
+  "pre-teen",
+  "preteen",
+  "underage",
+  // age regression to a child
+  "regressed to a child",
+  "turned into a child",
+  "turned into a kid",
+  "de-aged into",
+  "little sister who is",
 ];

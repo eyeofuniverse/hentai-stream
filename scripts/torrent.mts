@@ -13,6 +13,8 @@
  * --min-seeders N  skip torrents below this (default 2)
  * --max-size G     skip torrents bigger than this in GiB (default 8)
  * --dir PATH       download scratch dir (default ./.torrents)
+ * --no-review      publish grabbed episodes once Bunny transcodes them, instead
+ *                  of holding them in /admin/review
  *
  * Needs `aria2c` on PATH.
  */
@@ -33,6 +35,7 @@ const summary = await runTorrentGrab({
   dryRun: !!flag("dry-run"),
   minSeeders: flag("min-seeders") ? Number(flag("min-seeders")) : undefined,
   maxSizeGb: flag("max-size") ? Number(flag("max-size")) : undefined,
+  review: flag("no-review") ? false : undefined,
   downloadDir: flag("dir") ?? "./.torrents",
   log: (m) => console.log(m),
 });

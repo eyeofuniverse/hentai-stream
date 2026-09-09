@@ -25,6 +25,10 @@ export interface TorrentOptions {
   maxSizeGb?: number;
   downloadDir: string;
   aria2Timeout?: number; // seconds for one torrent
+  /** true (default) = hold grabbed episodes in the review queue.
+   *  false = let them publish once Bunny finishes transcoding (a successful
+   *  transcode proves it's a real playable video). */
+  review?: boolean;
   log?: (m: string) => void;
 }
 
@@ -193,6 +197,7 @@ export async function runTorrentGrab(
   const minSeeders = opts.minSeeders ?? 2;
   const maxBytes = (opts.maxSizeGb ?? 8) * 1024 ** 3;
   const aria2Timeout = opts.aria2Timeout ?? 45 * 60;
+  const hold = opts.review !== false;
 
   const run = opts.dryRun
     ? null
@@ -313,7 +318,7 @@ export async function runTorrentGrab(
               bunnyGuid: video.guid,
               bunnyStatus: "processing",
               bunnyError: null,
-              needsReview: true,
+              needsReview: hold,
             },
           }),
         );
