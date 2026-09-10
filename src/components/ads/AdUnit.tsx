@@ -2,8 +2,20 @@
 
 import { useEffect, useRef } from "react";
 
-/** Injects a raw ad-network embed (HTML + <script>), re-executing scripts. */
-export function AdUnit({ code }: { code: string }) {
+/**
+ * Injects a raw ad-network embed (HTML + <script>), re-executing scripts.
+ * The wrapper is a hard containment box: `contain` + a stacking context turn
+ * any `position: fixed` the ad tries into `position: absolute` relative to
+ * here, and `overflow: hidden` clips anything that overshoots — so a
+ * misbehaving creative can never cover the site chrome.
+ */
+export function AdUnit({
+  code,
+  maxHeight,
+}: {
+  code: string;
+  maxHeight?: number;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const injected = useRef("");
 
@@ -18,13 +30,22 @@ export function AdUnit({ code }: { code: string }) {
       next.textContent = old.textContent;
       old.parentNode?.replaceChild(next, old);
     });
-    // no cleanup — removing scripts breaks the ad-network lifecycle
   }, [code]);
 
   if (!code) return null;
   return (
-    <div style={{ display: "flex", justifyContent: "center", width: "100%", overflow: "hidden" }}>
-      <div ref={ref} style={{ maxWidth: "100%", overflow: "hidden" }} />
-    </div>
+    <div
+      ref={ref}
+      style={{
+        position: "relative",
+        isolation: "isolate",
+        contain: "layout paint style",
+        overflow: "hidden",
+        maxWidth: "100%",
+        ...(maxHeight ? { maxHeight } : {}),
+        display: "flex",
+        justifyContent: "center",
+      }}
+    />
   );
 }

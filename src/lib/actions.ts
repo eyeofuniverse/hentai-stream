@@ -5,7 +5,7 @@ import { after } from "next/server";
 import slugify from "slugify";
 import { z } from "zod";
 import { prisma, db } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin/auth";
 import { pingIndexNow } from "@/lib/indexnow";
 import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
 import { Prisma } from "@prisma/client";
@@ -156,7 +156,7 @@ async function resolveTags(tx: Tx, list: string[]) {
 }
 
 export async function createSeries(form: FormData) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const d = seriesSchema.parse(Object.fromEntries(form));
 
   // studio upsert + tag upserts + the series insert land together or not at all,
@@ -193,14 +193,14 @@ export async function createSeries(form: FormData) {
     ),
   );
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/series");
+  revalidatePath("/console");
+  revalidatePath("/console/series");
   await bust(id);
   return id;
 }
 
 export async function updateSeries(id: string, form: FormData) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const d = seriesSchema.parse(Object.fromEntries(form));
 
   await db(() =>
@@ -224,44 +224,44 @@ export async function updateSeries(id: string, form: FormData) {
     ),
   );
 
-  revalidatePath(`/admin/series/${id}`);
-  revalidatePath("/admin/series");
+  revalidatePath(`/console/series/${id}`);
+  revalidatePath("/console/series");
   await bust(id);
 }
 
 /** Quick publish-state change from the series list / editor header. */
 export async function setSeriesPublish(id: string, publish: PublishStatus) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   await prisma.series.update({ where: { id }, data: { publish } });
-  revalidatePath("/admin/series");
-  revalidatePath(`/admin/series/${id}`);
+  revalidatePath("/console/series");
+  revalidatePath(`/console/series/${id}`);
   await bust(id);
 }
 
 export async function deleteSeries(id: string) {
-  await requireRole("ADMIN");
+  await requireAdmin("ADMIN");
   const s = await prisma.series
     .findUnique({ where: { id }, select: { slug: true } })
     .catch(() => null);
   await prisma.series.delete({ where: { id } });
-  revalidatePath("/admin/series");
+  revalidatePath("/console/series");
   if (s) revalidatePath(`/hentai/${s.slug}`);
   await bust();
 }
 
 export async function deleteEpisode(id: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const e = await prisma.episode.delete({
     where: { id },
     select: { seriesId: true },
   });
-  revalidatePath(`/admin/series/${e.seriesId}`);
+  revalidatePath(`/console/series/${e.seriesId}`);
   await bust(e.seriesId);
 }
 
 /** Review-queue decision on a `possible-minor`-flagged series. */
 export async function reviewFlag(id: string, decision: "clear" | "reject") {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const s = await prisma.series.findUnique({
     where: { id },
     select: { contentWarnings: true },
@@ -276,8 +276,8 @@ export async function reviewFlag(id: string, decision: "clear" | "reject") {
             contentWarnings: s.contentWarnings.filter((w) => w !== "possible-minor"),
           },
   });
-  revalidatePath("/admin/review");
-  revalidatePath(`/admin/series/${id}`);
+  revalidatePath("/console/review");
+  revalidatePath(`/console/series/${id}`);
   await bust(id);
 }
 
@@ -291,7 +291,7 @@ const episodeSchema = z.object({
 });
 
 export async function createEpisode(seriesId: string, form: FormData) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const { number, part, title, runtimeSec } = episodeSchema.parse(
     Object.fromEntries(form),
   );
@@ -312,7 +312,7 @@ export async function createEpisode(seriesId: string, form: FormData) {
     },
   });
   await prisma.series.update({ where: { id: seriesId }, data: { updatedAt: new Date() } });
-  revalidatePath(`/admin/series/${seriesId}`);
+  revalidatePath(`/console/series/${seriesId}`);
   await bust(seriesId);
 }
 
@@ -346,7 +346,7 @@ async function seriesIdForEpisode(episodeId: string) {
 }
 
 export async function createSource(episodeId: string, form: FormData) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const d = sourceSchema.parse(Object.fromEntries(form));
   const fields = {
     hostName: d.host === "OTHER" ? (d.hostName ?? null) : null,
@@ -361,18 +361,18 @@ export async function createSource(episodeId: string, form: FormData) {
     update: fields,
     create: { episodeId, host: d.host, embedUrl: d.embedUrl, ...fields },
   });
-  revalidatePath("/admin");
+  revalidatePath("/console");
   await bust(await seriesIdForEpisode(episodeId));
 }
 
 export async function setSourceStatus(id: string, status: SourceStatus) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const src = await prisma.videoSource.update({
     where: { id },
     data: { status, lastCheckedAt: new Date() },
     select: { episodeId: true },
   });
-  revalidatePath("/admin");
+  revalidatePath("/console");
   await bust(await seriesIdForEpisode(src.episodeId));
 }
 
@@ -381,7 +381,7 @@ export async function setPublish(
   id: string,
   publish: PublishStatus,
 ) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   let seriesId: string | undefined = id;
   if (kind === "series") {
     await prisma.series.update({ where: { id }, data: { publish } });
@@ -393,13 +393,13 @@ export async function setPublish(
     });
     seriesId = e.seriesId;
   }
-  revalidatePath("/admin");
+  revalidatePath("/console");
   await bust(seriesId);
 }
 
 /** Torrent-grabbed episode passed spot-check → clear the hold and publish it. */
 export async function approveTorrentEpisode(id: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const e = await prisma.episode.update({
     where: { id },
     data: { needsReview: false },
@@ -407,14 +407,14 @@ export async function approveTorrentEpisode(id: string) {
   });
   const { publishIfLive } = await import("@/lib/verify");
   await publishIfLive(id).catch(() => {});
-  revalidatePath("/admin/review");
+  revalidatePath("/console/review");
   await bust(e.seriesId);
 }
 
 /** Torrent grab was wrong (bad episode / language / quality) → bin the Bunny
  *  copy and leave the episode without a source. */
 export async function rejectTorrentEpisode(id: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const e = await prisma.episode.findUnique({
     where: { id },
     select: { seriesId: true, bunnyGuid: true },
@@ -437,25 +437,25 @@ export async function rejectTorrentEpisode(id: string) {
       hostedAt: null,
     },
   });
-  revalidatePath("/admin/review");
+  revalidatePath("/console/review");
   if (e) await bust(e.seriesId);
 }
 
 export async function resolveReport(id: string, action: "RESOLVED" | "DISMISSED") {
-  const me = await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   await prisma.report.update({
     where: { id },
-    data: { status: action, reviewedById: me.id, resolvedAt: new Date() },
+    data: { status: action, resolvedAt: new Date() },
   });
-  revalidatePath("/admin/reports");
+  revalidatePath("/console/reports");
 }
 
 export async function deleteSource(id: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const src = await prisma.videoSource.delete({
     where: { id },
     select: { episodeId: true },
   });
-  revalidatePath("/admin");
+  revalidatePath("/console");
   await bust(await seriesIdForEpisode(src.episodeId));
 }

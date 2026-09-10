@@ -23,14 +23,14 @@ function inject(html: string) {
 
 /**
  * Site-wide pop-under. Loads the `global-popunder` slot's network code once per
- * page load (never on /admin). Frequency capping is the ad network's job — set
+ * page load (never on /console). Frequency capping is the ad network's job — set
  * it in the ExoClick zone.
  */
 export function GlobalPopUnder() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname.startsWith("/admin")) return;
+    if (pathname.startsWith("/console")) return;
     fetch("/api/ads/active?slot=global-popunder&device=all")
       .then((r) => (r.ok ? r.json() : null))
       .then((ad) => {

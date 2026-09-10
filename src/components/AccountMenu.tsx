@@ -53,8 +53,6 @@ export function AccountMenu() {
     );
   }
 
-  const isStaff = me.role === "ADMIN" || me.role === "MODERATOR";
-
   return (
     <div className="relative">
       <button
@@ -80,11 +78,6 @@ export function AccountMenu() {
             <Link href="/submit" className="block px-4 py-2.5 text-sm text-white/75 hover:bg-white/5">
               Submit episode
             </Link>
-            {isStaff && (
-              <Link href="/admin" className="block px-4 py-2.5 text-sm text-white/75 hover:bg-white/5">
-                Admin panel
-              </Link>
-            )}
             <button
               onClick={async () => {
                 await (supabaseRef.current ??= createClient()).auth.signOut();

@@ -9,15 +9,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: [
-        "/admin",
-        "/api",
-        "/auth",
-        "/login",
-        "/search",
-        "/watchlist",
-        "/submit",
-      ],
+      // note: the management console is deliberately NOT listed — it's
+      // noindex + 404-cloaked, and naming it here would just advertise it
+      disallow: ["/api", "/auth", "/login", "/search", "/watchlist", "/submit"],
     },
     sitemap: `${SITE}/sitemap.xml`,
     host: SITE,

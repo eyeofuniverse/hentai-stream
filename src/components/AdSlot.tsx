@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdUnit } from "@/components/ads/AdUnit";
 import { AffiliateAd } from "@/components/ads/AffiliateAd";
+import { AD_SLOTS } from "@/lib/ads";
 import type { ActiveAd } from "@/lib/ad-queries";
 
 /* dedupe simultaneous fetches for the same slot+device; 5-min client TTL */
@@ -27,9 +28,17 @@ function load(slot: string, dev: string): Promise<ActiveAd | null> {
   return p;
 }
 
+/** Largest pixel height the slot's recommended formats mention (cap the box). */
+function slotMaxHeight(slotKey: string): number {
+  const size = AD_SLOTS[slotKey]?.hint?.size ?? "";
+  const heights = [...size.matchAll(/(\d+)\s*[×x]\s*(\d+)/g)].map((m) => Number(m[2]));
+  return heights.length ? Math.max(...heights) : 600;
+}
+
 /**
  * A named ad position. Fetches the active ad for this slot + the viewer's
- * device and renders it, or nothing. Managed from Admin → Ads.
+ * device and renders it clipped inside a fixed box — an ad can never spill
+ * over the layout. Managed from the console → Ads.
  */
 export function AdSlot({
   slotKey,
@@ -48,8 +57,14 @@ export function AdSlot({
 
   if (ad == null) return null; // undefined = loading, null = empty
 
+  const maxHeight = slotMaxHeight(slotKey);
+
   return (
-    <div className={`mx-auto w-full max-w-3xl ${className}`} aria-label="Advertisement">
+    <div
+      className={`ad-slot mx-auto w-full max-w-3xl ${className}`}
+      aria-label="Advertisement"
+      style={{ position: "relative", contain: "layout paint style" }}
+    >
       {label && (
         <div className="mb-2 flex items-center gap-2.5">
           <span className="h-px flex-1 bg-line" />
@@ -59,9 +74,9 @@ export function AdSlot({
           <span className="h-px flex-1 bg-line" />
         </div>
       )}
-      <div className="overflow-hidden">
+      <div style={{ overflow: "hidden", maxHeight }}>
         {ad.type === "network" ? (
-          <AdUnit code={ad.networkCode ?? ""} />
+          <AdUnit code={ad.networkCode ?? ""} maxHeight={maxHeight} />
         ) : (
           <AffiliateAd
             imageUrl={ad.imageUrl ?? ""}

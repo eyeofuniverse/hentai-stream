@@ -18,8 +18,8 @@ export function Analytics() {
   const pathname = usePathname();
 
   // never load analytics on the admin panel — no gtag script, no page_view,
-  // no events for any /admin/* route
-  if (!GA_ID || pathname?.startsWith("/admin")) return null;
+  // no events for any /console/* route
+  if (!GA_ID || pathname?.startsWith("/console")) return null;
 
   return <GoogleAnalytics gaId={GA_ID} />;
 }

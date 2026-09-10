@@ -1,4 +1,5 @@
 import { prisma, db } from "@/lib/db";
+import { AD_SLOTS } from "@/lib/ads";
 
 export type ActiveAd = {
   type: string;
@@ -20,6 +21,13 @@ export async function getActiveAdForSlot(
   slot: string,
   device = "all",
 ): Promise<ActiveAd | null> {
+  // honour the registry: a desktop-only slot (rail / sidebar) never serves on
+  // mobile, and vice-versa — even if an "all" ad exists
+  const def = AD_SLOTS[slot];
+  if (def) {
+    if (device === "mobile" && !def.mobile) return null;
+    if (device === "desktop" && !def.desktop) return null;
+  }
   try {
     const ads = await db(() =>
       prisma.ad.findMany({

@@ -23,11 +23,7 @@ export default async function HomePage() {
           Lust<span className="text-accent">Hentai</span>
         </h1>
         <p className="mt-2 text-sm text-white/50">
-          No published content yet. Add series and episodes in{" "}
-          <Link href="/admin" className="text-accent underline">
-            /admin
-          </Link>
-          .
+          No published content yet — check back soon.
         </p>
       </main>
     );

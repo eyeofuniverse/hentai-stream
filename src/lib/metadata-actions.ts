@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin/auth";
 import { prisma } from "@/lib/db";
 import { getAnime, normalize } from "@/lib/metadata/mal";
 import {
@@ -15,7 +15,7 @@ const SEASONS = ["winter", "spring", "summer", "fall"] as const;
 
 /** Sync the last, current and next season from MAL — the "run now" button. */
 export async function runMetadataSync() {
-  await requireRole("ADMIN");
+  await requireAdmin("ADMIN");
   const now = new Date();
   const y = now.getFullYear();
   const si = Math.floor(now.getMonth() / 3);
@@ -45,12 +45,12 @@ export async function runMetadataSync() {
     update: { value: result },
     create: { key: "metadataSync", value: result },
   });
-  revalidatePath("/admin/metadata");
+  revalidatePath("/console/metadata");
 }
 
 /** Re-pull one series from MAL (button on the series editor). */
 export async function repullSeries(seriesId: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const s = await prisma.series.findUnique({
     where: { id: seriesId },
     select: { malId: true },
@@ -62,5 +62,5 @@ export async function repullSeries(seriesId: string) {
     scanned: 0, created: 0, updated: 0, skipped: 0, flagged: 0, episodeStubs: 0, errors: [],
   };
   await importSeries(normalize(anime), stats);
-  revalidatePath(`/admin/series/${seriesId}`);
+  revalidatePath(`/console/series/${seriesId}`);
 }

@@ -668,6 +668,61 @@ model Ad {
   @@index([slot, isActive, deviceType])
 }
 
+/// ─────────────── admin auth (fully separate from the public Supabase auth) ───────────────
+
+/// A staff account for the isolated management console. Password + mandatory
+/// TOTP. Nothing to do with the public `Profile` / Supabase users.
+model AdminUser {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          String    @default("OWNER") // OWNER | ADMIN | MOD
+  displayName   String?
+  totpSecret    String? // base32; set once, at enrolment
+  totpEnabledAt DateTime?
+  backupCodes   String[]  @default([]) // bcrypt hashes, single-use
+  active        Boolean   @default(true)
+  failedLogins  Int       @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  sessions AdminSession[]
+}
+
+/// A live console session. The cookie carries an opaque random token; only its
+/// sha256 is stored, so a DB dump can't be replayed. Revocable, listable.
+model AdminSession {
+  id         String    @id @default(cuid())
+  adminId    String
+  admin      AdminUser  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash  String     @unique
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime   @default(now())
+  lastSeenAt DateTime   @default(now())
+  expiresAt  DateTime
+
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+/// Rolling record of console sign-in attempts — powers rate-limiting + lockout
+/// and a security log.
+model AdminLoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String
+  ok        Boolean
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?  @db.Uuid

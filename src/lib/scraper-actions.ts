@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin/auth";
 
 /** Map an unmatched scraped title onto a Series. Its raw title is saved as an
  *  alt-title so the next crawl resolves it automatically. */
 export async function mapUnmatched(unmatchedId: string, seriesId: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
 
   const [u, s] = await Promise.all([
     prisma.unmatchedTitle.findUnique({ where: { id: unmatchedId } }),
@@ -27,34 +27,34 @@ export async function mapUnmatched(unmatchedId: string, seriesId: string) {
     }),
   ]);
 
-  revalidatePath("/admin/unmatched");
-  revalidatePath(`/admin/series/${s.id}`);
+  revalidatePath("/console/unmatched");
+  revalidatePath(`/console/series/${s.id}`);
 }
 
 export async function setUnmatchedStatus(
   id: string,
   status: "PENDING" | "IGNORED",
 ) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   await prisma.unmatchedTitle.update({ where: { id }, data: { status } });
-  revalidatePath("/admin/unmatched");
+  revalidatePath("/console/unmatched");
 }
 
 /** Moderator confirms an auto-published series looks right — clears it from the
  *  spot-check queue. */
 export async function confirmAutoPublish(seriesId: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   await prisma.series.update({
     where: { id: seriesId },
     data: { reviewedAt: new Date() },
   });
-  revalidatePath("/admin/review");
-  revalidatePath(`/admin/series/${seriesId}`);
+  revalidatePath("/console/review");
+  revalidatePath(`/console/series/${seriesId}`);
 }
 
 /** Typeahead for the "map to series" picker. */
 export async function searchSeriesForPicker(q: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const term = q.trim();
   if (term.length < 2) return [];
   const ci = { contains: term, mode: "insensitive" as const };

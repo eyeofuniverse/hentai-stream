@@ -3,19 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { Prisma, type TagCategory } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
-import { requireRole } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin/auth";
 import { recountTaxonomy } from "@/lib/metadata/importer";
 
 const CATS: TagCategory[] = ["GENRE", "THEME", "FETISH", "FORMAT", "CONTENT_WARNING"];
 
 function bust() {
-  revalidatePath("/admin/tags");
+  revalidatePath("/console/tags");
   revalidatePath("/tags");
   revalidatePath("/");
 }
 
 export async function renameTag(id: string, formData: FormData) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
   if (name.length < 2) return;
   await db(() => prisma.tag.update({ where: { id }, data: { name } }));
@@ -23,7 +23,7 @@ export async function renameTag(id: string, formData: FormData) {
 }
 
 export async function setTagCategory(id: string, category: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   if (!CATS.includes(category as TagCategory)) return;
   await db(() =>
     prisma.tag.update({ where: { id }, data: { category: category as TagCategory } }),
@@ -32,13 +32,13 @@ export async function setTagCategory(id: string, category: string) {
 }
 
 export async function toggleTagFeatured(id: string, next: boolean) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   await db(() => prisma.tag.update({ where: { id }, data: { featured: next } }));
   bust();
 }
 
 export async function deleteTag(id: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const n = await db(() => prisma.series.count({ where: { tags: { some: { id } } } }));
   if (n > 0) throw new Error(`Tag still has ${n} series — merge it instead.`);
   await db(() => prisma.tag.delete({ where: { id } }));
@@ -47,7 +47,7 @@ export async function deleteTag(id: string) {
 
 /** Move every series from `fromId` onto `intoId`, then delete `fromId`. */
 export async function mergeTag(fromId: string, intoId: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   if (fromId === intoId) return;
 
   const [from, into] = await db(() =>
@@ -75,7 +75,7 @@ export async function mergeTag(fromId: string, intoId: string) {
 
 /** Typeahead for the merge-target picker. */
 export async function searchTagsForPicker(q: string) {
-  await requireRole("ADMIN", "MODERATOR");
+  await requireAdmin();
   const term = q.trim();
   if (term.length < 2) return [];
   return db(() =>

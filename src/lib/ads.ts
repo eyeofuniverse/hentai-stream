@@ -279,7 +279,7 @@ export const AD_SLOTS: Record<string, SlotDef> = {
     label: "Global — Pop-Under",
     page: "global",
     description:
-      "Fires once per session on the first click, site-wide (never on /admin). Not a visual slot — paste the ExoClick Pop-Under zone script as an 'Ad Network' ad.",
+      "Fires once per session on the first click, site-wide (never on the console). Not a visual slot — paste the ExoClick Pop-Under zone script as an 'Ad Network' ad.",
     desktop: true,
     mobile: true,
     recommended: "Pop-Under script only",

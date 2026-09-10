@@ -392,8 +392,8 @@ export default async function WatchPage({
           </div>
 
           {/* ─────────── right rail (lg+) ─────────── */}
-          <aside className="mt-10 hidden lg:mt-0 lg:block">
-            <div className="space-y-4">
+          <aside className="mt-10 hidden min-w-0 self-start lg:mt-0 lg:block">
+            <div className="space-y-4 [contain:layout]">
               <UpNext />
 
               <AdSlot slotKey="watch-rail-top" label={false} />
@@ -412,9 +412,7 @@ export default async function WatchPage({
                 View series page
               </Link>
 
-              <div className="sticky top-[76px]">
-                <AdSlot slotKey="watch-rail-sticky" label={false} />
-              </div>
+              <AdSlot slotKey="watch-rail-sticky" label={false} />
 
               <RailSeriesList
                 title="Trending now"
