@@ -276,6 +276,9 @@ export async function homeSections() {
 
 async function homeSectionsInner() {
   const pub = { publish: "PUBLISHED" as const };
+  // storefront rails only show series that actually have cover art — an
+  // un-enriched scrape (no coverUrl) renders as a gradient block and looks broken
+  const pubArt = { ...pub, coverUrl: { not: null } };
 
   // hero shows only the most recent release year we actually have
   const latestYearRow = await prisma.series.findFirst({
@@ -307,7 +310,14 @@ async function homeSectionsInner() {
     railTags,
   ] = await Promise.all([
     prisma.series.findMany({
-      where: { ...pub, ...(heroYear ? { year: heroYear } : {}) },
+      // hero: never feature an art-less series — a gradient block as the first
+      // thing a visitor sees looks broken. Widen to the last two years so it
+      // stays full even when this year's crop isn't enriched yet.
+      where: {
+        ...pub,
+        coverUrl: { not: null },
+        ...(heroYear ? { year: { gte: heroYear - 1 } } : {}),
+      },
       orderBy: [
         { releaseDate: { sort: "desc", nulls: "last" } },
         { createdAt: "desc" },
@@ -326,13 +336,17 @@ async function homeSectionsInner() {
       },
     }),
     prisma.series.findMany({
-      where: pub,
+      where: pubArt,
       orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
       take: 18,
       select: seriesCardSelect,
     }),
     prisma.episode.findMany({
-      where: { ...pub, series: pub },
+      where: {
+        ...pub,
+        series: pub,
+        OR: [{ thumbUrl: { not: null } }, { bunnyStatus: "ready" }],
+      },
       orderBy: { createdAt: "desc" },
       take: 18,
       include: {
@@ -340,14 +354,14 @@ async function homeSectionsInner() {
       },
     }),
     prisma.series.findMany({
-      where: pub,
+      where: pubArt,
       orderBy: { createdAt: "desc" },
       take: 18,
       select: seriesCardSelect,
     }),
     prisma.series.findMany({
       where: {
-        ...pub,
+        ...pubArt,
         OR: [{ ratingCount: { gte: 1 } }, { externalScore: { not: null } }],
       },
       orderBy: [
@@ -359,13 +373,13 @@ async function homeSectionsInner() {
       select: seriesCardSelect,
     }),
     prisma.series.findMany({
-      where: { ...pub, status: "ONGOING" },
+      where: { ...pubArt, status: "ONGOING" },
       orderBy: { updatedAt: "desc" },
       take: 18,
       select: seriesCardSelect,
     }),
     prisma.series.findMany({
-      where: { ...pub, isCensored: false },
+      where: { ...pubArt, isCensored: false },
       orderBy: { createdAt: "desc" },
       take: 18,
       select: seriesCardSelect,
@@ -383,7 +397,7 @@ async function homeSectionsInner() {
         name: true,
         seriesCount: true,
         series: {
-          where: pub,
+          where: pubArt,
           orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
           take: 12,
           select: seriesCardSelect,

@@ -5,6 +5,7 @@ name: Catalogue maintenance
 #   drain     — re-resolve the /admin/unmatched queue (map or bare-create)
 #   topup     — find video for series that still have none (rotates source site)
 #   repair    — re-fetch fresh URLs for episodes whose only sources went DEAD
+#   covers    — anilist enrich, coverless series first (no gradient blocks)
 #   verify    — re-check playability, publish/unpublish
 #   migrate   — queue newly-playable episodes into Bunny
 #   recompute — weeklyViews / bayesianRating / trendingScore
@@ -72,6 +73,10 @@ jobs:
             *)     SITE=hentaigasm ;;
           esac
           npm run scrape -- --site=$SITE --mode=repair --limit=150
+
+      - name: Covers + metadata — anilist (coverless first)
+        continue-on-error: true
+        run: npm run enrich -- --source=anilist --limit=250
 
       - name: Verify
         continue-on-error: true

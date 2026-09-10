@@ -63,10 +63,24 @@ export async function runEnrich(opts: EnrichOptions): Promise<EnrichSummary> {
   };
 
   const col = SKIP_COL[opts.source];
+  // anilist is our cover source — also re-target published series that still
+  // have no cover art even if they already carry an anilistId (a gradient
+  // block on the storefront is worse than a re-check)
+  const where = opts.redo
+    ? {}
+    : opts.source === "anilist"
+      ? { OR: [{ anilistId: null }, { coverUrl: null, publish: "PUBLISHED" as const }] }
+      : col
+        ? { [col]: null }
+        : {};
   const targets = await db(() =>
     prisma.series.findMany({
-      where: opts.redo ? {} : col ? { [col]: null } : {},
-      orderBy: [{ publish: "asc" }, { bayesianRating: "desc" }],
+      where,
+      orderBy: [
+        // fill visible gaps first: coverless series, most-recently-touched
+        { coverUrl: { sort: "asc" as const, nulls: "first" as const } },
+        { updatedAt: "desc" as const },
+      ],
       take: opts.limit ?? 500,
       select: {
         id: true,
