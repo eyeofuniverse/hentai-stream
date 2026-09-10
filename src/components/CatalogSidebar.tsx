@@ -17,13 +17,26 @@ type Sidebar = {
   }[];
 };
 
-function Box({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) {
+function Box({
+  title,
+  href,
+  children,
+}: {
+  title: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border border-line bg-surface/40 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-sm font-bold tracking-tight">{title}</h2>
+    <section className="rounded-2xl border border-line bg-surface/30 p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="font-display text-[13px] font-bold uppercase tracking-wider text-white/50">
+          {title}
+        </h2>
         {href && (
-          <Link href={href} className="text-[11px] font-medium text-white/40 hover:text-accent">
+          <Link
+            href={href}
+            className="text-[11px] font-medium text-white/40 transition-colors hover:text-accent"
+          >
             All →
           </Link>
         )}
@@ -33,22 +46,24 @@ function Box({ title, href, children }: { title: string; href?: string; children
   );
 }
 
-/** watchhentai-style right column: genres, years, top rated. Desktop only.
+/** Right column on browse / tag / studio: top rated, genres, years. Desktop only.
  *  Pass `bare` when an ancestor already provides the column width / visibility. */
 export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }) {
-  const cls = bare
-    ? "space-y-4"
-    : "hidden w-72 shrink-0 space-y-4 lg:block";
+  const cls = bare ? "space-y-4" : "hidden w-72 shrink-0 space-y-4 lg:block";
+
   return (
     <aside className={cls}>
       {data.topRated.length > 0 && (
         <Box title="Top rated" href="/browse?sort=rating">
-          <ol className="space-y-2">
+          <ol className="space-y-1">
             {data.topRated.map((s, i) => {
               const score = s.ratingCount > 0 ? s.ratingAvg : s.externalScore;
               return (
                 <li key={s.slug}>
-                  <Link href={`/hentai/${s.slug}`} className="group flex items-center gap-2.5">
+                  <Link
+                    href={`/hentai/${s.slug}`}
+                    className="group -mx-2 flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+                  >
                     <span className="w-4 shrink-0 text-center font-display text-sm font-extrabold text-white/25">
                       {i + 1}
                     </span>
@@ -67,8 +82,16 @@ export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }
                         {s.title}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5">
-                        {score ? <RatingBadge score={score} size="sm" source={s.ratingCount > 0 ? null : "mal"} /> : null}
-                        {s.year && <span className="text-[10px] text-white/35">{s.year}</span>}
+                        {score ? (
+                          <RatingBadge
+                            score={score}
+                            size="sm"
+                            source={s.ratingCount > 0 ? null : "mal"}
+                          />
+                        ) : null}
+                        {s.year && (
+                          <span className="text-[10px] text-white/35">{s.year}</span>
+                        )}
                       </span>
                     </span>
                   </Link>
@@ -81,28 +104,32 @@ export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }
 
       {data.tags.length > 0 && (
         <Box title="Genres" href="/tags">
-          <div className="flex flex-wrap gap-1.5">
+          <ul className="-mx-2 grid grid-cols-2 gap-x-2">
             {data.tags.map((t) => (
-              <Link
-                key={t.slug}
-                href={`/tag/${t.slug}`}
-                className="rounded-full bg-white/6 px-2.5 py-1 text-xs text-white/70 transition hover:bg-white/12 hover:text-white"
-              >
-                {t.name} <span className="text-white/30">{t.seriesCount}</span>
-              </Link>
+              <li key={t.slug}>
+                <Link
+                  href={`/tag/${t.slug}`}
+                  className="flex items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-[13px] text-white/65 transition-colors hover:bg-white/[0.04] hover:text-white"
+                >
+                  <span className="truncate">{t.name}</span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-white/25">
+                    {t.seriesCount.toLocaleString()}
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </Box>
       )}
 
       {data.years.length > 0 && (
         <Box title="By year">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {data.years.map((y) => (
               <Link
                 key={y}
                 href={`/browse?year=${y}`}
-                className="rounded-lg bg-white/6 px-2 py-1 text-xs font-medium text-white/70 transition hover:bg-white/12 hover:text-white"
+                className="rounded-md bg-white/[0.04] py-1.5 text-center text-xs font-medium tabular-nums text-white/60 transition-colors hover:bg-accent hover:text-white"
               >
                 {y}
               </Link>

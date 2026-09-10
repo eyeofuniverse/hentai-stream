@@ -35,10 +35,10 @@ function Chip({
   return (
     <Link
       href={to}
-      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+      className={`rounded-md px-2.5 py-1 text-[13px] font-medium transition ${
         active
-          ? "bg-gradient-to-r from-accent to-accent-2 text-white shadow-glow"
-          : "bg-surface text-white/60 hover:bg-surface-2 hover:text-white"
+          ? "bg-accent text-white"
+          : "bg-white/[0.04] text-white/55 hover:bg-white/[0.08] hover:text-white"
       }`}
     >
       {children}
@@ -46,53 +46,72 @@ function Chip({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="w-14 shrink-0 pt-1 text-[11px] font-semibold uppercase tracking-wide text-white/35">
+    <div className="min-w-0">
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">
         {label}
-      </span>
+      </p>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   );
 }
 
-/** Link-based catalogue filters — no client JS, every state is a real URL. */
+/** Link-based catalogue filters — no client JS, every state is a real URL.
+ *  Genres live in the sidebar + on /tags, so they're not repeated here. */
 export function FilterBar({
   base,
   current,
-  genres,
-  showGenre = true,
 }: {
   base: string;
   current: Filters;
-  genres: { slug: string; name: string }[];
-  showGenre?: boolean;
 }) {
   const active = Object.keys(current).filter(
     (k) => k !== "sort" && k !== "page" && current[k],
   ).length;
 
   return (
-    <details className="mb-6 rounded-2xl border border-line bg-surface/40 [&_summary]:list-none" open>
-      <summary className="flex cursor-pointer items-center justify-between px-4 py-3 lg:cursor-default">
-        <span className="text-sm font-semibold text-white/80">
+    <details
+      className="group mb-6 overflow-hidden rounded-xl border border-line bg-surface/30 [&_summary]:list-none"
+      open
+    >
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 lg:cursor-default">
+        <span className="flex items-center gap-2 text-[13px] font-semibold text-white/75">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18M6 12h12M10 18h4" />
+          </svg>
           Filters
           {active > 0 && (
-            <span className="ml-2 rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+            <span className="rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
               {active}
             </span>
           )}
         </span>
-        {active > 0 && (
-          <Link href={base} className="text-xs font-medium text-accent hover:underline">
-            Clear all
-          </Link>
-        )}
+        <span className="flex items-center gap-3">
+          {active > 0 && (
+            <Link
+              href={base}
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              Clear
+            </Link>
+          )}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className="text-white/30 transition-transform group-open:rotate-180 lg:hidden"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
       </summary>
 
-      <div className="space-y-2.5 border-t border-line px-4 py-3">
-        <Row label="Sort">
+      <div className="grid gap-x-6 gap-y-4 border-t border-line px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Group label="Sort by">
           {SORTS.map(([v, l]) => (
             <Chip
               key={v}
@@ -102,8 +121,8 @@ export function FilterBar({
               {l}
             </Chip>
           ))}
-        </Row>
-        <Row label="Type">
+        </Group>
+        <Group label="Type">
           <Chip active={!current.type} to={href(base, current, { type: undefined })}>
             All
           </Chip>
@@ -116,8 +135,8 @@ export function FilterBar({
               {t}
             </Chip>
           ))}
-        </Row>
-        <Row label="Status">
+        </Group>
+        <Group label="Status">
           <Chip active={!current.status} to={href(base, current, { status: undefined })}>
             All
           </Chip>
@@ -130,8 +149,8 @@ export function FilterBar({
               {s[0] + s.slice(1).toLowerCase()}
             </Chip>
           ))}
-        </Row>
-        <Row label="Version">
+        </Group>
+        <Group label="Version">
           <Chip active={!current.censored} to={href(base, current, { censored: undefined })}>
             All
           </Chip>
@@ -147,18 +166,7 @@ export function FilterBar({
           >
             Censored
           </Chip>
-        </Row>
-        {showGenre && genres.length > 0 && (
-          <Row label="Genre">
-            {/* genres have their own dedicated pages — link there, don't create
-                a parallel ?tag= URL for the same content */}
-            {genres.map((g) => (
-              <Chip key={g.slug} active={false} to={`/tag/${g.slug}`}>
-                {g.name}
-              </Chip>
-            ))}
-          </Row>
-        )}
+        </Group>
       </div>
     </details>
   );

@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AdSlot } from "@/components/AdSlot";
-import {
-  browseSeries,
-  popularTags,
-  sidebarData,
-  type BrowseParams,
-} from "@/lib/queries";
+import { browseSeries, sidebarData, type BrowseParams } from "@/lib/queries";
 import { SeriesGrid } from "@/components/SeriesGrid";
 import { Pagination } from "@/components/Pagination";
 import { FilterBar } from "@/components/FilterBar";
@@ -83,7 +78,7 @@ export default async function BrowsePage({
   }
   const page = Math.max(1, Number(one(sp, "page")) || 1);
 
-  const [{ items, total, pages }, tags, sidebar] = await Promise.all([
+  const [{ items, total, pages }, sidebar] = await Promise.all([
     browseSeries({
       sort: (current.sort as BrowseParams["sort"]) ?? "updated",
       type: current.type,
@@ -94,7 +89,6 @@ export default async function BrowsePage({
       censored: current.censored,
       page,
     }),
-    popularTags(16),
     sidebarData(),
   ]);
 
@@ -137,7 +131,7 @@ export default async function BrowsePage({
 
       <div className="mt-6 flex gap-8">
         <div className="min-w-0 flex-1">
-          <FilterBar base="/browse" current={current} genres={tags} />
+          <FilterBar base="/browse" current={current} />
           <p className="mb-4 text-xs text-white/35">
             {total.toLocaleString()} result{total === 1 ? "" : "s"}
             {pages > 1 ? ` · page ${page} of ${pages}` : ""}

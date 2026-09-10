@@ -168,7 +168,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
           placeholder={big ? "Search series, genres…" : "Search titles…"}
           aria-label="Search"
           autoComplete="off"
-          className="w-full bg-transparent text-sm outline-none placeholder:text-white/35"
+          className="w-full bg-transparent text-sm outline-none focus:outline-none focus-visible:outline-none placeholder:text-white/35"
         />
         {q && (
           <button
