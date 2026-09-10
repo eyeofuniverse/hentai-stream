@@ -1,11 +1,41 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { prisma, db } from "@/lib/db";
 import { Badge } from "@/components/admin/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false } };
+
+// the queue badges don't need to be real-time — cache them so every admin page
+// nav isn't 6 count queries
+const adminBadges = unstable_cache(
+  () =>
+    db(() =>
+      Promise.all([
+        prisma.report.count({ where: { status: "OPEN" } }),
+        prisma.series.count({ where: { publish: "PENDING" } }),
+        prisma.episode.count({ where: { publish: "PENDING" } }),
+        prisma.series.count({
+          where: {
+            contentWarnings: { has: "possible-minor" },
+            publish: { not: "REJECTED" },
+          },
+        }),
+        prisma.series.count({
+          where: {
+            autoPublishedAt: { not: null },
+            reviewedAt: null,
+            publish: "PUBLISHED",
+          },
+        }),
+        prisma.unmatchedTitle.count({ where: { status: "PENDING" } }),
+      ]),
+    ),
+  ["admin-badges"],
+  { revalidate: 45 },
+);
 
 export default async function AdminLayout({
   children,
@@ -18,20 +48,7 @@ export default async function AdminLayout({
   if (role !== "ADMIN" && role !== "MODERATOR") redirect("/");
 
   const [openReports, pendingSeries, pendingEps, flagged, spotCheck, unmatched] =
-    await db(() =>
-      Promise.all([
-        prisma.report.count({ where: { status: "OPEN" } }),
-        prisma.series.count({ where: { publish: "PENDING" } }),
-        prisma.episode.count({ where: { publish: "PENDING" } }),
-        prisma.series.count({
-          where: { contentWarnings: { has: "possible-minor" }, publish: { not: "REJECTED" } },
-        }),
-        prisma.series.count({
-          where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
-        }),
-        prisma.unmatchedTitle.count({ where: { status: "PENDING" } }),
-      ]),
-    ).catch(() => [0, 0, 0, 0, 0, 0]);
+    await adminBadges().catch(() => [0, 0, 0, 0, 0, 0]);
 
   const nav: { href: string; label: string; badge?: number; tone?: string }[] = [
     { href: "/admin", label: "Dashboard" },

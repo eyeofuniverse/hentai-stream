@@ -18,6 +18,21 @@ export type BrowseParams = {
 
 export async function browseSeries(params: BrowseParams) {
   const page = Math.max(1, params.page ?? 1);
+  try {
+    // cache the result per filter-set so repeat navigations don't re-hit the DB
+    // (these pages are dynamic — the DB round-trip from far away was the cost)
+    return await browseSeriesCached({ ...params, page });
+  } catch {
+    return { items: [], total: 0, page, pages: 0, pageSize: PAGE };
+  }
+}
+
+const browseSeriesCached = unstable_cache(browseSeriesInner, ["browse-series"], {
+  revalidate: 120,
+});
+
+async function browseSeriesInner(params: BrowseParams) {
+  const page = Math.max(1, params.page ?? 1);
 
   const where: Prisma.SeriesWhereInput = {
     publish: "PUBLISHED",
@@ -48,28 +63,19 @@ export async function browseSeries(params: BrowseParams) {
               ? { createdAt: "desc" }
               : { updatedAt: "desc" };
 
-  try {
-    const [items, total] = await db(() =>
-      Promise.all([
-        prisma.series.findMany({
-          where,
-          orderBy,
-          skip: (page - 1) * PAGE,
-          take: PAGE,
-          include: {
-            studio: { select: { name: true, slug: true } },
-            _count: {
-              select: { episodes: { where: { publish: "PUBLISHED" } } },
-            },
-          },
-        }),
-        prisma.series.count({ where }),
-      ]),
-    );
-    return { items, total, page, pages: Math.ceil(total / PAGE), pageSize: PAGE };
-  } catch {
-    return { items: [], total: 0, page, pages: 0, pageSize: PAGE };
-  }
+  const [items, total] = await db(() =>
+    Promise.all([
+      prisma.series.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * PAGE,
+        take: PAGE,
+        select: seriesCardSelect,
+      }),
+      prisma.series.count({ where }),
+    ]),
+  );
+  return { items, total, page, pages: Math.ceil(total / PAGE), pageSize: PAGE };
 }
 
 export async function getSeries(slug: string) {
@@ -429,11 +435,19 @@ export type CalendarEntry = {
   bunnyStatus: string | null;
 };
 
+const calendarMonthCached = unstable_cache(
+  (year: number, month1to12: number) => {
+    const start = new Date(Date.UTC(year, month1to12 - 1, 1));
+    const end = new Date(Date.UTC(year, month1to12, 1));
+    return db(() => calendarMonthInner(start, end));
+  },
+  ["calendar-month"],
+  { revalidate: 900 },
+);
+
 export async function calendarMonth(year: number, month1to12: number) {
-  const start = new Date(Date.UTC(year, month1to12 - 1, 1));
-  const end = new Date(Date.UTC(year, month1to12, 1));
   try {
-    return await db(() => calendarMonthInner(start, end));
+    return await calendarMonthCached(year, month1to12);
   } catch {
     return { entries: [] as CalendarEntry[], latestAiredAt: null as Date | null };
   }
@@ -477,10 +491,10 @@ async function calendarMonthInner(start: Date, end: Date) {
 }
 
 /** Two small series lists for secondary rails (calendar page, empty states). */
-export async function miniLists() {
-  const pub = { publish: "PUBLISHED" as const };
-  try {
-    return await db(async () => {
+const miniListsCached = unstable_cache(
+  () => {
+    const pub = { publish: "PUBLISHED" as const };
+    return db(async () => {
       const [popular, fresh] = await Promise.all([
         prisma.series.findMany({
           where: pub,
@@ -497,6 +511,14 @@ export async function miniLists() {
       ]);
       return { popular, fresh };
     });
+  },
+  ["mini-lists"],
+  { revalidate: 600 },
+);
+
+export async function miniLists() {
+  try {
+    return await miniListsCached();
   } catch {
     return { popular: [], fresh: [] };
   }

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type Me = { handle: string; role: string } | null;
 
@@ -10,17 +11,32 @@ export function AccountMenu() {
   const router = useRouter();
   const [me, setMe] = useState<Me | undefined>(undefined); // undefined = loading
   const [open, setOpen] = useState(false);
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetch("/api/me", { cache: "no-store" });
+      setMe(await r.json());
+    } catch {
+      setMe(null);
+    }
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d) => alive && setMe(d))
-      .catch(() => alive && setMe(null));
-    return () => {
-      alive = false;
-    };
-  }, []);
+    void refresh();
+
+    // keep the header in sync with sign-in / sign-out (this tab and others) —
+    // the layout doesn't remount on navigation, so without this the button
+    // stays "Sign in" after logging in
+    const supabase = (supabaseRef.current ??= createClient());
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") setMe(null);
+      else void refresh();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [refresh]);
+
+  useEffect(() => setOpen(false), [me]);
 
   if (me === undefined) {
     return <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />;
@@ -71,9 +87,9 @@ export function AccountMenu() {
             )}
             <button
               onClick={async () => {
-                const { createClient } = await import("@/lib/supabase/client");
-                await createClient().auth.signOut();
+                await (supabaseRef.current ??= createClient()).auth.signOut();
                 setMe(null);
+                setOpen(false);
                 router.refresh();
               }}
               className="block w-full border-t border-line px-4 py-2.5 text-left text-sm text-accent hover:bg-white/5"

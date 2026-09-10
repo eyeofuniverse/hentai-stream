@@ -72,6 +72,15 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-screen bg-bg font-sans text-[#ececf1] antialiased"
       >
+        {/* runs before first paint: if the visitor already confirmed their age,
+            add `vok` to <html> so the age gate never flashes / never blocks
+            clicks. Full-page render, so it must be inline + synchronous. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(/(?:^|;\\s*)lh_vok=1(?:;|$)/.test(document.cookie))document.documentElement.classList.add('vok')}catch(e){}",
+          }}
+        />
         <SiteHeader />
         <div className="min-h-[60vh]">{children}</div>
         <SiteFooter />

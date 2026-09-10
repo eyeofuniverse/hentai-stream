@@ -97,7 +97,21 @@ a {
   }
 }
 
-/* age gate — hidden once the visitor has confirmed (see AgeGate + inline script) */
+@keyframes loadbar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+/* age gate — while it's up, lock the page; once `vok` is set it's gone and
+   scrolling is normal again (see AgeGate + the boot script in layout.tsx) */
+html:not(.vok),
+html:not(.vok) body {
+  overflow: hidden;
+}
 html.vok #lh-vg {
   display: none !important;
 }

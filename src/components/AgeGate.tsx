@@ -1,9 +1,10 @@
 /**
- * Server-rendered so it paints with the HTML (no JS wait, fast LCP). Dismissal
- * is handled by a plain inline script — it toggles an `vok` class on <html>
- * and sets a 1-year cookie. It NEVER removes DOM nodes, so React's hydration of
- * the surrounding tree is untouched (that was the #418 cause). CSS hides the
- * gate when the class is present.
+ * Server-rendered so it paints with the HTML. The `vok` class is added to
+ * <html> by a tiny inline script in the root layout <body> that runs before
+ * first paint (so a returning visitor never sees a flash or a blocked click);
+ * this script only handles the button press. It NEVER removes DOM nodes, so
+ * React's hydration of the surrounding tree is untouched (that was #418). CSS
+ * hides the gate + unlocks scroll when the class is present.
  */
 export function AgeGate() {
   return (
@@ -11,6 +12,8 @@ export function AgeGate() {
       <div
         id="lh-vg"
         data-nosnippet
+        aria-modal="true"
+        role="dialog"
         className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-6 backdrop-blur-md"
       >
         <div className="w-full max-w-md animate-rise rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
@@ -52,7 +55,7 @@ export function AgeGate() {
       <script
         dangerouslySetInnerHTML={{
           __html:
-            "(function(){var d=document,h=d.documentElement;try{if(/(?:^|;\\s*)lh_vok=1(?:;|$)/.test(d.cookie))h.classList.add('vok')}catch(e){}d.addEventListener('click',function(e){var t=e.target;if(t&&(t.id==='lh-vg-in'||(t.closest&&t.closest('#lh-vg-in')))){try{d.cookie='lh_vok=1;path=/;max-age=31536000;samesite=lax'}catch(e){}h.classList.add('vok')}})})();",
+            "(function(){var d=document;function ok(){try{d.cookie='lh_vok=1;path=/;max-age=31536000;samesite=lax'}catch(e){}d.documentElement.classList.add('vok')}var b=d.getElementById('lh-vg-in');if(b)b.addEventListener('click',ok);d.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('#lh-vg-in'))ok()})})();",
         }}
       />
     </>

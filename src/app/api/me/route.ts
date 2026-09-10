@@ -1,13 +1,44 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-/** Lightweight session probe for the client-side header. */
+/**
+ * Lightweight session probe for the header. Uses getSession() (reads the cookie,
+ * no round-trip to Supabase Auth) — this only decides which button to show, not
+ * access to anything, so it doesn't need the full getUser() verification. The
+ * middleware already refreshes the token on protected routes.
+ */
 export async function GET() {
-  const s = await getSessionUser().catch(() => null);
-  return NextResponse.json(
-    s ? { handle: s.profile.handle, role: s.profile.role } : null,
-    { headers: { "Cache-Control": "private, no-store" } },
-  );
+  try {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) {
+      return NextResponse.json(null, {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
+
+    const profile = await prisma.profile
+      .findUnique({
+        where: { id: user.id },
+        select: { handle: true, role: true },
+      })
+      .catch(() => null);
+
+    return NextResponse.json(
+      profile
+        ? { handle: profile.handle, role: profile.role }
+        : { handle: (user.email ?? "you").split("@")[0], role: "USER" },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  } catch {
+    return NextResponse.json(null, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
 }
