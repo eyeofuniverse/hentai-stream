@@ -1,16 +1,23 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getEpisode } from "@/lib/queries";
+import { getEpisode, relatedSeries, miniLists } from "@/lib/queries";
 import { cover, thumb, thumbSet } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { SmartImg } from "@/components/SmartImg";
+import { SeriesCard } from "@/components/SeriesCard";
 import { buildServers } from "@/lib/stream";
 import { SITE, SITE_NAME, abs, episodeSeo, breadcrumbLd } from "@/lib/seo";
 import { WatchPlayer } from "@/components/WatchPlayer";
 import { ReportBroken } from "@/components/ReportBroken";
 import { ViewPing } from "@/components/ViewPing";
 import { RatingBadge } from "@/components/RatingBadge";
+import { Pill } from "@/components/ui";
+import { AdSlot } from "@/components/AdSlot";
+import { EpisodeList } from "@/components/watch/EpisodeList";
+import { ShareButton } from "@/components/watch/ShareButton";
+import { RailSeriesList } from "@/components/watch/RailSeriesList";
+import { WatchInternalLinks } from "@/components/watch/WatchInternalLinks";
 import { Faq } from "@/components/seo/Faq";
 import { episodeFaq } from "@/lib/faq";
 
@@ -32,8 +39,6 @@ export async function generateMetadata({
   if (!ep) return { title: "Not found", robots: { index: false } };
 
   const { title, description } = episodeSeo(ep);
-  // OG / social images must be publicly fetchable — Cloudinary, not the
-  // referer-locked Bunny CDN
   const img = thumb(ep.series.coverUrl) ?? cover(ep.series.coverUrl);
   const canonical = `/hentai/${slug}/${ep.number}`;
 
@@ -68,40 +73,41 @@ export default async function WatchPage({
   const ep = await getEpisode(slug, num);
   if (!ep) notFound();
 
-  const eps = ep.series.episodes;
+  const s = ep.series;
+  const eps = s.episodes;
   const idx = eps.findIndex((e) => e.number === ep.number);
   const prev = idx > 0 ? eps[idx - 1] : null;
-  const next = idx < eps.length - 1 ? eps[idx + 1] : null;
+  const next = idx >= 0 && idx < eps.length - 1 ? eps[idx + 1] : null;
 
   const bunnyReady = ep.bunnyStatus === "ready" && !!ep.bunnyGuid;
   const servers = buildServers(ep.id, bunnyReady, ep.sources);
-  // the player poster must be landscape — a Bunny 16:9 still, or a scraped
-  // episode still; never the portrait series cover (it letterboxes badly)
   const poster = bunnyReady ? bunnyThumb(ep.bunnyGuid!) : thumb(ep.thumbUrl) ?? null;
+
+  const [related, mini] = await Promise.all([
+    relatedSeries(s.id, s.tags.map((t) => t.slug), 12),
+    miniLists(),
+  ]);
 
   const { title: seoTitle, description, genres } = episodeSeo(ep);
   const canonical = `${SITE}/hentai/${slug}/${ep.number}`;
   const embedUrl = `${SITE}/embed/${slug}/${ep.number}`;
-  // VideoObject.thumbnailUrl is required and must be publicly fetchable — use
-  // Cloudinary / MAL art (never the referer-locked Bunny CDN), and always fall
-  // back to the OG card so the array is never empty
   const thumbs = (() => {
     const list = [
       ...new Set(
-        [thumb(ep.series.coverUrl), cover(ep.series.coverUrl)]
+        [thumb(s.coverUrl), cover(s.coverUrl)]
           .filter((x): x is string => !!x)
           .map((x) => abs(x)),
       ),
     ];
     return list.length ? list : [abs("/opengraph-image")];
   })();
-  const rating =
-    ep.series.ratingCount > 0 ? ep.series.ratingAvg : ep.series.externalScore;
+  const rating = s.ratingCount > 0 ? s.ratingAvg : s.externalScore;
+  const runtimeMins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
 
   const videoLd = {
     "@context": "https://schema.org",
     "@type": "VideoObject",
-    name: `${ep.series.title} Episode ${ep.number}${ep.title ? `: ${ep.title}` : ""}`,
+    name: `${s.title} Episode ${ep.number}${ep.title ? `: ${ep.title}` : ""}`,
     description,
     thumbnailUrl: thumbs,
     uploadDate: (ep.airedAt ?? ep.createdAt).toISOString(),
@@ -109,7 +115,7 @@ export default async function WatchPage({
     embedUrl,
     url: canonical,
     genre: genres || undefined,
-    keywords: ep.series.tags.map((t) => t.name).join(", ") || undefined,
+    keywords: s.tags.map((t) => t.name).join(", ") || undefined,
     inLanguage: "en",
     isFamilyFriendly: false,
     contentRating: "adult",
@@ -130,7 +136,7 @@ export default async function WatchPage({
     potentialAction: { "@type": "WatchAction", target: canonical },
     partOfSeries: {
       "@type": "TVSeries",
-      name: ep.series.title,
+      name: s.title,
       url: `${SITE}/hentai/${slug}`,
     },
   };
@@ -138,36 +144,103 @@ export default async function WatchPage({
   const crumbs = breadcrumbLd([
     { name: "Home", path: "/" },
     { name: "Browse", path: "/browse" },
-    { name: ep.series.title, path: `/hentai/${slug}` },
+    { name: s.title, path: `/hentai/${slug}` },
     { name: `Episode ${ep.number}`, path: `/hentai/${slug}/${ep.number}` },
   ]);
 
-  const genreList = ep.series.tags.slice(0, 5).map((t) => t.name).join(", ");
+  const genreList = s.tags.slice(0, 5).map((t) => t.name).join(", ");
   const bodyText =
     ep.synopsis ||
-    ep.series.synopsis ||
-    `Watch ${ep.series.title} episode ${ep.number} online${
-      ep.series.isCensored ? "" : ", uncensored"
-    }. ${ep.series.title} is ${
-      /^[aeiou]/i.test(ep.series.type) ? "an" : "a"
-    } ${ep.series.type.toLowerCase()} hentai${
-      ep.series.year ? ` from ${ep.series.year}` : ""
-    }${ep.series.studio ? ` by ${ep.series.studio.name}` : ""}${
+    s.synopsis ||
+    `Watch ${s.title} episode ${ep.number} online${
+      s.isCensored ? "" : ", uncensored"
+    }. ${s.title} is ${/^[aeiou]/i.test(s.type) ? "an" : "a"} ${s.type.toLowerCase()} hentai${
+      s.year ? ` from ${s.year}` : ""
+    }${s.studio ? ` by ${s.studio.name}` : ""}${
       genreList ? `, tagged ${genreList}` : ""
     }. Stream every episode free in HD on ${SITE_NAME} — no account, on desktop and mobile.`;
 
-  const NavBtn = ({ to, children }: { to: number | null; children: React.ReactNode }) =>
-    to ? (
+  const episodeLabel = `Episode ${ep.number}${ep.part > 1 ? ` · Part ${ep.part}` : ""}`;
+
+  const prevHref = prev ? `/hentai/${slug}/${prev.number}` : null;
+  const nextHref = next ? `/hentai/${slug}/${next.number}` : null;
+
+  const NavBtn = ({
+    href,
+    dir,
+    e,
+  }: {
+    href: string | null;
+    dir: "prev" | "next";
+    e: (typeof eps)[number] | null;
+  }) =>
+    href && e ? (
       <Link
-        href={`/hentai/${slug}/${to}`}
-        className="rounded-lg border border-line bg-surface px-3.5 py-2 text-sm font-medium text-white/75 transition hover:border-accent/40 hover:text-white"
+        href={href}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-xs font-medium text-white/75 transition hover:border-accent/40 hover:text-white"
       >
-        {children}
+        {dir === "prev" && <span aria-hidden>←</span>}
+        {dir === "prev" ? "Prev" : "Next"} · Ep {e.number}
+        {dir === "next" && <span aria-hidden>→</span>}
       </Link>
     ) : (
-      <span className="rounded-lg border border-line/50 px-3.5 py-2 text-sm text-white/20">
-        {children}
+      <span className="inline-flex items-center gap-1.5 rounded-lg border border-line/50 px-3 py-2 text-xs text-white/20">
+        {dir === "prev" ? "← Prev" : "Next →"}
       </span>
+    );
+
+  const UpNext = () =>
+    next ? (
+      <Link
+        href={`/hentai/${slug}/${next.number}`}
+        className="group flex items-center gap-3 rounded-2xl border border-line bg-surface/60 p-3 transition hover:border-accent/40 hover:bg-surface"
+      >
+        <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+          <SmartImg
+            src={
+              next.bunnyStatus === "ready" && next.bunnyGuid
+                ? bunnyThumb(next.bunnyGuid)
+                : thumb(s.coverUrl)
+            }
+            fallback={thumb(s.coverUrl)}
+            seed={`${slug}-${next.number}`}
+            srcSet={thumbSet(s.coverUrl) ?? undefined}
+            sizes="128px"
+            width={360}
+            height={203}
+            className="h-full w-full object-cover transition group-hover:scale-105"
+          />
+          <span className="absolute inset-0 grid place-items-center bg-black/25 opacity-0 transition group-hover:opacity-100">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-white drop-shadow">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-accent">
+            Up next
+          </p>
+          <p className="mt-0.5 line-clamp-2 text-sm font-semibold text-white/85">
+            Episode {next.number}
+            {next.title ? `: ${next.title}` : ""}
+          </p>
+        </div>
+      </Link>
+    ) : (
+      <Link
+        href={`/hentai/${slug}`}
+        className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface/60 p-4 text-sm transition hover:border-accent/40"
+      >
+        <span>
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-good">
+            Series complete
+          </span>
+          <span className="mt-0.5 block font-semibold text-white/85">
+            You&apos;ve reached the last episode
+          </span>
+        </span>
+        <span className="shrink-0 text-white/40">↗</span>
+      </Link>
     );
 
   return (
@@ -175,155 +248,182 @@ export default async function WatchPage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(videoLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
 
-      {/* theater */}
-      <div className="border-b border-line bg-black/40">
-        <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-4 lg:px-8">
-          <ViewPing episodeId={ep.id} seriesSlug={slug} episodeNumber={ep.number} />
-          <WatchPlayer
-            servers={servers}
-            poster={poster}
-            nextHref={next ? `/hentai/${slug}/${next.number}` : null}
-          />
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="mx-auto max-w-content px-2.5 py-3 sm:px-4 lg:px-8 lg:py-6">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_356px]">
+          {/* ─────────── main column ─────────── */}
           <div className="min-w-0">
-            <nav className="text-xs text-white/40" aria-label="Breadcrumb">
-              <Link href="/" className="hover:text-white">Home</Link>
-              <span className="mx-1.5">/</span>
-              <Link href={`/hentai/${slug}`} className="hover:text-white">
-                {ep.series.title}
-              </Link>
-              <span className="mx-1.5">/</span>
-              <span className="text-white/60">Episode {ep.number}</span>
-            </nav>
+            <ViewPing episodeId={ep.id} seriesSlug={slug} episodeNumber={ep.number} />
 
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
-                {ep.series.title} — Episode {ep.number}
-                {ep.title ? `: ${ep.title}` : ""}
-                {!ep.series.isCensored ? " (Uncensored)" : ""}
-              </h1>
-              {rating ? (
-                <RatingBadge
-                  score={rating}
-                  votes={ep.series.ratingCount || null}
-                  source={ep.series.ratingCount > 0 ? null : "mal"}
-                  size="sm"
-                />
-              ) : null}
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex gap-2">
-                <NavBtn to={prev?.number ?? null}>← Prev</NavBtn>
-                <NavBtn to={next?.number ?? null}>Next →</NavBtn>
-              </div>
-              <ReportBroken episodeId={ep.id} />
-            </div>
-
-            {/* always-present descriptive copy for SEO + readers */}
-            <p className="mt-5 text-sm leading-relaxed text-white/70">{bodyText}</p>
-            <p className="mt-2 text-xs text-white/35">
-              {seoTitle} · {ep.series.studio ? `Studio ${ep.series.studio.name} · ` : ""}
-              {servers.length} streaming server{servers.length === 1 ? "" : "s"}
-            </p>
-
-            {ep.series.tags.length > 0 && (
-              <div className="mt-5 flex flex-wrap gap-1.5">
-                {ep.series.tags.map((t) => (
-                  <Link
-                    key={t.slug}
-                    href={`/tag/${t.slug}`}
-                    className="rounded-full bg-surface px-3 py-1 text-xs text-white/65 transition hover:bg-surface-2 hover:text-white"
-                  >
-                    {t.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {next && (
-              <Link
-                href={`/hentai/${slug}/${next.number}`}
-                className="mt-6 flex items-center gap-3 rounded-xl border border-line bg-surface/60 p-3 transition hover:border-accent/40"
-              >
-                <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-surface-2">
-                  <SmartImg
-                    src={
-                      next.bunnyStatus === "ready" && next.bunnyGuid
-                        ? bunnyThumb(next.bunnyGuid)
-                        : thumb(ep.series.coverUrl)
-                    }
-                    fallback={thumb(ep.series.coverUrl)}
-                    seed={`${slug}-${next.number}`}
-                    srcSet={thumbSet(ep.series.coverUrl) ?? undefined}
-                    sizes="128px"
-                    width={360}
-                    height={203}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Up next</p>
-                  <p className="mt-0.5 text-sm font-semibold text-white/85">
-                    Episode {next.number}
-                    {next.title ? `: ${next.title}` : ""}
-                  </p>
-                </div>
-              </Link>
-            )}
-
-            <Faq
-              items={episodeFaq(ep)}
-              title={`${ep.series.title} Episode ${ep.number} — FAQ`}
+            <WatchPlayer
+              servers={servers}
+              poster={poster}
+              title={s.title}
+              episodeLabel={episodeLabel}
+              nextHref={nextHref}
+              prevHref={prevHref}
             />
+
+            {/* title + facts */}
+            <div className="mt-4 px-1 sm:mt-5 sm:px-0">
+              <nav className="text-xs text-white/40" aria-label="Breadcrumb">
+                <Link href="/" className="hover:text-white">Home</Link>
+                <span className="mx-1.5">/</span>
+                <Link href={`/hentai/${slug}`} className="hover:text-white">
+                  {s.title}
+                </Link>
+                <span className="mx-1.5">/</span>
+                <span className="text-white/60">Episode {ep.number}</span>
+              </nav>
+
+              <h1 className="mt-2 font-display text-xl font-extrabold leading-tight tracking-tight sm:text-[26px]">
+                {s.title} — Episode {ep.number}
+                {ep.title ? `: ${ep.title}` : ""}
+                {!s.isCensored ? " (Uncensored)" : ""}
+              </h1>
+
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {rating ? (
+                  <RatingBadge
+                    score={rating}
+                    votes={s.ratingCount || null}
+                    source={s.ratingCount > 0 ? null : "mal"}
+                    size="sm"
+                  />
+                ) : null}
+                <Pill tone="accent">{s.type}</Pill>
+                {s.year && <Pill>{s.year}</Pill>}
+                <Pill tone={s.isCensored ? "default" : "good"}>
+                  {s.isCensored ? "Censored" : "Uncensored"}
+                </Pill>
+                <Link href={`/hentai/${slug}`}>
+                  <Pill className="hover:bg-white/15">
+                    {eps.length} episode{eps.length === 1 ? "" : "s"}
+                  </Pill>
+                </Link>
+                {runtimeMins && <Pill>{runtimeMins} min</Pill>}
+                {s.studio && (
+                  <Link href={`/studio/${s.studio.slug}`}>
+                    <Pill className="hover:bg-white/15">{s.studio.name}</Pill>
+                  </Link>
+                )}
+              </div>
+
+              {/* action bar */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <NavBtn href={prevHref} dir="prev" e={prev} />
+                <NavBtn href={nextHref} dir="next" e={next} />
+                <ShareButton title={`${s.title} — Episode ${ep.number}`} />
+                <span className="ml-auto">
+                  <ReportBroken episodeId={ep.id} />
+                </span>
+              </div>
+            </div>
+
+            {/* mobile-only: up next + episodes + a banner slot */}
+            <div className="mt-5 space-y-4 lg:hidden">
+              <UpNext />
+              <EpisodeList
+                slug={slug}
+                episodes={eps}
+                current={ep.number}
+                maxHeight="340px"
+              />
+              <AdSlot id="watch-inline-mobile" format="leaderboard" />
+            </div>
+
+            {/* description / SEO copy */}
+            <section className="mt-6 rounded-2xl border border-line bg-surface/30 p-5 sm:p-6">
+              <p className="text-sm leading-relaxed text-white/72">{bodyText}</p>
+              <p className="mt-2.5 text-xs text-white/35">
+                {seoTitle}
+                {s.studio ? ` · Studio ${s.studio.name}` : ""} ·{" "}
+                {servers.length} streaming server{servers.length === 1 ? "" : "s"}
+              </p>
+
+              {s.tags.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {s.tags.map((t) => (
+                    <Link
+                      key={t.slug}
+                      href={`/tag/${t.slug}`}
+                      className="rounded-full bg-surface px-3 py-1 text-xs text-white/65 transition hover:bg-surface-2 hover:text-white"
+                    >
+                      {t.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className="mt-8">
+              <Faq
+                items={episodeFaq(ep)}
+                title={`${s.title} Episode ${ep.number} — FAQ`}
+              />
+            </div>
+
+            {related.length > 0 && (
+              <section className="mt-12">
+                <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
+                  <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
+                  You might also like
+                </h2>
+                <div className="grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 md:grid-cols-5">
+                  {related.map((r) => (
+                    <SeriesCard key={r.slug} series={r} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <WatchInternalLinks
+              seriesTitle={s.title}
+              seriesSlug={slug}
+              studio={s.studio}
+              year={s.year}
+              type={s.type}
+              isCensored={s.isCensored}
+              tags={s.tags}
+            />
+
+            <AdSlot id="watch-inline-footer" format="leaderboard" className="mt-10" />
           </div>
 
-          <aside className="lg:sticky lg:top-20 lg:self-start">
-            <div className="overflow-hidden rounded-xl border border-line bg-surface/50">
-              <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                <span className="font-display text-sm font-bold">All episodes</span>
-                <span className="text-xs text-white/35">{eps.length}</span>
-              </div>
-              <div className="no-scrollbar max-h-[70vh] overflow-y-auto p-2">
-                {eps.map((e) => {
-                  const isCur = e.number === ep.number;
-                  return (
-                    <Link
-                      key={e.number}
-                      href={`/hentai/${slug}/${e.number}`}
-                      aria-current={isCur ? "page" : undefined}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
-                        isCur
-                          ? "bg-accent/15 text-white"
-                          : "text-white/65 hover:bg-white/5 hover:text-white"
-                      }`}
-                    >
-                      <span
-                        className={`grid h-7 w-9 shrink-0 place-items-center rounded text-xs font-bold ${
-                          isCur ? "bg-accent text-white" : "bg-surface-2 text-white/60"
-                        }`}
-                      >
-                        {e.number}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {e.title || `Episode ${e.number}`}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+          {/* ─────────── right rail (lg+) ─────────── */}
+          <aside className="mt-10 hidden lg:mt-0 lg:block">
+            <div className="space-y-4">
+              <UpNext />
 
-            <Link
-              href={`/hentai/${slug}`}
-              className="mt-3 block rounded-xl border border-line bg-surface/50 px-4 py-3 text-center text-sm font-medium text-white/70 transition hover:border-accent/30 hover:text-white"
-            >
-              View series page
-            </Link>
+              <AdSlot id="watch-rail-1" format="rect" />
+
+              <EpisodeList
+                slug={slug}
+                episodes={eps}
+                current={ep.number}
+                maxHeight="70vh"
+              />
+
+              <Link
+                href={`/hentai/${slug}`}
+                className="block rounded-2xl border border-line bg-surface/50 px-4 py-3 text-center text-sm font-medium text-white/70 transition hover:border-accent/30 hover:text-white"
+              >
+                View series page
+              </Link>
+
+              <AdSlot id="watch-rail-2" format="half" />
+
+              <RailSeriesList
+                title="Trending now"
+                href="/browse?sort=trending"
+                items={mini.popular}
+              />
+
+              <RailSeriesList
+                title={`New on ${SITE_NAME}`}
+                href="/browse?sort=new"
+                items={mini.fresh}
+              />
+            </div>
           </aside>
         </div>
       </div>
