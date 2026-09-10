@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import slugify from "slugify";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { prisma, db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { pingIndexNow } from "@/lib/indexnow";
 import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
+import { Prisma } from "@prisma/client";
 import type {
   AnimeSeason,
   PublishStatus,
@@ -15,6 +16,8 @@ import type {
   SourceStatus,
   Weekday,
 } from "@prisma/client";
+
+type Tx = Prisma.TransactionClient;
 
 const slug = (s: string) => slugify(s, { lower: true, strict: true });
 const csv = (v?: string) =>
@@ -115,17 +118,17 @@ function seriesData(d: z.infer<typeof seriesSchema>, studioId: string | null) {
   };
 }
 
-async function resolveStudio(name?: string) {
+async function resolveStudio(tx: Tx, name?: string) {
   if (!name?.trim()) return null;
   const s = name.trim();
-  return prisma.studio.upsert({
+  return tx.studio.upsert({
     where: { slug: slug(s) },
     update: {},
     create: { name: s, slug: slug(s) },
   });
 }
 
-async function resolveTags(list: string[]) {
+async function resolveTags(tx: Tx, list: string[]) {
   const tags = [];
   for (const raw of list) {
     // route through the canonical dictionary so an admin typo / alias collapses
@@ -135,7 +138,7 @@ async function resolveTags(list: string[]) {
     const s = canon?.slug ?? slug(raw);
     if (!s) continue;
     tags.push(
-      await prisma.tag.upsert({
+      await tx.tag.upsert({
         where: { slug: s },
         update: {},
         create: {
@@ -145,6 +148,7 @@ async function resolveTags(list: string[]) {
             ? { category: canon.category, featured: isFeaturedSlug(s) }
             : {}),
         },
+        select: { id: true },
       }),
     );
   }
@@ -154,44 +158,72 @@ async function resolveTags(list: string[]) {
 export async function createSeries(form: FormData) {
   await requireRole("ADMIN", "MODERATOR");
   const d = seriesSchema.parse(Object.fromEntries(form));
-  const studio = await resolveStudio(d.studioName);
-  const tags = await resolveTags(csv(d.tags));
 
-  const base = slug(d.title);
-  let s = base;
-  for (let i = 2; await prisma.series.findUnique({ where: { slug: s } }); i++) s = `${base}-${i}`;
+  // studio upsert + tag upserts + the series insert land together or not at all,
+  // so a transient failure mid-sequence can't leave an orphan studio/tag or a
+  // half-built series
+  const id = await db(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const studio = await resolveStudio(tx, d.studioName);
+        const tags = await resolveTags(tx, csv(d.tags));
 
-  const created = await prisma.series.create({
-    data: {
-      ...seriesData(d, studio?.id ?? null),
-      slug: s,
-      publish: d.publish ?? "DRAFT",
-      metadataSource: "manual",
-      tags: { connect: tags.map((t) => ({ id: t.id })) },
-    },
-  });
+        const base = slug(d.title);
+        let s = base;
+        for (
+          let i = 2;
+          await tx.series.findUnique({ where: { slug: s }, select: { id: true } });
+          i++
+        )
+          s = `${base}-${i}`;
+
+        const created = await tx.series.create({
+          data: {
+            ...seriesData(d, studio?.id ?? null),
+            slug: s,
+            publish: d.publish ?? "DRAFT",
+            metadataSource: "manual",
+            tags: { connect: tags.map((t) => ({ id: t.id })) },
+          },
+          select: { id: true },
+        });
+        return created.id;
+      },
+      { timeout: 20_000 },
+    ),
+  );
+
   revalidatePath("/admin");
   revalidatePath("/admin/series");
-  await bust(created.id);
-  return created.id;
+  await bust(id);
+  return id;
 }
 
 export async function updateSeries(id: string, form: FormData) {
   await requireRole("ADMIN", "MODERATOR");
   const d = seriesSchema.parse(Object.fromEntries(form));
-  const studio = await resolveStudio(d.studioName);
-  const tags = await resolveTags(csv(d.tags));
 
-  await prisma.series.update({
-    where: { id },
-    data: {
-      ...seriesData(d, studio?.id ?? null),
-      publish: d.publish ?? undefined,
-      tags: { set: tags.map((t) => ({ id: t.id })) },
-      // a hand-edit takes the row out of the auto-sync's write path
-      metadataSource: "manual",
-    },
-  });
+  await db(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const studio = await resolveStudio(tx, d.studioName);
+        const tags = await resolveTags(tx, csv(d.tags));
+
+        await tx.series.update({
+          where: { id },
+          data: {
+            ...seriesData(d, studio?.id ?? null),
+            publish: d.publish ?? undefined,
+            tags: { set: tags.map((t) => ({ id: t.id })) },
+            // a hand-edit takes the row out of the auto-sync's write path
+            metadataSource: "manual",
+          },
+        });
+      },
+      { timeout: 20_000 },
+    ),
+  );
+
   revalidatePath(`/admin/series/${id}`);
   revalidatePath("/admin/series");
   await bust(id);

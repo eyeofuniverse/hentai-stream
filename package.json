@@ -35,6 +35,7 @@
     "ios >= 16"
   ],
   "dependencies": {
+    "@next/third-parties": "^15.5.25",
     "@prisma/client": "^6.19.3",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.47.10",

@@ -178,7 +178,7 @@ export default async function WatchPage({
       {/* theater */}
       <div className="border-b border-line bg-black/40">
         <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-4 lg:px-8">
-          <ViewPing episodeId={ep.id} />
+          <ViewPing episodeId={ep.id} seriesSlug={slug} episodeNumber={ep.number} />
           <WatchPlayer
             servers={servers}
             poster={poster}
