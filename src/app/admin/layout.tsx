@@ -70,18 +70,19 @@ export default async function AdminLayout({
 
   return (
     <div className="mx-auto max-w-6xl md:flex md:gap-8 md:px-4 md:py-6">
-      {/* mobile top bar */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-bg/90 backdrop-blur md:hidden">
+      {/* mobile top bar — wrapping (not a horizontal scroller: on a phone a tap
+          with any drift in a scroll container gets eaten as a scroll) */}
+      <header className="border-b border-white/10 bg-bg/90 md:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           {brand}
           <span className="text-xs text-white/35">@{session.profile.handle}</span>
         </div>
-        <nav className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 pb-2.5">
+        <nav className="flex flex-wrap gap-1.5 px-4 pb-3">
           {nav.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/65"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 [touch-action:manipulation] active:bg-white/10"
             >
               {n.label}
               {n.badge != null && <Badge tone={n.tone ?? "slate"}>{n.badge}</Badge>}

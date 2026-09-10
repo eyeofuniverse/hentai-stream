@@ -11,6 +11,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* no double-tap-zoom hesitation on anything interactive */
+a,
+button,
+summary,
+[role="button"],
+input[type="submit"] {
+  touch-action: manipulation;
+}
+
 html {
   scroll-behavior: smooth;
 }
