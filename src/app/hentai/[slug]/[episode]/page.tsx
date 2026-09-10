@@ -82,9 +82,19 @@ export default async function WatchPage({
   const { title: seoTitle, description, genres } = episodeSeo(ep);
   const canonical = `${SITE}/hentai/${slug}/${ep.number}`;
   const embedUrl = `${SITE}/embed/${slug}/${ep.number}`;
-  const thumbs = [thumb(ep.series.coverUrl), cover(ep.series.coverUrl)]
-    .filter((x): x is string => !!x)
-    .map((x) => abs(x));
+  // VideoObject.thumbnailUrl is required and must be publicly fetchable — use
+  // Cloudinary / MAL art (never the referer-locked Bunny CDN), and always fall
+  // back to the OG card so the array is never empty
+  const thumbs = (() => {
+    const list = [
+      ...new Set(
+        [thumb(ep.series.coverUrl), cover(ep.series.coverUrl)]
+          .filter((x): x is string => !!x)
+          .map((x) => abs(x)),
+      ),
+    ];
+    return list.length ? list : [abs("/opengraph-image")];
+  })();
   const rating =
     ep.series.ratingCount > 0 ? ep.series.ratingAvg : ep.series.externalScore;
 
