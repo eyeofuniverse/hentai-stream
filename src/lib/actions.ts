@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import slugify from "slugify";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { pingIndexNow } from "@/lib/indexnow";
+import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
 import type {
   AnimeSeason,
   PublishStatus,
@@ -40,10 +42,13 @@ async function bust(seriesId?: string) {
       revalidatePath(`/hentai/${s.slug}`);
       revalidatePath(`/hentai/${s.slug}`, "layout");
       if (s.publish === "PUBLISHED") {
-        void pingIndexNow([
+        const urls = [
           `/hentai/${s.slug}`,
           ...s.episodes.map((e) => `/hentai/${s.slug}/${e.number}`),
-        ]);
+        ];
+        // run after the response so the serverless function doesn't freeze
+        // mid-fetch and silently drop the ping
+        after(() => pingIndexNow(urls));
       }
     }
   }
@@ -122,12 +127,24 @@ async function resolveStudio(name?: string) {
 
 async function resolveTags(list: string[]) {
   const tags = [];
-  for (const name of list) {
+  for (const raw of list) {
+    // route through the canonical dictionary so an admin typo / alias collapses
+    // onto the existing tag and the category / featured flag are set
+    const canon = canonicalTag(raw);
+    const name = canon?.name ?? raw.trim();
+    const s = canon?.slug ?? slug(raw);
+    if (!s) continue;
     tags.push(
       await prisma.tag.upsert({
-        where: { slug: slug(name) },
+        where: { slug: s },
         update: {},
-        create: { name, slug: slug(name) },
+        create: {
+          name,
+          slug: s,
+          ...(canon
+            ? { category: canon.category, featured: isFeaturedSlug(s) }
+            : {}),
+        },
       }),
     );
   }
@@ -234,24 +251,31 @@ export async function reviewFlag(id: string, decision: "clear" | "reject") {
 
 // ─────────── episodes ───────────
 
+const episodeSchema = z.object({
+  number: z.coerce.number().int().min(0).max(9999),
+  part: z.preprocess((v) => blank(v) ?? 1, z.coerce.number().int().min(1).max(99)),
+  title: z.preprocess(blank, z.string().max(300).optional()),
+  runtimeSec: z.preprocess(blank, z.coerce.number().int().min(0).max(86_400).optional()),
+});
+
 export async function createEpisode(seriesId: string, form: FormData) {
   await requireRole("ADMIN", "MODERATOR");
-  const number = Number(form.get("number"));
-  if (!Number.isFinite(number)) throw new Error("Bad episode number");
+  const { number, part, title, runtimeSec } = episodeSchema.parse(
+    Object.fromEntries(form),
+  );
 
-  const part = Number(form.get("part")) || 1;
   await prisma.episode.upsert({
     where: { seriesId_number_part: { seriesId, number, part } },
     update: {
-      title: String(form.get("title") || "") || null,
-      runtimeSec: Number(form.get("runtimeSec")) || undefined,
+      title: title ?? null,
+      runtimeSec: runtimeSec ?? undefined,
     },
     create: {
       seriesId,
       number,
       part,
-      title: String(form.get("title") || "") || null,
-      runtimeSec: Number(form.get("runtimeSec")) || 0,
+      title: title ?? null,
+      runtimeSec: runtimeSec ?? 0,
       publish: "PUBLISHED",
     },
   });
@@ -270,7 +294,10 @@ const HOSTS = [
 const sourceSchema = z.object({
   host: z.enum(HOSTS),
   hostName: z.string().max(60).optional(),
-  embedUrl: z.string().url(),
+  embedUrl: z
+    .string()
+    .url()
+    .refine((u) => /^https?:\/\//i.test(u), "must be an http(s) URL"),
   label: z.string().max(40).optional(),
   kind: z.enum(["SUB", "DUB", "RAW"]),
   language: z.string().min(2).max(8),

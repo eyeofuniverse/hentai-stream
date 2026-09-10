@@ -51,6 +51,7 @@ jobs:
         run: |
           {
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=12"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
             echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"

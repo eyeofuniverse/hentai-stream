@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const { episodeId } = await req.json().catch(() => ({}));
-  if (typeof episodeId !== "string") return NextResponse.json({ ok: false });
+  if (typeof episodeId !== "string" || episodeId.length > 64)
+    return NextResponse.json({ ok: false });
+
+  const ip = clientIp(req);
+  // one counted view per IP per episode per 30 min, and an overall ceiling per
+  // IP so a single client can't inflate trendingScore / weeklyViews
+  if (
+    !rateLimit(`view:${ip}:${episodeId}`, 1, 30 * 60_000) ||
+    !rateLimit(`view:${ip}`, 60, 60 * 60_000)
+  ) {
+    return NextResponse.json({ ok: true, throttled: true });
+  }
 
   // truncate to a UTC day for the per-day rollup that feeds weeklyViews /
   // trendingScore (see scripts/recompute.mts)

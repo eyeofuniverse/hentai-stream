@@ -35,7 +35,8 @@ export default async function AdminSeriesList({
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  const publish = (sp.publish ?? "ALL").toUpperCase();
+  const publishParam = (sp.publish ?? "ALL").toUpperCase();
+  const publish = PUBLISH.includes(publishParam) ? publishParam : "ALL";
 
   const where: Prisma.SeriesWhereInput = {
     ...(publish !== "ALL" ? { publish: publish as Prisma.EnumPublishStatusFilter["equals"] } : {}),

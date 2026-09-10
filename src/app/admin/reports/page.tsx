@@ -30,7 +30,10 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const { status = "OPEN" } = await searchParams;
+  const sp = await searchParams;
+  const status = ["OPEN", "RESOLVED", "DISMISSED"].includes(sp.status ?? "")
+    ? sp.status!
+    : "OPEN";
 
   const [reports, counts] = await db(() =>
     Promise.all([

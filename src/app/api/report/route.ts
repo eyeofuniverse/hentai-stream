@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 const schema = z.object({
   targetType: z.enum(["series", "episode", "source"]),
-  targetId: z.string(),
+  targetId: z.string().min(1).max(64),
   reason: z.enum([
     "BROKEN_LINK",
     "WRONG_CONTENT",
@@ -17,13 +18,36 @@ const schema = z.object({
   details: z.string().max(2000).optional(),
 });
 
+/** Distinct authenticated reporters needed before an UNDERAGE report auto-hides
+ *  the content. A moderator's report always hides it immediately. */
+const UNDERAGE_AUTOHIDE_THRESHOLD = 2;
+
 export async function POST(req: Request) {
+  if (!rateLimit(`report:${clientIp(req)}`, 6, 10 * 60_000)) {
+    return NextResponse.json({ error: "Too many reports" }, { status: 429 });
+  }
+
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
-  const session = await getSessionUser().catch(() => null);
   const d = parsed.data;
+  const session = await getSessionUser().catch(() => null);
+  if (session?.profile.banned) {
+    return NextResponse.json({ ok: true }); // silently drop
+  }
+
+  // the target must actually exist — don't let a report create rows / trigger
+  // side effects for arbitrary ids
+  const exists =
+    d.targetType === "series"
+      ? await prisma.series.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null)
+      : d.targetType === "episode"
+        ? await prisma.episode.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null)
+        : await prisma.videoSource.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null);
+  if (!exists) {
+    return NextResponse.json({ error: "Unknown target" }, { status: 404 });
+  }
 
   await prisma.report.create({
     data: {
@@ -35,12 +59,36 @@ export async function POST(req: Request) {
     },
   });
 
-  // Underage reports pull the content immediately, pending review.
-  if (d.reason === "UNDERAGE") {
-    if (d.targetType === "series")
-      await prisma.series.update({ where: { id: d.targetId }, data: { publish: "HIDDEN" } }).catch(() => {});
-    if (d.targetType === "episode")
-      await prisma.episode.update({ where: { id: d.targetId }, data: { publish: "HIDDEN" } }).catch(() => {});
+  // Underage reports: a moderator pulls it now; otherwise it takes a threshold
+  // of DISTINCT signed-in reporters. Anonymous reports only queue for review —
+  // a single unauthenticated request must never take content offline.
+  if (d.reason === "UNDERAGE" && (d.targetType === "series" || d.targetType === "episode")) {
+    const isMod =
+      session?.profile.role === "ADMIN" || session?.profile.role === "MODERATOR";
+
+    let hide = isMod;
+    if (!hide && session) {
+      const reporters = await prisma.report
+        .findMany({
+          where: {
+            targetType: d.targetType,
+            targetId: d.targetId,
+            reason: "UNDERAGE",
+            reporterId: { not: null },
+          },
+          select: { reporterId: true },
+          distinct: ["reporterId"],
+        })
+        .catch(() => [] as { reporterId: string | null }[]);
+      hide = reporters.length >= UNDERAGE_AUTOHIDE_THRESHOLD;
+    }
+
+    if (hide) {
+      if (d.targetType === "series")
+        await prisma.series.update({ where: { id: d.targetId }, data: { publish: "HIDDEN" } }).catch(() => {});
+      else
+        await prisma.episode.update({ where: { id: d.targetId }, data: { publish: "HIDDEN" } }).catch(() => {});
+    }
   }
 
   // Broken-link reports bump a counter; auto-flag at a threshold.

@@ -43,6 +43,7 @@ jobs:
         run: |
           {
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=12"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
           } > .env
       - run: npx prisma generate

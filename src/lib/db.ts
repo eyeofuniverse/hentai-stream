@@ -46,8 +46,20 @@ export function isTransientDbError(err: unknown): boolean {
  * Run a DB operation, retrying transient connection errors with exponential
  * backoff + jitter. Safe only for idempotent work (reads, upserts, or writes
  * you don't mind re-attempting).
+ *
+ * The defaults are tuned so the total wall time (≈4.7s worst case) stays under
+ * a serverless function timeout on the request path. Long-running scripts and
+ * cron jobs that want more persistence can raise it with `DB_RETRY_ATTEMPTS`.
  */
-export async function db<T>(fn: () => Promise<T>, attempts = 6): Promise<T> {
+const DEFAULT_ATTEMPTS = Math.max(
+  1,
+  Number(process.env.DB_RETRY_ATTEMPTS) || 5,
+);
+
+export async function db<T>(
+  fn: () => Promise<T>,
+  attempts = DEFAULT_ATTEMPTS,
+): Promise<T> {
   let last: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -55,7 +67,7 @@ export async function db<T>(fn: () => Promise<T>, attempts = 6): Promise<T> {
     } catch (err) {
       last = err;
       if (!isTransientDbError(err) || i === attempts - 1) throw err;
-      const backoff = Math.min(8000, 300 * 2 ** i) + Math.random() * 250;
+      const backoff = Math.min(2000, 250 * 2 ** i) + Math.random() * 250;
       await new Promise((r) => setTimeout(r, backoff));
     }
   }

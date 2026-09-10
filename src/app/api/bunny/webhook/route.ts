@@ -6,6 +6,10 @@ import { publishIfLive } from "@/lib/verify";
 export const dynamic = "force-dynamic";
 
 const LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID ?? "";
+// Optional: set this here AND as `?secret=<value>` on the webhook URL in the
+// Bunny dashboard. LIBRARY_ID is public (it's in every embed URL), so without
+// this the endpoint is callable by anyone who knows a video guid.
+const WEBHOOK_SECRET = process.env.BUNNY_WEBHOOK_SECRET ?? "";
 
 /**
  * Bunny Stream status webhook. Fires many times per video as it moves through
@@ -15,6 +19,13 @@ const LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID ?? "";
  * Never downgrades a video that's already ready.
  */
 export async function POST(req: Request) {
+  if (WEBHOOK_SECRET) {
+    const provided = new URL(req.url).searchParams.get("secret");
+    if (provided !== WEBHOOK_SECRET) {
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
+  }
+
   const body = await req.json().catch(() => null);
   if (!body || String(body.VideoLibraryId) !== LIBRARY_ID || !body.VideoGuid) {
     return NextResponse.json({ ok: false }, { status: 400 });
