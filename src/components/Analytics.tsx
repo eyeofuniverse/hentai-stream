@@ -11,7 +11,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
  * The env var `NEXT_PUBLIC_GA_ID` still wins when set, so a preview / staging
  * deploy can point at a different property (or disable it with an empty value).
  */
-const HARDCODED_GA_ID = ""; // e.g. "G-ABCD1234EF"
+const HARDCODED_GA_ID = "G-WM996JRN9T";
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || HARDCODED_GA_ID;
 
 export function Analytics() {
