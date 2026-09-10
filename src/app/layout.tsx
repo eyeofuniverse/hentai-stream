@@ -5,6 +5,7 @@ import { AgeGate } from "@/components/AgeGate";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SITE, SITE_NAME, organizationLd, websiteLd } from "@/lib/seo";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -90,6 +91,7 @@ export default function RootLayout({
             __html: JSON.stringify([organizationLd(), websiteLd()]),
           }}
         />
+        <Analytics />
       </body>
     </html>
   );
