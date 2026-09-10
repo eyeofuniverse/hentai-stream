@@ -5,10 +5,9 @@ import { searchResults, recordSearch, popularSearches } from "@/lib/search";
 import { browseSeries } from "@/lib/queries";
 import { SearchBar } from "@/components/SearchBar";
 import { SeriesCard } from "@/components/SeriesCard";
+import { SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export async function generateMetadata({
   searchParams,
