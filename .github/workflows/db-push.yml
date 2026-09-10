@@ -4,13 +4,18 @@ name: DB schema push
 # Run this from the Actions tab after a schema change (this repo has no
 # migration history — schema changes are pushed, not migrated).
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL
+# The Supabase *direct* endpoint (db.<ref>.supabase.co:5432) is IPv6-only and
+# GitHub runners have no IPv6, so we derive an IPv4 session-pooler URL from the
+# transaction-pooler DATABASE_URL (same host, port 5432, no pgbouncer) and hand
+# that to Prisma as directUrl.
+#
+# Repo secrets: DATABASE_URL  (Supabase transaction pooler, ...pooler.supabase.com:6543)
 
 on:
   workflow_dispatch:
     inputs:
       accept_data_loss:
-        description: "pass --accept-data-loss (needed for drops / type changes)"
+        description: "pass --accept-data-loss (needed for column drops / type changes)"
         type: boolean
         default: false
 
@@ -30,11 +35,23 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Write .env
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          set -e
+          # session pooler = transaction pooler host, port 5432, no query string
+          SESSION_URL="${DATABASE_URL/:6543/:5432}"
+          SESSION_URL="${SESSION_URL%%\?*}"
+          case "$SESSION_URL" in
+            *db.*.supabase.co:*|*:6543*)
+              echo "::error::Could not derive an IPv4 session-pooler URL from DATABASE_URL. Set the DATABASE_URL secret to the Supabase *transaction pooler* string (…pooler.supabase.com:6543)."
+              exit 1 ;;
+          esac
           {
-            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
-            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "DATABASE_URL=${DATABASE_URL}"
+            echo "DIRECT_URL=${SESSION_URL}"
           } > .env
+      - run: npx prisma generate
       - name: prisma db push
         run: |
           ARGS=""
