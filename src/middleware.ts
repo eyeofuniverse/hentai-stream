@@ -53,6 +53,8 @@ export const config = {
     "/console/:path*",
     "/api/console/:path*",
     "/watchlist/:path*",
+    "/history/:path*",
+    "/account/:path*",
     "/submit/:path*",
     "/auth/:path*",
   ],

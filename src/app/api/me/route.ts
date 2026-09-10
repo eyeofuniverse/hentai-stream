@@ -26,14 +26,24 @@ export async function GET() {
     const profile = await prisma.profile
       .findUnique({
         where: { id: user.id },
-        select: { handle: true, role: true },
+        select: { handle: true, role: true, displayName: true, avatarUrl: true },
       })
       .catch(() => null);
 
     return NextResponse.json(
       profile
-        ? { handle: profile.handle, role: profile.role }
-        : { handle: (user.email ?? "you").split("@")[0], role: "USER" },
+        ? {
+            handle: profile.handle,
+            role: profile.role,
+            displayName: profile.displayName,
+            avatarUrl: profile.avatarUrl,
+          }
+        : {
+            handle: (user.email ?? "you").split("@")[0],
+            role: "USER",
+            displayName: null,
+            avatarUrl: null,
+          },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch {

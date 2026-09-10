@@ -11,6 +11,7 @@ import { SITE, SITE_NAME, abs, episodeSeo, breadcrumbLd } from "@/lib/seo";
 import { WatchPlayer } from "@/components/WatchPlayer";
 import { ReportBroken } from "@/components/ReportBroken";
 import { ViewPing } from "@/components/ViewPing";
+import { ProgressTracker } from "@/components/watch/ProgressTracker";
 import { RatingBadge } from "@/components/RatingBadge";
 import { Pill } from "@/components/ui";
 import { AdSlot } from "@/components/AdSlot";
@@ -252,6 +253,7 @@ export default async function WatchPage({
           {/* ─────────── main column ─────────── */}
           <div className="min-w-0">
             <ViewPing episodeId={ep.id} seriesSlug={slug} episodeNumber={ep.number} />
+            <ProgressTracker episodeId={ep.id} />
 
             <WatchPlayer
               servers={servers}

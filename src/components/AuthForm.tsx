@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export function AuthForm() {
+export function AuthForm({ next = "/" }: { next?: string }) {
   const router = useRouter();
   const supabase = createClient();
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -22,7 +22,9 @@ export function AuthForm() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${location.origin}/auth/callback` },
+          options: {
+            emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          },
         });
         if (error) return setMsg(error.message);
         if (data.user && !data.session) {
@@ -32,7 +34,7 @@ export function AuthForm() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return setMsg("Invalid email or password.");
       }
-      router.push("/");
+      router.push(next.startsWith("/") ? next : "/");
       router.refresh();
     } finally {
       setBusy(false);

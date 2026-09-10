@@ -9,6 +9,7 @@ import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { Pill } from "@/components/ui";
 import { SmartImg } from "@/components/SmartImg";
 import { SeriesCard } from "@/components/SeriesCard";
+import { SeriesControls } from "@/components/SeriesControls";
 import { RatingBadge } from "@/components/RatingBadge";
 import { Faq } from "@/components/seo/Faq";
 import { seriesFaq } from "@/lib/faq";
@@ -257,17 +258,26 @@ export default async function SeriesPage({
                 </div>
               )}
 
-              {s.episodes.length > 0 && (
-                <Link
-                  href={`/hentai/${s.slug}/${firstEp}`}
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-6 py-3 text-sm font-bold text-white shadow-glow transition hover:-translate-y-0.5"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  Watch episode {firstEp}
-                </Link>
-              )}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                {s.episodes.length > 0 && (
+                  <Link
+                    href={`/hentai/${s.slug}/${firstEp}`}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-6 py-3 text-sm font-bold text-white shadow-glow transition hover:-translate-y-0.5"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    Watch episode {firstEp}
+                  </Link>
+                )}
+              </div>
+
+              <SeriesControls
+                seriesId={s.id}
+                avg={s.ratingAvg}
+                count={s.ratingCount}
+                className="mt-6 max-w-sm"
+              />
             </div>
           </div>
         </div>

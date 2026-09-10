@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Me = { handle: string; role: string } | null;
+type Me = {
+  handle: string;
+  role: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+} | null;
 
 export function AccountMenu() {
   const router = useRouter();
@@ -58,9 +63,14 @@ export function AccountMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Account"
-        className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-xs font-bold uppercase text-white ring-1 ring-white/10 transition-transform hover:scale-105"
+        className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-accent-2 to-accent text-xs font-bold uppercase text-white ring-1 ring-white/10 transition-transform hover:scale-105"
       >
-        {me.handle.slice(0, 2)}
+        {me.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          me.handle.slice(0, 2)
+        )}
       </button>
       {open && (
         <>
@@ -75,8 +85,11 @@ export function AccountMenu() {
             <Link href="/watchlist" className="block px-4 py-2.5 text-sm text-white/75 hover:bg-white/5">
               Watchlist
             </Link>
-            <Link href="/submit" className="block px-4 py-2.5 text-sm text-white/75 hover:bg-white/5">
-              Submit episode
+            <Link href="/history" className="block px-4 py-2.5 text-sm text-white/75 hover:bg-white/5">
+              History
+            </Link>
+            <Link href="/account" className="block px-4 py-2.5 text-sm text-white/75 hover:bg-white/5">
+              Account
             </Link>
             <button
               onClick={async () => {

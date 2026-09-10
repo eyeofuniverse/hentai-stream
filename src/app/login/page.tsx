@@ -5,9 +5,15 @@ import { AuthForm } from "@/components/AuthForm";
 
 export const metadata = { title: "Sign in", robots: { index: false } };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; error?: string }>;
+}) {
+  const { next, error } = await searchParams;
   const session = await getSessionUser().catch(() => null);
-  if (session) redirect("/");
+  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  if (session) redirect(dest);
 
   return (
     <main className="mx-auto flex min-h-[75vh] max-w-sm flex-col justify-center px-6 py-12">
@@ -23,11 +29,19 @@ export default async function LoginPage() {
         Lust<span className="text-accent">Hentai</span>
       </Link>
       <p className="mb-8 text-center text-sm text-white/45">
-        Sign in to build a watchlist and submit episodes
+        Sign in to save a watchlist, track what you&apos;ve watched, and rate series
       </p>
-      <AuthForm />
+
+      {error === "auth" && (
+        <p className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-xs text-red-300">
+          That sign-in link didn&apos;t work — try again.
+        </p>
+      )}
+
+      <AuthForm next={dest} />
+
       <Link
-        href="/"
+        href={dest}
         className="mt-6 text-center text-xs text-white/40 underline hover:text-white"
       >
         Continue without an account

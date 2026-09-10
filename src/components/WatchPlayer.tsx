@@ -146,6 +146,7 @@ export function WatchPlayer({
         setReady(true);
         send("addEventListener", "ended");
       } else if (d.event === "ended") {
+        window.dispatchEvent(new CustomEvent("lh:episode-ended"));
         if (autoplayRef.current && nextRef.current) setCountdown(10);
       }
     };
@@ -338,6 +339,7 @@ export function WatchPlayer({
             onCanPlay={() => setReady(true)}
             onError={failover}
             onEnded={() => {
+              window.dispatchEvent(new CustomEvent("lh:episode-ended"));
               if (autoplayRef.current && nextHref) setCountdown(10);
             }}
             className="absolute inset-0 h-full w-full bg-black"
