@@ -180,7 +180,7 @@ export default async function TagPage({
 
         <div className="hidden w-72 shrink-0 space-y-6 lg:block">
           <CatalogSidebar data={sidebar} bare />
-          <AdSlot slotKey="catalog-sidebar" />
+          <AdSlot slotKey="catalog-sidebar" label={false} />
         </div>
       </div>
 

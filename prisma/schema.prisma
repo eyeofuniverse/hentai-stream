@@ -644,6 +644,30 @@ model AdSlot {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
+/// One creative bound to a named on-site slot. A slot can hold several ads;
+/// the server picks the highest-priority one matching the viewer's device
+/// (ties rotate randomly). `type`: "network" (raw embed code) | "affiliate"
+/// (image + link) | "sponsored" (native card). `deviceType`: all | mobile | desktop.
+model Ad {
+  id            String   @id @default(cuid())
+  slot          String
+  name          String
+  type          String   @default("network")
+  deviceType    String   @default("all")
+  networkCode   String?
+  imageUrl      String?
+  linkUrl       String?
+  altText       String?
+  adTitle       String?
+  adDescription String?
+  isActive      Boolean  @default(true)
+  priority      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([slot, isActive, deviceType])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?  @db.Uuid

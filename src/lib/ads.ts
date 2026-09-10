@@ -1,202 +1,305 @@
-import { unstable_cache } from "next/cache";
-import { prisma, db } from "@/lib/db";
+export type RevenueLevel = "very_high" | "high" | "medium";
 
-/* ─────────────────────────── formats ─────────────────────────── */
-
-export const AD_FORMATS = [
-  "300x250",
-  "336x280",
-  "300x600",
-  "160x600",
-  "728x90",
-  "970x250",
-  "970x90",
-  "468x60",
-  "320x100",
-  "320x50",
-  "300x100",
-  "native",
-  "custom",
-] as const;
-export type AdFormat = (typeof AD_FORMATS)[number];
-
-export function formatDims(f: AdFormat): { w: number; h: number } | null {
-  if (f === "native" || f === "custom") return null;
-  const [w, h] = f.split("x").map(Number);
-  return { w, h };
-}
-
-/* ─────────────────────────── slot registry ─────────────────────────── */
+export type SlotHint = {
+  revenue: RevenueLevel;
+  format: string;
+  size: string;
+  why: string;
+};
 
 export type SlotDef = {
-  key: string;
-  name: string;
-  where: string;
-  page: "watch" | "series" | "home" | "catalog" | "search" | "calendar";
+  label: string;
+  page: "watch" | "series" | "home" | "catalog" | "search" | "calendar" | "global";
+  description: string;
+  /** does this slot have a desktop position at all */
   desktop: boolean;
+  /** does this slot have a mobile position at all */
   mobile: boolean;
-  rec: { desktop?: AdFormat; mobile?: AdFormat };
+  recommended: string;
+  hint: SlotHint;
 };
 
-/**
- * Every ad position in the product. Code references a slot by `key`; the admin
- * panel only ever edits slots that appear here. `desktop`/`mobile` say whether
- * that breakpoint has a variant at all (a rail slot is desktop-only).
+/*
+ * ExoClick banner sizes: 300×250 · 336×280 · 300×600 · 160×600 · 728×90 · 970×250
+ * Native adapts to the container. For banner slots with both a desktop and a
+ * mobile position, create TWO ExoClick zones (e.g. 728×90 + 300×250) and add
+ * them as two ads here — one targeting Desktop, one targeting Mobile.
  */
-export const AD_SLOTS: SlotDef[] = [
-  // ── episode / watch page ──
-  { key: "watch-rail-top", name: "Watch · rail top", where: "Right rail, above the episode list (desktop layout only)", page: "watch", desktop: true, mobile: false, rec: { desktop: "300x250" } },
-  { key: "watch-rail-mid", name: "Watch · rail sticky", where: "Right rail, sticks while you scroll (desktop only)", page: "watch", desktop: true, mobile: false, rec: { desktop: "300x600" } },
-  { key: "watch-under-player", name: "Watch · under player", where: "Directly beneath the video, above the title", page: "watch", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "300x250" } },
-  { key: "watch-below-episodes", name: "Watch · below episodes (mobile)", where: "After the episode list on phones (rail covers desktop)", page: "watch", desktop: false, mobile: true, rec: { mobile: "300x250" } },
-  { key: "watch-in-content", name: "Watch · in content", where: "Between the FAQ and 'You might also like'", page: "watch", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "300x250" } },
-  { key: "watch-footer", name: "Watch · footer", where: "Below 'Explore more', end of page", page: "watch", desktop: true, mobile: true, rec: { desktop: "970x250", mobile: "320x100" } },
-
-  // ── series page ──
-  { key: "series-under-hero", name: "Series · under hero", where: "Between the series header and the episode grid", page: "series", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "320x100" } },
-  { key: "series-under-episodes", name: "Series · under episodes", where: "Between the episode grid and the About block", page: "series", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "300x250" } },
-  { key: "series-footer", name: "Series · footer", where: "End of the series page", page: "series", desktop: true, mobile: true, rec: { desktop: "970x250", mobile: "320x100" } },
-
-  // ── home ──
-  { key: "home-top", name: "Home · under hero", where: "Between the hero carousel and the first rail", page: "home", desktop: true, mobile: true, rec: { desktop: "970x250", mobile: "320x100" } },
-  { key: "home-mid", name: "Home · mid", where: "Between content rails, mid-page", page: "home", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "300x250" } },
-  { key: "home-footer", name: "Home · footer", where: "End of the homepage", page: "home", desktop: true, mobile: true, rec: { desktop: "970x250", mobile: "320x100" } },
-
-  // ── browse / tag / studio ──
-  { key: "catalog-top", name: "Catalog · top", where: "Above the grid on browse / tag / studio pages", page: "catalog", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "320x100" } },
-  { key: "catalog-sidebar", name: "Catalog · sidebar", where: "In the filters sidebar (desktop only)", page: "catalog", desktop: true, mobile: false, rec: { desktop: "300x600" } },
-  { key: "catalog-footer", name: "Catalog · footer", where: "Below the grid / pagination", page: "catalog", desktop: true, mobile: true, rec: { desktop: "970x250", mobile: "320x100" } },
-
-  // ── search / calendar ──
-  { key: "search-top", name: "Search · top", where: "Above search results", page: "search", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "320x100" } },
-  { key: "calendar-top", name: "Calendar · top", where: "Above the release calendar", page: "calendar", desktop: true, mobile: true, rec: { desktop: "728x90", mobile: "320x100" } },
-];
-
-export const AD_SLOT_BY_KEY = new Map(AD_SLOTS.map((s) => [s.key, s]));
-
-/* ─────────────────────────── config shape ─────────────────────────── */
-
-export type AdVariant = {
-  enabled: boolean;
-  source: "zone" | "code";
-  zoneId: string;
-  code: string;
-  format: AdFormat;
-};
-
-export type SlotConfig = { desktop: AdVariant; mobile: AdVariant };
-
-export type AdConfig = {
-  /** master kill-switch — nothing renders when false */
-  enabled: boolean;
-  network: string;
-  /** provider script loaded once site-wide (URL) */
-  providerScript: string;
-  /** age-gate line: "…you accept our use of cookies and third-party ads" */
-  consentLine: boolean;
-  popunder: {
-    enabled: boolean;
-    source: "zone" | "code";
-    zoneId: string;
-    code: string;
-    cooldownHours: number;
-  };
-  vast: { enabled: boolean; tagUrl: string };
-  slots: Record<string, SlotConfig>;
-};
-
-const emptyVariant = (format: AdFormat): AdVariant => ({
-  enabled: false,
-  source: "zone",
-  zoneId: "",
-  code: "",
-  format,
-});
-
-export function defaultConfig(): AdConfig {
-  const slots: Record<string, SlotConfig> = {};
-  for (const s of AD_SLOTS) {
-    slots[s.key] = {
-      desktop: emptyVariant(s.rec.desktop ?? "728x90"),
-      mobile: emptyVariant(s.rec.mobile ?? "300x250"),
-    };
-  }
-  return {
-    enabled: false,
-    network: "exoclick",
-    providerScript: "",
-    consentLine: true,
-    popunder: { enabled: false, source: "zone", zoneId: "", code: "", cooldownHours: 12 },
-    vast: { enabled: false, tagUrl: "" },
-    slots,
-  };
-}
-
-function mergeVariant(base: AdVariant, over?: Partial<AdVariant>): AdVariant {
-  if (!over) return base;
-  return {
-    enabled: over.enabled ?? base.enabled,
-    source: over.source ?? base.source,
-    zoneId: over.zoneId ?? base.zoneId,
-    code: over.code ?? base.code,
-    format: over.format ?? base.format,
-  };
-}
-
-export function mergeConfig(base: AdConfig, over?: Partial<AdConfig> | null): AdConfig {
-  if (!over) return base;
-  const slots: Record<string, SlotConfig> = {};
-  for (const s of AD_SLOTS) {
-    const b = base.slots[s.key];
-    const o = over.slots?.[s.key];
-    slots[s.key] = {
-      desktop: mergeVariant(b.desktop, o?.desktop),
-      mobile: mergeVariant(b.mobile, o?.mobile),
-    };
-  }
-  return {
-    enabled: over.enabled ?? base.enabled,
-    network: over.network ?? base.network,
-    providerScript: over.providerScript ?? base.providerScript,
-    consentLine: over.consentLine ?? base.consentLine,
-    popunder: { ...base.popunder, ...(over.popunder ?? {}) },
-    vast: { ...base.vast, ...(over.vast ?? {}) },
-    slots,
-  };
-}
-
-/* ─────────────────────────── loader ─────────────────────────── */
-
-export const getAdConfig = unstable_cache(
-  async (): Promise<AdConfig> => {
-    try {
-      const row = await db(() =>
-        prisma.setting.findUnique({ where: { key: "ads" } }),
-      );
-      return mergeConfig(
-        defaultConfig(),
-        (row?.value as Partial<AdConfig> | undefined) ?? null,
-      );
-    } catch {
-      return defaultConfig();
-    }
+export const AD_SLOTS: Record<string, SlotDef> = {
+  /* ── episode / watch page ── */
+  "watch-under-player": {
+    label: "Watch — Under Player",
+    page: "watch",
+    description: "Directly beneath the video, above the episode title",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 300×250 mobile",
+    hint: {
+      revenue: "very_high",
+      format: "Banner (Leaderboard)",
+      size: "728×90 desktop · 300×250 mobile",
+      why: "The first thing in view after the video — maximum attention while the viewer is settled in. One of the highest-CPM positions on the site.",
+    },
   },
-  ["ad-config"],
-  { revalidate: 120, tags: ["ad-config"] },
-);
+  "watch-rail-top": {
+    label: "Watch — Rail Top",
+    page: "watch",
+    description: "Top of the right rail, above the episode list (desktop layout only)",
+    desktop: true,
+    mobile: false,
+    recommended: "300×250",
+    hint: {
+      revenue: "high",
+      format: "Banner (Medium Rectangle)",
+      size: "300×250",
+      why: "Above-the-fold in the rail. 300×250 has the deepest advertiser demand and highest fill on ExoClick.",
+    },
+  },
+  "watch-rail-sticky": {
+    label: "Watch — Rail Sticky",
+    page: "watch",
+    description: "Lower right rail, pins to the viewport while scrolling (desktop only)",
+    desktop: true,
+    mobile: false,
+    recommended: "300×600",
+    hint: {
+      revenue: "very_high",
+      format: "Banner (Half Page)",
+      size: "300×600",
+      why: "Stays visible for the whole session — the best viewability score on the site. 300×600 commands a 30–50% CPM premium over 300×250.",
+    },
+  },
+  "watch-below-episodes": {
+    label: "Watch — Below Episodes (mobile)",
+    page: "watch",
+    description: "After the episode list on phones (the rail covers desktop)",
+    desktop: false,
+    mobile: true,
+    recommended: "300×250",
+    hint: {
+      revenue: "high",
+      format: "Banner (Medium Rectangle)",
+      size: "300×250",
+      why: "Mobile has no rail — this recovers that inventory at a natural scroll pause after the viewer picks their next episode.",
+    },
+  },
+  "watch-in-content": {
+    label: "Watch — In Content",
+    page: "watch",
+    description: "Between the FAQ and the 'You might also like' grid",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 300×250 mobile",
+    hint: {
+      revenue: "high",
+      format: "Native or Banner",
+      size: "Native (fluid) · or 728×90 / 300×250",
+      why: "Mid-page break between content blocks. Native blends with the related-series grid and lifts CTR 2–3× over a fixed banner here.",
+    },
+  },
+  "watch-footer": {
+    label: "Watch — Footer",
+    page: "watch",
+    description: "Below 'Explore more', end of the episode page",
+    desktop: true,
+    mobile: true,
+    recommended: "970×250 desktop · 320×100 mobile",
+    hint: {
+      revenue: "medium",
+      format: "Banner (Billboard)",
+      size: "970×250 desktop · 320×100 mobile",
+      why: "Post-scroll position with moderate viewability — good for a large billboard fill or a CPA affiliate offer.",
+    },
+  },
 
-/** Resolve the variant that should show at a given breakpoint, or null. */
-export function pickVariant(
-  cfg: AdConfig,
-  key: string,
-  bp: "desktop" | "mobile",
-): AdVariant | null {
-  if (!cfg.enabled) return null;
-  const def = AD_SLOT_BY_KEY.get(key);
-  if (!def || !def[bp]) return null;
-  const v = cfg.slots[key]?.[bp];
-  if (!v || !v.enabled) return null;
-  if (v.source === "zone" && !v.zoneId) return null;
-  if (v.source === "code" && !v.code.trim()) return null;
-  return v;
-}
+  /* ── series page ── */
+  "series-under-hero": {
+    label: "Series — Under Hero",
+    page: "series",
+    description: "Between the series header and the episode grid",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 320×100 mobile",
+    hint: {
+      revenue: "high",
+      format: "Banner (Leaderboard)",
+      size: "728×90 desktop · 320×100 mobile",
+      why: "Pre-selection pause point — the viewer stops here before choosing an episode. Strong dwell time.",
+    },
+  },
+  "series-under-episodes": {
+    label: "Series — Under Episodes",
+    page: "series",
+    description: "Between the episode grid and the About block",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 300×250 mobile",
+    hint: {
+      revenue: "high",
+      format: "Banner or Native",
+      size: "728×90 desktop · 300×250 mobile",
+      why: "The viewer has scanned the episodes — a natural break before the descriptive content.",
+    },
+  },
+  "series-footer": {
+    label: "Series — Footer",
+    page: "series",
+    description: "End of the series page",
+    desktop: true,
+    mobile: true,
+    recommended: "970×250 desktop · 320×100 mobile",
+    hint: {
+      revenue: "medium",
+      format: "Banner (Billboard)",
+      size: "970×250 desktop · 320×100 mobile",
+      why: "Below the fold — a billboard fill or CPA offer performs best at this depth.",
+    },
+  },
+
+  /* ── home ── */
+  "home-top": {
+    label: "Home — Under Hero",
+    page: "home",
+    description: "Between the hero carousel and the first content rail",
+    desktop: true,
+    mobile: true,
+    recommended: "970×250 desktop · 320×100 mobile",
+    hint: {
+      revenue: "high",
+      format: "Banner (Billboard)",
+      size: "970×250 desktop · 320×100 mobile",
+      why: "Above-the-fold on the highest-traffic page. A billboard fills the space cleanly under the hero.",
+    },
+  },
+  "home-mid": {
+    label: "Home — Mid",
+    page: "home",
+    description: "Between content rails, mid-page",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 300×250 mobile",
+    hint: {
+      revenue: "high",
+      format: "Native",
+      size: "Native (fluid — adapts to container width)",
+      why: "Mid-page engagement zone. ExoClick Native blends with the series carousels and beats a fixed banner on CTR here.",
+    },
+  },
+  "home-footer": {
+    label: "Home — Footer",
+    page: "home",
+    description: "End of the homepage",
+    desktop: true,
+    mobile: true,
+    recommended: "970×250 desktop · 320×100 mobile",
+    hint: {
+      revenue: "medium",
+      format: "Banner (Billboard)",
+      size: "970×250 desktop · 320×100 mobile",
+      why: "Run-of-page fill for users who scroll the whole homepage.",
+    },
+  },
+
+  /* ── browse / tag / studio ── */
+  "catalog-top": {
+    label: "Catalog — Top",
+    page: "catalog",
+    description: "Above the grid on browse / tag / studio pages",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 320×100 mobile",
+    hint: {
+      revenue: "high",
+      format: "Banner (Leaderboard)",
+      size: "728×90 desktop · 320×100 mobile",
+      why: "High-intent browsing moment — the viewer pauses before picking a title. Tag/studio pages carry a strong relevance signal.",
+    },
+  },
+  "catalog-sidebar": {
+    label: "Catalog — Sidebar",
+    page: "catalog",
+    description: "In the filters sidebar (desktop only)",
+    desktop: true,
+    mobile: false,
+    recommended: "300×600",
+    hint: {
+      revenue: "very_high",
+      format: "Banner (Half Page)",
+      size: "300×600",
+      why: "Sits beside the grid for the whole browse session — very high viewability. 300×600 earns a premium CPM.",
+    },
+  },
+  "catalog-footer": {
+    label: "Catalog — Footer",
+    page: "catalog",
+    description: "Below the grid and pagination",
+    desktop: true,
+    mobile: true,
+    recommended: "970×250 desktop · 320×100 mobile",
+    hint: {
+      revenue: "medium",
+      format: "Banner (Billboard)",
+      size: "970×250 desktop · 320×100 mobile",
+      why: "End-of-list fill for users who page through the whole catalogue.",
+    },
+  },
+
+  /* ── search / calendar ── */
+  "search-top": {
+    label: "Search — Top",
+    page: "search",
+    description: "Above the search results",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 320×100 mobile",
+    hint: {
+      revenue: "very_high",
+      format: "Native",
+      size: "Native (fluid — adapts to container width)",
+      why: "Search intent is the highest-converting signal on any site. Native above the results looks like a sponsored pick — top CTR.",
+    },
+  },
+  "calendar-top": {
+    label: "Calendar — Top",
+    page: "calendar",
+    description: "Above the release calendar",
+    desktop: true,
+    mobile: true,
+    recommended: "728×90 desktop · 320×100 mobile",
+    hint: {
+      revenue: "medium",
+      format: "Banner (Leaderboard)",
+      size: "728×90 desktop · 320×100 mobile",
+      why: "Calendar visitors are engaged regulars checking for new drops — a clean leaderboard above the grid.",
+    },
+  },
+
+  /* ── universal ── */
+  "global-popunder": {
+    label: "Global — Pop-Under",
+    page: "global",
+    description:
+      "Fires once per session on the first click, site-wide (never on /admin). Not a visual slot — paste the ExoClick Pop-Under zone script as an 'Ad Network' ad.",
+    desktop: true,
+    mobile: true,
+    recommended: "Pop-Under script only",
+    hint: {
+      revenue: "very_high",
+      format: "Pop-Under",
+      size: "Full page (opens behind the current tab)",
+      why: "The single highest-RPM format on adult networks. Set the frequency cap in the ExoClick zone (1/hour or 1/day); set Ad Type to 'Ad Network' and paste the zone script.",
+    },
+  },
+};
+
+export type AdSlotId = keyof typeof AD_SLOTS;
+export const AD_SLOT_KEYS = Object.keys(AD_SLOTS);
+
+export const REVENUE_META: Record<
+  RevenueLevel,
+  { label: string; color: string }
+> = {
+  very_high: { label: "Top earner", color: "#34d399" },
+  high: { label: "Strong revenue", color: "#fbbf24" },
+  medium: { label: "Steady revenue", color: "#8b5cf6" },
+};

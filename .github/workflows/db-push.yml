@@ -1,0 +1,42 @@
+name: DB schema push
+
+# Applies prisma/schema.prisma to the database with `prisma db push`.
+# Run this from the Actions tab after a schema change (this repo has no
+# migration history — schema changes are pushed, not migrated).
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL
+
+on:
+  workflow_dispatch:
+    inputs:
+      accept_data_loss:
+        description: "pass --accept-data-loss (needed for drops / type changes)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: db-push
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+          } > .env
+      - name: prisma db push
+        run: |
+          ARGS=""
+          [ "${{ github.event.inputs.accept_data_loss }}" = "true" ] && ARGS="--accept-data-loss"
+          npx prisma db push $ARGS
