@@ -20,6 +20,7 @@ const adminBadges = unstable_cache(
           where: { autoPublishedAt: { not: null }, reviewedAt: null, publish: "PUBLISHED" },
         }),
         prisma.unmatchedTitle.count({ where: { status: "PENDING" } }),
+        prisma.report.count({ where: { status: "OPEN", targetType: "comment" } }),
       ]),
     ),
   ["admin-badges"],
@@ -34,8 +35,15 @@ export default async function PanelLayout({
   const me = await getAdminSession();
   if (!me) redirect("/console/login");
 
-  const [openReports, pendingSeries, pendingEps, flagged, spotCheck, unmatched] =
-    await adminBadges().catch(() => [0, 0, 0, 0, 0, 0]);
+  const [
+    openReports,
+    pendingSeries,
+    pendingEps,
+    flagged,
+    spotCheck,
+    unmatched,
+    commentReports,
+  ] = await adminBadges().catch(() => [0, 0, 0, 0, 0, 0, 0]);
 
   const groups: NavGroup[] = [
     { label: null, items: [{ href: "/console", label: "Dashboard", icon: "dashboard" }] },
@@ -66,6 +74,13 @@ export default async function PanelLayout({
           label: "Reports",
           icon: "reports",
           badge: openReports || undefined,
+          tone: "red",
+        },
+        {
+          href: "/console/comments",
+          label: "Comments",
+          icon: "comments",
+          badge: commentReports || undefined,
           tone: "red",
         },
         {

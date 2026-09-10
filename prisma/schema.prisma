@@ -209,6 +209,7 @@ model Profile {
   ratings             Rating[]
   comments            Comment[]
   commentVotes        CommentVote[]
+  commentReactions    CommentReaction[]
   reportsFiled        Report[]        @relation("ReportReporter")
   reportsReviewed     Report[]        @relation("ReportReviewer")
   submissions         Submission[]    @relation("SubmissionSubmitter")
@@ -530,9 +531,11 @@ model Comment {
   createdAt  DateTime      @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  votes CommentVote[]
+  votes     CommentVote[]
+  reactions CommentReaction[]
 
   @@index([targetType, targetId, status, createdAt])
+  @@index([parentId])
   @@index([profileId])
 }
 
@@ -545,6 +548,21 @@ model CommentVote {
   createdAt DateTime @default(now())
 
   @@id([commentId, profileId])
+}
+
+/// An emoji reaction on a comment. One row per (comment, user, emoji) — a user
+/// can add several different emojis but each only once. Cascades when the
+/// comment or the profile is deleted.
+model CommentReaction {
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  profileId String   @db.Uuid
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@id([commentId, profileId, emoji])
+  @@index([commentId])
 }
 
 model EpisodeDailyStat {

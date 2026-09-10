@@ -13,6 +13,7 @@ import { SeriesControls } from "@/components/SeriesControls";
 import { RatingBadge } from "@/components/RatingBadge";
 import { Faq } from "@/components/seo/Faq";
 import { seriesFaq } from "@/lib/faq";
+import { Comments } from "@/components/comments/Comments";
 import { SITE, SITE_NAME, abs, excerpt, breadcrumbLd } from "@/lib/seo";
 
 export const revalidate = 600;
@@ -421,6 +422,8 @@ export default async function SeriesPage({
         </section>
 
         <Faq items={seriesFaq(s)} title={`${s.title} — FAQ`} />
+
+        <Comments targetType="series" targetId={s.id} title="Discussion" />
 
         {related.length > 0 && (
           <section className="mt-12">

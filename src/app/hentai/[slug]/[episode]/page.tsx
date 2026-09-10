@@ -21,6 +21,7 @@ import { RailSeriesList } from "@/components/watch/RailSeriesList";
 import { WatchInternalLinks } from "@/components/watch/WatchInternalLinks";
 import { Faq } from "@/components/seo/Faq";
 import { episodeFaq } from "@/lib/faq";
+import { Comments } from "@/components/comments/Comments";
 
 // ISR — most requests serve cached HTML; admin edits call revalidatePath.
 export const revalidate = 600;
@@ -363,6 +364,12 @@ export default async function WatchPage({
                 title={`${s.title} Episode ${ep.number} — FAQ`}
               />
             </div>
+
+            <Comments
+              targetType="episode"
+              targetId={ep.id}
+              title={`Episode ${ep.number} comments`}
+            />
 
             <AdSlot slotKey="watch-in-content" className="my-10" />
 

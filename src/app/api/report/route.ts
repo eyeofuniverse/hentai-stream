@@ -5,14 +5,16 @@ import { getSessionUser } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 const schema = z.object({
-  targetType: z.enum(["series", "episode", "source"]),
+  targetType: z.enum(["series", "episode", "source", "comment"]),
   targetId: z.string().min(1).max(64),
   reason: z.enum([
     "BROKEN_LINK",
     "WRONG_CONTENT",
     "UNDERAGE",
+    "NON_CONSENSUAL",
     "COPYRIGHT",
     "SPAM",
+    "ABUSE",
     "OTHER",
   ]),
   details: z.string().max(2000).optional(),
@@ -21,6 +23,8 @@ const schema = z.object({
 /** Distinct authenticated reporters needed before an UNDERAGE report auto-hides
  *  the content. A moderator's report always hides it immediately. */
 const UNDERAGE_AUTOHIDE_THRESHOLD = 2;
+/** Distinct reporters before a comment is auto-hidden pending review. */
+const COMMENT_AUTOHIDE_THRESHOLD = 3;
 
 export async function POST(req: Request) {
   if (!rateLimit(`report:${clientIp(req)}`, 6, 10 * 60_000)) {
@@ -44,7 +48,9 @@ export async function POST(req: Request) {
       ? await prisma.series.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null)
       : d.targetType === "episode"
         ? await prisma.episode.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null)
-        : await prisma.videoSource.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null);
+        : d.targetType === "comment"
+          ? await prisma.comment.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null)
+          : await prisma.videoSource.findUnique({ where: { id: d.targetId }, select: { id: true } }).catch(() => null);
   if (!exists) {
     return NextResponse.json({ error: "Unknown target" }, { status: 404 });
   }
@@ -88,6 +94,29 @@ export async function POST(req: Request) {
         await prisma.series.update({ where: { id: d.targetId }, data: { publish: "HIDDEN" } }).catch(() => {});
       else
         await prisma.episode.update({ where: { id: d.targetId }, data: { publish: "HIDDEN" } }).catch(() => {});
+    }
+  }
+
+  // Comment reports: a moderator hides it now; otherwise a threshold of distinct
+  // signed-in reporters auto-hides it pending review.
+  if (d.targetType === "comment") {
+    const isMod =
+      session?.profile.role === "ADMIN" || session?.profile.role === "MODERATOR";
+    let hide = isMod;
+    if (!hide && session) {
+      const reporters = await prisma.report
+        .findMany({
+          where: { targetType: "comment", targetId: d.targetId, reporterId: { not: null } },
+          select: { reporterId: true },
+          distinct: ["reporterId"],
+        })
+        .catch(() => [] as { reporterId: string | null }[]);
+      hide = reporters.length >= COMMENT_AUTOHIDE_THRESHOLD;
+    }
+    if (hide) {
+      await prisma.comment
+        .update({ where: { id: d.targetId }, data: { status: "HIDDEN" } })
+        .catch(() => {});
     }
   }
 
