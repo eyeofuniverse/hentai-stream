@@ -7,8 +7,8 @@ export function RateWidget({
   seriesId,
   initial,
   signedIn,
-  avg,
-  count,
+  avg: avg0,
+  count: count0,
 }: {
   seriesId: string;
   initial: number | null;
@@ -18,6 +18,8 @@ export function RateWidget({
 }) {
   const router = useRouter();
   const [mine, setMine] = useState<number | null>(initial);
+  const [avg, setAvg] = useState(avg0);
+  const [count, setCount] = useState(count0);
   const [hover, setHover] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -36,8 +38,16 @@ export function RateWidget({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seriesId, value: next }),
       });
-      if (!r.ok) setMine(prev);
-      else router.refresh();
+      if (!r.ok) {
+        setMine(prev);
+      } else {
+        const d = await r.json().catch(() => null);
+        if (d && typeof d.avg === "number") {
+          setAvg(d.avg);
+          setCount(d.count);
+        }
+        router.refresh();
+      }
     } catch {
       setMine(prev);
     } finally {

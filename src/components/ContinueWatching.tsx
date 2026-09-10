@@ -9,6 +9,7 @@ type Item = {
   number: number;
   title: string | null;
   thumb: string | null;
+  resume: boolean;
 };
 
 /** Per-viewer "keep watching" rail. Injected into the cached homepage; fetches
@@ -56,7 +57,7 @@ export function ContinueWatching() {
                 </span>
               </span>
               <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                EP {it.number}
+                {it.resume ? "RESUME" : "NEXT"} · EP {it.number}
               </span>
             </div>
             <p className="mt-1.5 line-clamp-2 text-[13px] font-semibold leading-snug text-white/85 transition group-hover:text-accent">

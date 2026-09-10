@@ -1,102 +1,103 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { viewer } from "@/lib/user";
-import { updateProfile } from "@/lib/profile-actions";
+import { myStats } from "@/lib/user-queries";
+import { AccountForm } from "@/components/account/AccountForm";
+import { SignOutButton } from "@/components/account/SignOutButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account", robots: { index: false } };
-
-const inputCls =
-  "w-full rounded-xl border border-line bg-surface p-3 text-sm outline-none transition focus:border-accent/50";
 
 export default async function AccountPage() {
   const me = await viewer();
   if (!me) redirect("/login?next=/account");
 
-  const prefs = (me.prefs as Record<string, unknown>) ?? {};
+  const stats = await myStats(me.id);
+  const prefs =
+    me.prefs && typeof me.prefs === "object" && !Array.isArray(me.prefs)
+      ? (me.prefs as Record<string, unknown>)
+      : {};
+  const joined = new Date(me.createdAt).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+  });
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-10 lg:px-8">
+    <main className="mx-auto max-w-3xl px-4 py-10 lg:px-8">
       <nav className="mb-4 text-xs text-white/40">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">Account</span>
       </nav>
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">Account</h1>
-      <p className="mt-1 text-sm text-white/45">
-        Signed in as <span className="text-white/70">{me.email}</span> · @{me.handle}
-      </p>
 
-      <form action={updateProfile} className="mt-6 space-y-5">
+      <div className="grid gap-8 md:grid-cols-[220px_1fr]">
+        {/* identity card */}
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-line bg-surface/40 p-4 text-center">
+            <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-surface-2 text-xl font-bold text-white/40 ring-1 ring-white/10">
+              {me.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                (me.displayName || me.handle).slice(0, 1).toUpperCase()
+              )}
+            </span>
+            <p className="mt-2 truncate text-sm font-bold">
+              {me.displayName || `@${me.handle}`}
+            </p>
+            <p className="truncate text-[11px] text-white/40">{me.email}</p>
+            <p className="mt-1 text-[11px] text-white/30">Member since {joined}</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5 md:grid-cols-1">
+            {[
+              { n: stats.watchlist, l: "Watchlist", href: "/watchlist" },
+              { n: stats.watched, l: "Watched", href: "/history" },
+              { n: stats.ratings, l: "Ratings", href: null },
+            ].map((s) =>
+              s.href ? (
+                <Link
+                  key={s.l}
+                  href={s.href}
+                  className="rounded-xl border border-line bg-surface/40 p-3 text-center transition hover:border-accent/30 md:flex md:items-center md:justify-between md:text-left"
+                >
+                  <span className="font-display text-lg font-extrabold">{s.n}</span>
+                  <span className="block text-[11px] text-white/40 md:inline">{s.l}</span>
+                </Link>
+              ) : (
+                <div
+                  key={s.l}
+                  className="rounded-xl border border-line bg-surface/40 p-3 text-center md:flex md:items-center md:justify-between md:text-left"
+                >
+                  <span className="font-display text-lg font-extrabold">{s.n}</span>
+                  <span className="block text-[11px] text-white/40 md:inline">{s.l}</span>
+                </div>
+              ),
+            )}
+          </div>
+
+          <div className="space-y-1.5 text-sm">
+            <Link href="/account/password" className="block text-white/50 hover:text-accent">
+              Change password
+            </Link>
+            <SignOutButton />
+          </div>
+        </aside>
+
+        {/* form */}
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/40">
-            Display name
-          </label>
-          <input name="displayName" defaultValue={me.displayName ?? ""} maxLength={40} className={inputCls} />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/40">
-            Avatar URL
-          </label>
-          <input
-            name="avatarUrl"
-            type="url"
-            defaultValue={me.avatarUrl ?? ""}
-            placeholder="https://…"
-            className={inputCls}
+          <h1 className="mb-5 font-display text-2xl font-extrabold tracking-tight">
+            Account settings
+          </h1>
+          <AccountForm
+            displayName={me.displayName ?? ""}
+            avatarUrl={me.avatarUrl ?? ""}
+            bio={me.bio ?? ""}
+            autoplay={prefs.autoplay === true}
+            showContentWarnings={prefs.showContentWarnings === true}
+            emailOptIn={me.emailOptIn}
           />
         </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/40">
-            Bio
-          </label>
-          <textarea name="bio" defaultValue={me.bio ?? ""} rows={3} maxLength={300} className={inputCls} />
-        </div>
-
-        <fieldset className="space-y-2 rounded-xl border border-line bg-surface/40 p-4">
-          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-white/40">
-            Preferences
-          </legend>
-          <label className="flex items-center gap-2.5 text-sm text-white/75">
-            <input
-              type="checkbox"
-              name="autoplay"
-              defaultChecked={prefs.autoplay === true}
-              className="h-4 w-4 accent-[color:#ff3d7f]"
-            />
-            Autoplay the next episode
-          </label>
-          <label className="flex items-center gap-2.5 text-sm text-white/75">
-            <input
-              type="checkbox"
-              name="showContentWarnings"
-              defaultChecked={prefs.showContentWarnings === true}
-              className="h-4 w-4 accent-[color:#ff3d7f]"
-            />
-            Show content warnings before playing
-          </label>
-          <label className="flex items-center gap-2.5 text-sm text-white/75">
-            <input
-              type="checkbox"
-              name="emailOptIn"
-              defaultChecked={me.emailOptIn}
-              className="h-4 w-4 accent-[color:#ff3d7f]"
-            />
-            Email me about new episodes on my watchlist
-          </label>
-        </fieldset>
-
-        <button
-          type="submit"
-          className="rounded-xl bg-gradient-to-r from-accent to-accent-2 px-6 py-2.5 text-sm font-bold text-white shadow-glow"
-        >
-          Save
-        </button>
-      </form>
-
-      <div className="mt-8 flex gap-4 text-sm">
-        <Link href="/watchlist" className="text-accent hover:underline">My watchlist</Link>
-        <Link href="/history" className="text-accent hover:underline">Watch history</Link>
       </div>
     </main>
   );

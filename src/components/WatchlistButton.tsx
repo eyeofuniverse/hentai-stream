@@ -77,7 +77,13 @@ export function WatchlistButton({
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => (status ? setOpen((o) => !o) : set("PLAN_TO_WATCH"))}
+        onClick={() => {
+          if (!signedIn) {
+            router.push(`/login?next=${encodeURIComponent(location.pathname)}`);
+            return;
+          }
+          setOpen((o) => !o);
+        }}
         disabled={busy}
         className={`inline-flex items-center gap-1.5 rounded-xl font-semibold transition disabled:opacity-60 ${pad} ${
           status
@@ -107,12 +113,14 @@ export function WatchlistButton({
               {o.label}
             </button>
           ))}
-          <button
-            onClick={() => set("remove")}
-            className="block w-full border-t border-line px-3.5 py-2 text-left text-sm text-white/40 hover:bg-white/5 hover:text-white"
-          >
-            Remove
-          </button>
+          {status && (
+            <button
+              onClick={() => set("remove")}
+              className="block w-full border-t border-line px-3.5 py-2 text-left text-sm text-white/40 hover:bg-white/5 hover:text-white"
+            >
+              Remove from watchlist
+            </button>
+          )}
         </div>
       )}
     </div>

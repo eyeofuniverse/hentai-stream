@@ -11,18 +11,16 @@ export async function GET() {
   if (!me) return NextResponse.json({ items: [] }, { headers: { "Cache-Control": "private, no-store" } });
 
   const rows = await continueWatching(me.id, 12);
-  const items = rows.map((r) => {
-    const e = r.episode;
-    return {
-      slug: e.series.slug,
-      seriesTitle: e.series.title,
-      number: e.number,
-      title: e.title,
-      thumb:
-        e.bunnyStatus === "ready" && e.bunnyGuid
-          ? bunnyThumb(e.bunnyGuid)
-          : thumb(e.thumbUrl) ?? thumb(e.series.coverUrl),
-    };
-  });
+  const items = rows.map((r) => ({
+    slug: r.slug,
+    seriesTitle: r.seriesTitle,
+    number: r.number,
+    title: r.title,
+    resume: r.resume,
+    thumb:
+      r.bunnyStatus === "ready" && r.bunnyGuid
+        ? bunnyThumb(r.bunnyGuid)
+        : thumb(r.thumbUrl) ?? thumb(r.coverUrl),
+  }));
   return NextResponse.json({ items }, { headers: { "Cache-Control": "private, no-store" } });
 }

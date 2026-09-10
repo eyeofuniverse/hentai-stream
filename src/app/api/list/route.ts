@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireViewer, Unauthorized } from "@/lib/user";
+import { rateLimit } from "@/lib/ratelimit";
 import type { ListStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,10 @@ export async function POST(req: Request) {
     if (e instanceof Unauthorized)
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     throw e;
+  }
+
+  if (!rateLimit(`list:${me.id}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Slow down" }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({}));
