@@ -151,7 +151,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                         200,
                       ),
                     ),
-                    content_loc: `${SITE}/hentai/${s.slug}/${e.number}`,
+                    // no content_loc — we don't expose raw video URLs (token
+                    // proxy). player_loc points at the chrome-less /embed player,
+                    // which must differ from <loc> (the article page).
                     player_loc: `${SITE}/embed/${s.slug}/${e.number}`,
                     publication_date: (e.airedAt ?? e.createdAt).toISOString(),
                     ...(e.runtimeSec ? { duration: e.runtimeSec } : {}),
