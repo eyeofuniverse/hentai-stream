@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { AgeGate } from "@/components/AgeGate";
+import { Analytics } from "@/components/Analytics";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SITE, SITE_NAME, organizationLd, websiteLd } from "@/lib/seo";
-
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const inter = Inter({
   subsets: ["latin"],
@@ -93,8 +91,8 @@ export default function RootLayout({
             __html: JSON.stringify([organizationLd(), websiteLd()]),
           }}
         />
+        <Analytics />
       </body>
-      {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
     </html>
   );
 }
