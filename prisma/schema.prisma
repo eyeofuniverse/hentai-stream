@@ -665,6 +665,8 @@ model Ad {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @default(now()) @updatedAt
 
+  // the /api/console/ads/slot endpoint keeps this to one row per slot per
+  // device band (all | mobile | desktop) by wiping + rewriting the slot
   @@index([slot, isActive, deviceType])
 }
 
