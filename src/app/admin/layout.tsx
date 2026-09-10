@@ -57,6 +57,7 @@ export default async function AdminLayout({
     { href: "/admin/unmatched", label: "Unmatched", badge: unmatched || undefined, tone: "amber" },
     { href: "/admin/search", label: "Search" },
     { href: "/admin/tags", label: "Tags" },
+    { href: "/admin/ads", label: "Ads" },
     { href: "/admin/metadata", label: "Metadata" },
     { href: "/admin/reports", label: "Reports", badge: openReports || undefined, tone: "red" },
   ];

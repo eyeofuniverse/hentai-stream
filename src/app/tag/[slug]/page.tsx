@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdSlot } from "@/components/AdSlot";
 import { notFound } from "next/navigation";
 import { prisma, db } from "@/lib/db";
 import { browseSeries, sidebarData, type BrowseParams } from "@/lib/queries";
@@ -147,6 +148,8 @@ export default async function TagPage({
         </p>
       </div>
 
+      <AdSlot slotKey="catalog-top" className="mb-6" />
+
       <div className="flex gap-8">
         <div className="min-w-0 flex-1">
           <div className="mb-5 flex flex-wrap gap-1.5">
@@ -175,8 +178,13 @@ export default async function TagPage({
           <Pagination page={page} pages={pages} makeHref={makeHref} />
         </div>
 
-        <CatalogSidebar data={sidebar} />
+        <div className="hidden w-72 shrink-0 space-y-6 lg:block">
+          <CatalogSidebar data={sidebar} bare />
+          <AdSlot slotKey="catalog-sidebar" />
+        </div>
       </div>
+
+      <AdSlot slotKey="catalog-footer" className="mt-10" />
 
       <Link href="/tags" className="mt-10 inline-block text-xs text-white/40 hover:text-accent">
         ← All genres &amp; tags

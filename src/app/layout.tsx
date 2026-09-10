@@ -3,6 +3,7 @@ import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { AgeGate } from "@/components/AgeGate";
 import { Analytics } from "@/components/Analytics";
+import { AdScripts } from "@/components/ads/AdScripts";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SITE, SITE_NAME, organizationLd, websiteLd } from "@/lib/seo";
@@ -92,6 +93,7 @@ export default function RootLayout({
           }}
         />
         <Analytics />
+        <AdScripts />
       </body>
     </html>
   );

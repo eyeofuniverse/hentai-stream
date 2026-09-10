@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { AdSlot } from "@/components/AdSlot";
 import { headers } from "next/headers";
 import { searchResults, recordSearch, popularSearches } from "@/lib/search";
 import { browseSeries } from "@/lib/queries";
@@ -109,6 +110,8 @@ export default async function SearchPage({
       <div className="mt-4 max-w-xl">
         <SearchBar initial={term} big />
       </div>
+
+      <AdSlot slotKey="search-top" className="mt-6" />
 
       {/* matching genres */}
       {tags.length > 0 && (

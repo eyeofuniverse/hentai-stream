@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { AdSlot } from "@/components/AdSlot";
 import { notFound } from "next/navigation";
 import { getSeries, relatedSeries } from "@/lib/queries";
 import { prisma } from "@/lib/db";
@@ -274,6 +275,8 @@ export default async function SeriesPage({
 
       {/* episodes */}
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 lg:px-8">
+        <AdSlot slotKey="series-under-hero" className="mb-8" />
+
         <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
           <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
           Episodes
@@ -332,6 +335,8 @@ export default async function SeriesPage({
             })}
           </div>
         )}
+
+        <AdSlot slotKey="series-under-episodes" className="mt-10" />
 
         {/* details + FAQ + related — real content, not a thin stub */}
         <section className="mt-12">
@@ -420,6 +425,8 @@ export default async function SeriesPage({
             </div>
           </section>
         )}
+
+        <AdSlot slotKey="series-footer" className="mt-12" />
       </div>
     </main>
   );

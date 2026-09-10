@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { AdSlot } from "@/components/AdSlot";
 import { calendarMonth, miniLists, type CalendarEntry } from "@/lib/queries";
 import { thumb } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
@@ -101,6 +102,8 @@ export default async function CalendarPage({
         Every episode by the date it aired — subbed and uncensored. New drops
         land here as soon as they&apos;re out.
       </p>
+
+      <AdSlot slotKey="calendar-top" className="mt-6" />
 
       {/* month switcher */}
       <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface/50 p-3">

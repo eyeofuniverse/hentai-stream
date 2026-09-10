@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { homeSections } from "@/lib/queries";
+import { AdSlot } from "@/components/AdSlot";
 import { HomeHero } from "@/components/HomeHero";
 import { ScrollRow } from "@/components/ScrollRow";
 import { GenreGrid } from "@/components/GenreGrid";
@@ -56,6 +57,8 @@ export default async function HomePage() {
       )}
 
       <main className="mx-auto max-w-content pb-8 lg:px-8">
+        <AdSlot slotKey="home-top" className="mt-6 px-4 lg:px-0" />
+
         {h.recentEpisodes.length > 0 && (
           <ScrollRow title="Latest episodes" href="/browse?sort=new">
             {h.recentEpisodes.map((ep) => (
@@ -87,6 +90,8 @@ export default async function HomePage() {
             ))}
           </ScrollRow>
         )}
+
+        <AdSlot slotKey="home-mid" className="my-12 px-4 lg:px-0" />
 
         <GenreGrid genres={h.genres} />
 
@@ -140,6 +145,8 @@ export default async function HomePage() {
             <span className="text-2xl text-accent">→</span>
           </Link>
         </section>
+
+        <AdSlot slotKey="home-footer" className="mt-12 px-4 lg:px-0" />
       </main>
     </>
   );

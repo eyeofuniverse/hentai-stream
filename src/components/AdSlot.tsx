@@ -1,56 +1,35 @@
-import type { CSSProperties } from "react";
+import { getAdConfig, pickVariant } from "@/lib/ads";
+import { AdUnit } from "@/components/ads/AdUnit";
 
 /**
- * A reserved advertising slot. It renders a fixed-size container (so a real ad
- * loading in later causes no layout shift) tagged with `data-ad-slot` for
- * whatever network we wire up.
- *
- * Behaviour is controlled by NEXT_PUBLIC_ADS:
- *   unset / "off"    → nothing renders (current state)
- *   "placeholder"    → a labelled empty box, for laying things out / demoing
- *   "live"           → the empty container only; the network script fills it
+ * A named ad position. Reads the live config (admin panel → Setting "ads"),
+ * renders the desktop and/or mobile variant, or nothing when the slot is off.
+ * Wrap with your own spacing via `className`; it renders nothing at all when
+ * empty so there's no stray gap.
  */
-type Format = "rect" | "half" | "leaderboard" | "inline";
-
-const DIMS: Record<Format, { w: number; h: number }> = {
-  rect: { w: 300, h: 250 },
-  half: { w: 300, h: 600 },
-  leaderboard: { w: 728, h: 90 },
-  inline: { w: 468, h: 60 },
-};
-
-const MODE = process.env.NEXT_PUBLIC_ADS ?? "off";
-
-export function AdSlot({
-  id,
-  format = "rect",
+export async function AdSlot({
+  slotKey,
   className = "",
 }: {
-  id: string;
-  format?: Format;
+  slotKey: string;
   className?: string;
 }) {
-  if (MODE === "off") return null;
-
-  const d = DIMS[format];
-  const style: CSSProperties = {
-    width: d.w,
-    height: d.h,
-    maxWidth: "100%",
-  };
+  const cfg = await getAdConfig();
+  const desktop = pickVariant(cfg, slotKey, "desktop");
+  const mobile = pickVariant(cfg, slotKey, "mobile");
+  if (!desktop && !mobile) return null;
 
   return (
-    <div
-      data-ad-slot={id}
-      data-ad-format={format}
-      aria-hidden="true"
-      style={style}
-      className={`mx-auto flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-white/10 bg-white/[0.015] ${className}`}
-    >
-      {MODE === "placeholder" && (
-        <span className="select-none text-[10px] font-medium uppercase tracking-[0.2em] text-white/20">
-          Ad · {d.w}×{d.h}
-        </span>
+    <div className={`ad-slot ${className}`} aria-hidden="true">
+      {mobile && (
+        <div className={desktop ? "lg:hidden" : ""}>
+          <AdUnit slotKey={slotKey} variant={mobile} />
+        </div>
+      )}
+      {desktop && (
+        <div className={mobile ? "hidden lg:block" : ""}>
+          <AdUnit slotKey={slotKey} variant={desktop} />
+        </div>
       )}
     </div>
   );

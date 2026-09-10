@@ -33,10 +33,14 @@ function Box({ title, href, children }: { title: string; href?: string; children
   );
 }
 
-/** watchhentai-style right column: genres, years, top rated. Desktop only. */
-export function CatalogSidebar({ data }: { data: Sidebar }) {
+/** watchhentai-style right column: genres, years, top rated. Desktop only.
+ *  Pass `bare` when an ancestor already provides the column width / visibility. */
+export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }) {
+  const cls = bare
+    ? "space-y-4"
+    : "hidden w-72 shrink-0 space-y-4 lg:block";
   return (
-    <aside className="hidden w-72 shrink-0 space-y-4 lg:block">
+    <aside className={cls}>
       {data.topRated.length > 0 && (
         <Box title="Top rated" href="/browse?sort=rating">
           <ol className="space-y-2">

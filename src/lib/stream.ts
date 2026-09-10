@@ -95,7 +95,12 @@ export function buildServers(
 /* ── server-side only: resolve a key to its real target ── */
 
 /** Bunny Stream player embed — skinned in the Bunny dashboard (colours, logo,
- *  no download button, watermark, …). */
+ *  no download button, watermark, …).
+ *
+ *  autoplay is OFF: the browser blocks cross-origin iframe autoplay anyway, so
+ *  requesting it just makes Bunny show its own play button on top of a paused
+ *  video (the "click twice to play" bug). One poster, one play button, one tap.
+ *  preload is OFF so an unwatched page view costs no video bandwidth. */
 export function bunnyEmbed(guid: string): string {
-  return `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${guid}?autoplay=true&preload=true&responsive=true`;
+  return `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${guid}?autoplay=false&preload=false&responsive=true`;
 }

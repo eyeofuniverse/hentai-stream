@@ -41,7 +41,7 @@ export default async function EmbedPage({
         }}
       />
       <div className="w-full">
-        <WatchPlayer servers={servers} poster={poster} nextHref={null} />
+        <WatchPlayer servers={servers} poster={poster} nextHref={null} bare />
       </div>
     </div>
   );

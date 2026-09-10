@@ -20,6 +20,7 @@ import { RailSeriesList } from "@/components/watch/RailSeriesList";
 import { WatchInternalLinks } from "@/components/watch/WatchInternalLinks";
 import { Faq } from "@/components/seo/Faq";
 import { episodeFaq } from "@/lib/faq";
+import { getAdConfig } from "@/lib/ads";
 
 // ISR — most requests serve cached HTML; admin edits call revalidatePath.
 export const revalidate = 600;
@@ -83,10 +84,12 @@ export default async function WatchPage({
   const servers = buildServers(ep.id, bunnyReady, ep.sources);
   const poster = bunnyReady ? bunnyThumb(ep.bunnyGuid!) : thumb(ep.thumbUrl) ?? null;
 
-  const [related, mini] = await Promise.all([
+  const [related, mini, ads] = await Promise.all([
     relatedSeries(s.id, s.tags.map((t) => t.slug), 12),
     miniLists(),
+    getAdConfig(),
   ]);
+  const vastTag = ads.enabled && ads.vast.enabled ? ads.vast.tagUrl : null;
 
   const { title: seoTitle, description, genres } = episodeSeo(ep);
   const canonical = `${SITE}/hentai/${slug}/${ep.number}`;
@@ -261,7 +264,10 @@ export default async function WatchPage({
               episodeLabel={episodeLabel}
               nextHref={nextHref}
               prevHref={prevHref}
+              vastTag={vastTag}
             />
+
+            <AdSlot slotKey="watch-under-player" className="mt-4" />
 
             {/* title + facts */}
             <div className="mt-4 px-1 sm:mt-5 sm:px-0">
@@ -328,7 +334,7 @@ export default async function WatchPage({
                 current={ep.number}
                 maxHeight="340px"
               />
-              <AdSlot id="watch-inline-mobile" format="leaderboard" />
+              <AdSlot slotKey="watch-below-episodes" />
             </div>
 
             {/* description / SEO copy */}
@@ -362,6 +368,8 @@ export default async function WatchPage({
               />
             </div>
 
+            <AdSlot slotKey="watch-in-content" className="my-10" />
+
             {related.length > 0 && (
               <section className="mt-12">
                 <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
@@ -386,7 +394,7 @@ export default async function WatchPage({
               tags={s.tags}
             />
 
-            <AdSlot id="watch-inline-footer" format="leaderboard" className="mt-10" />
+            <AdSlot slotKey="watch-footer" className="mt-10" />
           </div>
 
           {/* ─────────── right rail (lg+) ─────────── */}
@@ -394,7 +402,7 @@ export default async function WatchPage({
             <div className="space-y-4">
               <UpNext />
 
-              <AdSlot id="watch-rail-1" format="rect" />
+              <AdSlot slotKey="watch-rail-top" />
 
               <EpisodeList
                 slug={slug}
@@ -410,7 +418,9 @@ export default async function WatchPage({
                 View series page
               </Link>
 
-              <AdSlot id="watch-rail-2" format="half" />
+              <div className="sticky top-[76px]">
+                <AdSlot slotKey="watch-rail-mid" />
+              </div>
 
               <RailSeriesList
                 title="Trending now"

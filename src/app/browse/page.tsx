@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdSlot } from "@/components/AdSlot";
 import {
   browseSeries,
   popularTags,
@@ -132,6 +133,8 @@ export default async function BrowsePage({
       <h1 className="font-display text-2xl font-extrabold tracking-tight">{heading}</h1>
       <p className="mt-1 text-sm text-white/45">{blurb}</p>
 
+      <AdSlot slotKey="catalog-top" className="mt-5" />
+
       <div className="mt-6 flex gap-8">
         <div className="min-w-0 flex-1">
           <FilterBar base="/browse" current={current} genres={tags} />
@@ -143,8 +146,13 @@ export default async function BrowsePage({
           <Pagination page={page} pages={pages} makeHref={makeHref} />
         </div>
 
-        <CatalogSidebar data={sidebar} />
+        <div className="hidden w-72 shrink-0 space-y-6 lg:block">
+          <CatalogSidebar data={sidebar} bare />
+          <AdSlot slotKey="catalog-sidebar" />
+        </div>
       </div>
+
+      <AdSlot slotKey="catalog-footer" className="mt-10" />
 
       <p className="mt-10 text-sm leading-relaxed text-white/45">
         {SITE_NAME} is a free hentai streaming catalogue — {total.toLocaleString()} subbed
