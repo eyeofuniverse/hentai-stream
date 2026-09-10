@@ -76,7 +76,8 @@ export function WatchPlayer({
     let hls: import("hls.js").default | undefined;
     let killed = false;
     import("hls.js").then(({ default: HlsJs }) => {
-      if (killed || !HlsJs.isSupported()) {
+      if (killed) return;
+      if (!HlsJs.isSupported()) {
         video.src = cur.src;
         return;
       }
@@ -108,8 +109,14 @@ export function WatchPlayer({
   const play = useCallback(() => {
     setStarted(true);
     setCountdown(null);
-    queueMicrotask(() => videoRef.current?.play().catch(() => {}));
   }, []);
+
+  // the <video> mounts a render after `started` flips, so kick playback here —
+  // this still counts as user-initiated (the play button was just clicked)
+  useEffect(() => {
+    if (!started || !cur || cur.type === "bunny" || cur.type === "iframe") return;
+    videoRef.current?.play().catch(() => {});
+  }, [started, idx, cur]);
 
   // keyboard shortcuts
   useEffect(() => {

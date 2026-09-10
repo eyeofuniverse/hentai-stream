@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { gradientFor } from "@/lib/gradient";
 
 /**
@@ -35,6 +35,15 @@ export function SmartImg({
   const chain = [src, fallback].filter((x): x is string => !!x);
   const [step, setStep] = useState(0);
 
+  // if the parent swaps `src` (e.g. a rotating hero) start the fallback chain
+  // over — otherwise a previously-failed instance stays stuck on the gradient
+  const key = chain.join("|");
+  const prevKey = useRef(key);
+  if (prevKey.current !== key) {
+    prevKey.current = key;
+    if (step !== 0) setStep(0);
+  }
+
   if (step >= chain.length || chain.length === 0) {
     return (
       <div
@@ -50,8 +59,8 @@ export function SmartImg({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={chain[step]}
-      srcSet={step === 0 ? srcSet : undefined}
-      sizes={step === 0 ? sizes : undefined}
+      srcSet={step === 0 && srcSet ? srcSet : undefined}
+      sizes={step === 0 && srcSet ? sizes : undefined}
       alt={alt}
       width={width}
       height={height}
@@ -59,6 +68,9 @@ export function SmartImg({
       fetchPriority={eager ? "high" : undefined}
       decoding="async"
       onError={() => setStep((s) => s + 1)}
+      // this <img> can fall through to a different src/element after a load
+      // error — that's deliberate client behaviour, not a hydration bug
+      suppressHydrationWarning
       className={className}
     />
   );

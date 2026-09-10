@@ -150,15 +150,10 @@ export function FilterBar({
         </Row>
         {showGenre && genres.length > 0 && (
           <Row label="Genre">
-            <Chip active={!current.tag} to={href(base, current, { tag: undefined })}>
-              All
-            </Chip>
+            {/* genres have their own dedicated pages — link there, don't create
+                a parallel ?tag= URL for the same content */}
             {genres.map((g) => (
-              <Chip
-                key={g.slug}
-                active={current.tag === g.slug}
-                to={href(base, current, { tag: g.slug })}
-              >
+              <Chip key={g.slug} active={false} to={`/tag/${g.slug}`}>
                 {g.name}
               </Chip>
             ))}

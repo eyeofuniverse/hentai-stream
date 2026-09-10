@@ -90,9 +90,8 @@ export default async function SeriesPage({
   const coverSrc = cover(s.coverUrl);
   const bannerSrc = banner(s.bannerUrl) ?? coverSrc;
   const rating = s.ratingCount > 0 ? s.ratingAvg : s.externalScore;
-  const runtimeMins = s.episodes.find((e) => e.runtimeSec)?.runtimeSec
-    ? Math.round((s.episodes.find((e) => e.runtimeSec)!.runtimeSec as number) / 60)
-    : null;
+  const rt = s.episodes.find((e) => e.runtimeSec)?.runtimeSec;
+  const runtimeMins = rt ? Math.round(rt / 60) : null;
   // main CTA lands on the first actually-playable episode
   const playableEp =
     s.episodes.find((e) => e.bunnyStatus === "ready" || e._count.sources > 0) ??

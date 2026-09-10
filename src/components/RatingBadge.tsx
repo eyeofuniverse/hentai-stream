@@ -39,20 +39,3 @@ export function RatingBadge({
     </span>
   );
 }
-
-/** Value + count for AggregateRating JSON-LD, picking the same source the badge shows. */
-export function ratingForLd(s: {
-  ratingCount: number;
-  ratingAvg: number;
-  externalScore: number | null;
-}): { ratingValue: number; ratingCount: number; best: number } | null {
-  if (s.ratingCount > 0) {
-    return { ratingValue: Number(s.ratingAvg.toFixed(2)), ratingCount: s.ratingCount, best: 10 };
-  }
-  if (s.externalScore && s.externalScore > 0) {
-    // MAL scores don't carry a public vote count we can cite; omit the count-only
-    // aggregate rather than invent one
-    return null;
-  }
-  return null;
-}

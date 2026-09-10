@@ -48,7 +48,7 @@ export function HomeHero({
   }, [i, items.length, paused]);
 
   if (items.length === 0) return null;
-  const s = items[i];
+  const s = items[Math.min(i, items.length - 1)];
   const useBanner = !!s.bannerUrl;
   const bg = useBanner ? banner(s.bannerUrl) : cover(s.coverUrl);
   const bgSet = useBanner ? bannerSet(s.bannerUrl) : coverSet(s.coverUrl);

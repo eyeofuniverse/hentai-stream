@@ -1,12 +1,8 @@
-/**
- * Shown the instant a navigation starts (and lets Next prefetch dynamic routes
- * on link hover, which it otherwise won't). Keep it light — a top progress bar
- * plus a faint content shimmer.
- */
-export default function Loading() {
+/** Loading skeleton for the catalogue-style pages (browse / tag / studio). */
+export function GridSkeleton() {
   return (
     <div className="mx-auto max-w-content px-4 py-8 lg:px-8">
-      <div className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden bg-transparent">
+      <div className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden">
         <div className="h-full w-1/3 animate-[loadbar_1s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-accent to-transparent" />
       </div>
       <div className="h-7 w-52 animate-pulse rounded-lg bg-surface-2" />

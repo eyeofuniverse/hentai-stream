@@ -18,9 +18,9 @@ export function Pagination({
 
   const nums: (number | "…")[] = [];
   const push = (n: number | "…") => nums.push(n);
-  const window = 1;
+  const span = 1;
   for (let p = 1; p <= pages; p++) {
-    if (p === 1 || p === pages || (p >= page - window && p <= page + window)) {
+    if (p === 1 || p === pages || (p >= page - span && p <= page + span)) {
       push(p);
     } else if (nums[nums.length - 1] !== "…") {
       push("…");

@@ -32,18 +32,31 @@ export async function generateMetadata({
   const year = one(sp, "year");
   const tag = one(sp, "tag");
 
+  // a genre filter has a real page of its own — send all the SEO signal there
+  if (tag) {
+    return {
+      title: "Browse Hentai",
+      alternates: { canonical: `/tag/${tag}` },
+      robots: { index: false, follow: true },
+    };
+  }
+
   let title = unc ? "Uncensored Hentai" : "Browse Hentai — Full Catalogue";
   if (year) title = `${unc ? "Uncensored " : ""}Hentai (${year})`;
-  if (tag) title = `${tag[0].toUpperCase() + tag.slice(1)} Hentai`;
   if (page > 1) title += ` — Page ${page}`;
 
   const qs = new URLSearchParams();
-  for (const k of ["sort", "type", "status", "tag", "year", "censored"]) {
+  for (const k of ["year", "censored"]) {
     const v = one(sp, k);
     if (v) qs.set(k, v);
   }
   if (page > 1) qs.set("page", String(page));
   const canonical = `/browse${qs.toString() ? `?${qs}` : ""}`;
+
+  // only index the clean views (bare / by-year / uncensored, first 3 pages);
+  // arbitrary type+status+sort combos are just filtered slices, not new content
+  const otherFilters = ["type", "status", "sort", "studio"].some((k) => one(sp, k));
+  const indexable = !otherFilters && page <= 3;
 
   return {
     title,
@@ -51,7 +64,7 @@ export async function generateMetadata({
       unc ? "fully uncensored " : ""
     }hentai series, OVAs and movies on ${SITE_NAME} — filter by genre, year, type and status. Free HD streaming, updated daily.`,
     alternates: { canonical },
-    robots: { index: page <= 5, follow: true },
+    robots: { index: indexable, follow: true },
     openGraph: { title, url: canonical },
   };
 }

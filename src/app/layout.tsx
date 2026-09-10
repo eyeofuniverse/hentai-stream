@@ -72,9 +72,8 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-screen bg-bg font-sans text-[#ececf1] antialiased"
       >
-        {/* runs before first paint: if the visitor already confirmed their age,
-            add `vok` to <html> so the age gate never flashes / never blocks
-            clicks. Full-page render, so it must be inline + synchronous. */}
+        {/* before first paint: if the visitor already confirmed their age, mark
+            <html> so the gate CSS hides it — no flash, no swallowed taps */}
         <script
           dangerouslySetInnerHTML={{
             __html:

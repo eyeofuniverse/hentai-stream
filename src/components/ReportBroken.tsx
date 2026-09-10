@@ -16,16 +16,20 @@ export function ReportBroken({ episodeId }: { episodeId: string }) {
       disabled={state === "sending"}
       onClick={async () => {
         setState("sending");
-        await fetch("/api/report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            targetType: "episode",
-            targetId: episodeId,
-            reason: "BROKEN_LINK",
-          }),
-        });
-        setState("done");
+        try {
+          const r = await fetch("/api/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              targetType: "episode",
+              targetId: episodeId,
+              reason: "BROKEN_LINK",
+            }),
+          });
+          setState(r.ok ? "done" : "idle");
+        } catch {
+          setState("idle");
+        }
       }}
       className="inline-flex items-center gap-1.5 text-xs text-white/45 transition hover:text-accent disabled:opacity-50"
     >
