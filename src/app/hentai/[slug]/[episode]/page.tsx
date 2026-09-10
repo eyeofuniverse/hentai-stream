@@ -163,7 +163,6 @@ export default async function WatchPage({
       genreList ? `, tagged ${genreList}` : ""
     }. Stream every episode free in HD on ${SITE_NAME} — no account, on desktop and mobile.`;
 
-  const episodeLabel = `Episode ${ep.number}${ep.part > 1 ? ` · Part ${ep.part}` : ""}`;
 
   const prevHref = prev ? `/hentai/${slug}/${prev.number}` : null;
   const nextHref = next ? `/hentai/${slug}/${next.number}` : null;
@@ -261,7 +260,6 @@ export default async function WatchPage({
               servers={servers}
               poster={poster}
               title={s.title}
-              episodeLabel={episodeLabel}
               nextHref={nextHref}
               prevHref={prevHref}
               vastTag={vastTag}

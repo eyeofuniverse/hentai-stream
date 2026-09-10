@@ -55,7 +55,7 @@ export function AgeGate() {
       <script
         dangerouslySetInnerHTML={{
           __html:
-            "(function(){var d=document;function ok(){try{d.cookie='lh_vok=1;path=/;max-age=31536000;samesite=lax'}catch(e){}d.documentElement.classList.add('vok')}var b=d.getElementById('lh-vg-in');if(b)b.addEventListener('click',ok);d.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('#lh-vg-in'))ok()})})();",
+            "(function(){var d=document;function ok(){try{var s=location.protocol==='https:'?';secure':'';d.cookie='lh_vok=1;path=/;max-age=34560000;samesite=lax'+s}catch(e){}try{fetch('/api/age',{method:'POST',keepalive:true})}catch(e){}d.documentElement.classList.add('vok')}var b=d.getElementById('lh-vg-in');if(b)b.addEventListener('click',ok);d.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('#lh-vg-in'))ok()})})();",
         }}
       />
     </>
