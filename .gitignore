@@ -20,3 +20,4 @@ scripts/.metadata-backfill-progress.json
 scripts/.tag-consolidate-*.json
 # torrent download scratch
 .torrents/
+/favicon_io/

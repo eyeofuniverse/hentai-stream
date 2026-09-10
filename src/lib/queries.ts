@@ -1,7 +1,8 @@
+import { unstable_cache } from "next/cache";
 import { prisma, db } from "@/lib/db";
 import type { Prisma, SeriesStatus, SeriesType } from "@prisma/client";
 
-const PAGE = 24;
+const PAGE = 30;
 
 export type BrowseParams = {
   tag?: string;
@@ -137,6 +138,86 @@ function getEpisodeInner(seriesSlug: string, number: number) {
       },
     },
   });
+}
+
+/** Data for the catalogue sidebar (genres, years, top-rated). Cached — it barely
+ *  moves and every browse/tag/studio page renders it. */
+export const sidebarData = unstable_cache(
+  async () => {
+    try {
+      return await db(async () => {
+        const [tags, years, topRated] = await Promise.all([
+          prisma.tag.findMany({
+            where: { seriesCount: { gt: 0 } },
+            orderBy: { seriesCount: "desc" },
+            take: 26,
+            select: { slug: true, name: true, seriesCount: true },
+          }),
+          prisma.series.findMany({
+            where: { publish: "PUBLISHED", year: { not: null } },
+            distinct: ["year"],
+            orderBy: { year: "desc" },
+            take: 60,
+            select: { year: true },
+          }),
+          prisma.series.findMany({
+            where: {
+              publish: "PUBLISHED",
+              OR: [{ ratingCount: { gte: 1 } }, { externalScore: { gte: 6 } }],
+            },
+            orderBy: [
+              { bayesianRating: "desc" },
+              { externalScore: { sort: "desc", nulls: "last" } },
+            ],
+            take: 8,
+            select: {
+              slug: true,
+              title: true,
+              coverUrl: true,
+              year: true,
+              externalScore: true,
+              ratingAvg: true,
+              ratingCount: true,
+            },
+          }),
+        ]);
+        return {
+          tags,
+          years: years.map((y) => y.year).filter((y): y is number => y != null),
+          topRated,
+        };
+      });
+    } catch {
+      return { tags: [], years: [], topRated: [] };
+    }
+  },
+  ["catalog-sidebar"],
+  { revalidate: 1800 },
+);
+
+/** Up-to-`limit` other published series that share the most tags with this one. */
+export async function relatedSeries(
+  seriesId: string,
+  tagSlugs: string[],
+  limit = 12,
+) {
+  if (tagSlugs.length === 0) return [];
+  try {
+    return await db(() =>
+      prisma.series.findMany({
+        where: {
+          publish: "PUBLISHED",
+          id: { not: seriesId },
+          tags: { some: { slug: { in: tagSlugs } } },
+        },
+        orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
+        take: limit,
+        select: seriesCardSelect,
+      }),
+    );
+  } catch {
+    return [];
+  }
 }
 
 export async function popularTags(limit = 30) {

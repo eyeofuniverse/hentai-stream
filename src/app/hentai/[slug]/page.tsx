@@ -1,12 +1,16 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSeries } from "@/lib/queries";
+import { getSeries, relatedSeries } from "@/lib/queries";
 import { prisma } from "@/lib/db";
 import { cover, coverSet, banner, bannerSet, thumb } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { Pill } from "@/components/ui";
 import { SmartImg } from "@/components/SmartImg";
+import { SeriesCard } from "@/components/SeriesCard";
+import { RatingBadge } from "@/components/RatingBadge";
+import { Faq } from "@/components/seo/Faq";
+import { seriesFaq } from "@/lib/faq";
 import { SITE, SITE_NAME, abs, excerpt, breadcrumbLd } from "@/lib/seo";
 
 export const revalidate = 600;
@@ -77,8 +81,18 @@ export default async function SeriesPage({
   const s = await getSeries(slug);
   if (!s) notFound();
 
+  const related = await relatedSeries(
+    s.id,
+    s.tags.map((t) => t.slug),
+    12,
+  );
+
   const coverSrc = cover(s.coverUrl);
   const bannerSrc = banner(s.bannerUrl) ?? coverSrc;
+  const rating = s.ratingCount > 0 ? s.ratingAvg : s.externalScore;
+  const runtimeMins = s.episodes.find((e) => e.runtimeSec)?.runtimeSec
+    ? Math.round((s.episodes.find((e) => e.runtimeSec)!.runtimeSec as number) / 60)
+    : null;
   // main CTA lands on the first actually-playable episode
   const playableEp =
     s.episodes.find((e) => e.bunnyStatus === "ready" || e._count.sources > 0) ??
@@ -114,7 +128,7 @@ export default async function SeriesPage({
             "@type": "AggregateRating",
             ratingValue: Number(s.ratingAvg.toFixed(2)),
             ratingCount: s.ratingCount,
-            bestRating: 5,
+            bestRating: 10,
             worstRating: 1,
           },
         }
@@ -193,7 +207,15 @@ export default async function SeriesPage({
                 <p className="mt-2 text-sm text-white/40">{s.altTitles.slice(0, 3).join(" · ")}</p>
               )}
 
-              <div className="mt-4 flex flex-wrap gap-1.5">
+              <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                {rating ? (
+                  <RatingBadge
+                    score={rating}
+                    votes={s.ratingCount || null}
+                    source={s.ratingCount > 0 ? null : "mal"}
+                    size="sm"
+                  />
+                ) : null}
                 <Pill tone="accent">{s.type}</Pill>
                 <Pill>{s.status[0] + s.status.slice(1).toLowerCase()}</Pill>
                 {s.year && <Pill>{s.year}</Pill>}
@@ -310,6 +332,94 @@ export default async function SeriesPage({
               );
             })}
           </div>
+        )}
+
+        {/* details + FAQ + related — real content, not a thin stub */}
+        <section className="mt-12">
+          <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
+            <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
+            About {s.title}
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-[220px_1fr]">
+            <dl className="space-y-2 rounded-2xl border border-line bg-surface/40 p-4 text-sm">
+              {(
+                [
+                  ["Type", s.type],
+                  ["Status", s.status[0] + s.status.slice(1).toLowerCase()],
+                  ["Year", s.year ?? "—"],
+                  ["Episodes", s.episodes.length || "—"],
+                  ["Runtime", runtimeMins ? `~${runtimeMins} min` : "—"],
+                  ["Version", s.isCensored ? "Censored" : "Uncensored"],
+                  [
+                    "Source",
+                    s.sourceMaterial
+                      ? s.sourceMaterial.replace(/_/g, " ").toLowerCase()
+                      : "—",
+                  ],
+                  ["Studio", s.studio?.name ?? "—"],
+                  [
+                    "Rating",
+                    rating ? `${rating.toFixed(1)} / 10${s.ratingCount ? "" : " (MAL)"}` : "—",
+                  ],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3">
+                  <dt className="shrink-0 text-white/40">{k}</dt>
+                  <dd className="text-right font-medium capitalize text-white/75">{v}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="text-sm leading-relaxed text-white/70">
+              <p>
+                {s.synopsis ??
+                  `${s.title} is ${/^[aeiou]/i.test(s.type) ? "an" : "a"} ${s.type.toLowerCase()} hentai${
+                    s.year ? ` from ${s.year}` : ""
+                  }${s.studio ? ` produced by ${s.studio.name}` : ""}.`}
+              </p>
+              <p className="mt-3">
+                All {s.episodes.length || ""} episode{s.episodes.length === 1 ? "" : "s"} of{" "}
+                {s.title} stream free in HD on {SITE_NAME} — {s.isCensored ? "censored" : "uncensored"},
+                no account needed, on desktop and mobile.
+                {s.tags.length > 0 && (
+                  <>
+                    {" "}
+                    If you like {s.title}, browse more{" "}
+                    {s.tags.slice(0, 3).map((t, i) => (
+                      <span key={t.slug}>
+                        {i > 0 && ", "}
+                        <Link href={`/tag/${t.slug}`} className="text-accent hover:underline">
+                          {t.name.toLowerCase()}
+                        </Link>
+                      </span>
+                    ))}{" "}
+                    hentai.
+                  </>
+                )}
+              </p>
+              {s.altTitles.length > 0 && (
+                <p className="mt-3 text-xs text-white/40">
+                  Also known as: {s.altTitles.slice(0, 6).join(" · ")}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <Faq items={seriesFaq(s)} title={`${s.title} — FAQ`} />
+
+        {related.length > 0 && (
+          <section className="mt-12">
+            <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
+              <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
+              You might also like
+            </h2>
+            <div className="grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 md:grid-cols-6">
+              {related.map((r) => (
+                <SeriesCard key={r.slug} series={r} />
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </main>

@@ -15,6 +15,7 @@
     "metadata:sync": "tsx --env-file=.env scripts/metadata-sync.mts",
     "unmatched:drain": "tsx --env-file=.env scripts/unmatched-drain.mts",
     "recompute": "tsx --env-file=.env scripts/recompute.mts",
+    "indexnow": "tsx --env-file=.env scripts/indexnow-recent.mts",
     "backfill:censored": "tsx --env-file=.env scripts/backfill-censored.mts",
     "scrape": "tsx --env-file=.env scripts/scrape.mts",
     "enrich": "tsx --env-file=.env scripts/enrich.mts",

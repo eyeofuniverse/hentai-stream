@@ -65,7 +65,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     ["", 1],
     ["/browse", 0.8],
-    ["/tags", 0.6],
+    ["/tags", 0.7],
+    ["/calendar", 0.5],
     ["/dmca", 0.2],
     ["/2257", 0.2],
     ["/terms", 0.2],
@@ -107,7 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                       200,
                     ),
                     content_loc: `${SITE}/hentai/${s.slug}/${e.number}`,
-                    player_loc: `${SITE}/hentai/${s.slug}/${e.number}`,
+                    player_loc: `${SITE}/embed/${s.slug}/${e.number}`,
                     publication_date: (e.airedAt ?? e.createdAt).toISOString(),
                     ...(e.runtimeSec ? { duration: e.runtimeSec } : {}),
                     family_friendly: "no" as const,

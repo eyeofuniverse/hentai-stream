@@ -6,10 +6,13 @@ import { cover, thumb, thumbSet } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { SmartImg } from "@/components/SmartImg";
 import { buildServers } from "@/lib/stream";
-import { SITE, SITE_NAME, episodeSeo, breadcrumbLd } from "@/lib/seo";
+import { SITE, SITE_NAME, abs, episodeSeo, breadcrumbLd } from "@/lib/seo";
 import { WatchPlayer } from "@/components/WatchPlayer";
 import { ReportBroken } from "@/components/ReportBroken";
 import { ViewPing } from "@/components/ViewPing";
+import { RatingBadge } from "@/components/RatingBadge";
+import { Faq } from "@/components/seo/Faq";
+import { episodeFaq } from "@/lib/faq";
 
 // ISR — most requests serve cached HTML; admin edits call revalidatePath.
 export const revalidate = 600;
@@ -72,15 +75,18 @@ export default async function WatchPage({
 
   const bunnyReady = ep.bunnyStatus === "ready" && !!ep.bunnyGuid;
   const servers = buildServers(ep.id, bunnyReady, ep.sources);
-  const poster = bunnyReady
-    ? bunnyThumb(ep.bunnyGuid!)
-    : cover(ep.series.coverUrl);
+  // the player poster must be landscape — a Bunny 16:9 still, or a scraped
+  // episode still; never the portrait series cover (it letterboxes badly)
+  const poster = bunnyReady ? bunnyThumb(ep.bunnyGuid!) : thumb(ep.thumbUrl) ?? null;
 
   const { title: seoTitle, description, genres } = episodeSeo(ep);
   const canonical = `${SITE}/hentai/${slug}/${ep.number}`;
-  const thumbs = [thumb(ep.series.coverUrl), cover(ep.series.coverUrl)].filter(
-    (x): x is string => !!x,
-  );
+  const embedUrl = `${SITE}/embed/${slug}/${ep.number}`;
+  const thumbs = [thumb(ep.series.coverUrl), cover(ep.series.coverUrl)]
+    .filter((x): x is string => !!x)
+    .map((x) => abs(x));
+  const rating =
+    ep.series.ratingCount > 0 ? ep.series.ratingAvg : ep.series.externalScore;
 
   const videoLd = {
     "@context": "https://schema.org",
@@ -90,7 +96,7 @@ export default async function WatchPage({
     thumbnailUrl: thumbs,
     uploadDate: (ep.airedAt ?? ep.createdAt).toISOString(),
     ...(ep.runtimeSec ? { duration: `PT${ep.runtimeSec}S` } : {}),
-    embedUrl: canonical,
+    embedUrl,
     url: canonical,
     genre: genres || undefined,
     keywords: ep.series.tags.map((t) => t.name).join(", ") || undefined,
@@ -100,7 +106,7 @@ export default async function WatchPage({
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
-      logo: { "@type": "ImageObject", url: `${SITE}/icon.svg` },
+      logo: { "@type": "ImageObject", url: `${SITE}/android-chrome-512x512.png` },
     },
     ...(ep.viewCount
       ? {
@@ -126,12 +132,19 @@ export default async function WatchPage({
     { name: `Episode ${ep.number}`, path: `/hentai/${slug}/${ep.number}` },
   ]);
 
+  const genreList = ep.series.tags.slice(0, 5).map((t) => t.name).join(", ");
   const bodyText =
     ep.synopsis ||
     ep.series.synopsis ||
-    `${ep.series.title} episode ${ep.number} — ${ep.series.type}${
-      ep.series.year ? `, ${ep.series.year}` : ""
-    }${ep.series.isCensored ? "" : ", uncensored"}. Stream it free in HD on ${SITE_NAME}.`;
+    `Watch ${ep.series.title} episode ${ep.number} online${
+      ep.series.isCensored ? "" : ", uncensored"
+    }. ${ep.series.title} is ${
+      /^[aeiou]/i.test(ep.series.type) ? "an" : "a"
+    } ${ep.series.type.toLowerCase()} hentai${
+      ep.series.year ? ` from ${ep.series.year}` : ""
+    }${ep.series.studio ? ` by ${ep.series.studio.name}` : ""}${
+      genreList ? `, tagged ${genreList}` : ""
+    }. Stream every episode free in HD on ${SITE_NAME} — no account, on desktop and mobile.`;
 
   const NavBtn = ({ to, children }: { to: number | null; children: React.ReactNode }) =>
     to ? (
@@ -177,11 +190,21 @@ export default async function WatchPage({
               <span className="text-white/60">Episode {ep.number}</span>
             </nav>
 
-            <h1 className="mt-2 font-display text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
-              {ep.series.title} — Episode {ep.number}
-              {ep.title ? `: ${ep.title}` : ""}
-              {!ep.series.isCensored ? " (Uncensored)" : ""}
-            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">
+                {ep.series.title} — Episode {ep.number}
+                {ep.title ? `: ${ep.title}` : ""}
+                {!ep.series.isCensored ? " (Uncensored)" : ""}
+              </h1>
+              {rating ? (
+                <RatingBadge
+                  score={rating}
+                  votes={ep.series.ratingCount || null}
+                  source={ep.series.ratingCount > 0 ? null : "mal"}
+                  size="sm"
+                />
+              ) : null}
+            </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex gap-2">
@@ -242,6 +265,11 @@ export default async function WatchPage({
                 </div>
               </Link>
             )}
+
+            <Faq
+              items={episodeFaq(ep)}
+              title={`${ep.series.title} Episode ${ep.number} — FAQ`}
+            />
           </div>
 
           <aside className="lg:sticky lg:top-20 lg:self-start">

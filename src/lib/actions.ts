@@ -5,6 +5,7 @@ import slugify from "slugify";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
+import { pingIndexNow } from "@/lib/indexnow";
 import type {
   AnimeSeason,
   PublishStatus,
@@ -17,18 +18,33 @@ const slug = (s: string) => slugify(s, { lower: true, strict: true });
 const csv = (v?: string) =>
   v ? [...new Set(v.split(",").map((x) => x.trim()).filter(Boolean))] : [];
 
-/** Bust the public ISR cache for a series + its shared pages. */
+/** Bust the public ISR cache for a series + its shared pages, and tell the
+ *  search engines (IndexNow) what changed. */
 async function bust(seriesId?: string) {
   revalidatePath("/");
   revalidatePath("/browse");
   revalidatePath("/tags");
+  revalidatePath("/calendar");
   if (seriesId) {
     const s = await prisma.series
-      .findUnique({ where: { id: seriesId }, select: { slug: true } })
+      .findUnique({
+        where: { id: seriesId },
+        select: {
+          slug: true,
+          publish: true,
+          episodes: { where: { publish: "PUBLISHED" }, select: { number: true } },
+        },
+      })
       .catch(() => null);
     if (s) {
       revalidatePath(`/hentai/${s.slug}`);
       revalidatePath(`/hentai/${s.slug}`, "layout");
+      if (s.publish === "PUBLISHED") {
+        void pingIndexNow([
+          `/hentai/${s.slug}`,
+          ...s.episodes.map((e) => `/hentai/${s.slug}/${e.number}`),
+        ]);
+      }
     }
   }
 }

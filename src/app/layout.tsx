@@ -19,7 +19,7 @@ const sora = Sora({
 });
 
 const DESC =
-  "Stream subbed, dubbed and uncensored hentai — series, OVAs and movies — free in HD. Updated daily. 18+ only.";
+  "Watch hentai online free in HD on LustHentai — 1,200+ subbed and uncensored series, OVAs and movies, with a fast ad-light player and no sign-up. New episodes added daily. 18+ only.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -29,6 +29,7 @@ export const metadata: Metadata = {
   },
   description: DESC,
   applicationName: SITE_NAME,
+  manifest: "/site.webmanifest",
   robots: {
     index: true,
     follow: true,
@@ -39,10 +40,17 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     type: "website",
     url: SITE,
+    title: `${SITE_NAME} — Watch Hentai Online, Subbed & Uncensored`,
+    description: DESC,
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: SITE_NAME }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@lusthentai",
     title: `${SITE_NAME} — Watch Hentai Online`,
     description: DESC,
+    images: ["/opengraph-image"],
   },
-  twitter: { card: "summary_large_image", title: SITE_NAME, description: DESC },
   other: {
     // ExoClick site verification
     "6a97888e-site-verification": "a783017d136a5ea8d282872b8d96abb9",

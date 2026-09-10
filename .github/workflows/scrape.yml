@@ -56,6 +56,8 @@ jobs:
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
             echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+            echo "NEXT_PUBLIC_SITE_URL=${{ secrets.SITE_URL }}"
+            echo "INDEXNOW_KEY=${{ secrets.INDEXNOW_KEY }}"
           } > .env
       - run: npx prisma generate
       - name: Scrape
@@ -88,3 +90,8 @@ jobs:
       - name: Queue new episodes into Bunny
         if: ${{ always() && github.event.inputs.dry_run != 'true' }}
         run: npm run migrate
+
+      - name: Ping IndexNow with what changed
+        if: ${{ always() && github.event.inputs.dry_run != 'true' }}
+        continue-on-error: true
+        run: npm run indexnow -- --hours=26

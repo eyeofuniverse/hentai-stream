@@ -44,6 +44,8 @@ jobs:
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
             echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+            echo "NEXT_PUBLIC_SITE_URL=${{ secrets.SITE_URL }}"
+            echo "INDEXNOW_KEY=${{ secrets.INDEXNOW_KEY }}"
           } > .env
       - run: npx prisma generate
 
@@ -81,3 +83,7 @@ jobs:
       - name: Recompute derived metrics
         continue-on-error: true
         run: npm run recompute
+
+      - name: Ping IndexNow with what changed
+        continue-on-error: true
+        run: npm run indexnow -- --hours=26

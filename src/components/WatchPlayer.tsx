@@ -3,11 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "@/lib/stream";
+import { gradientFor } from "@/lib/gradient";
 
-function Spinner() {
+function Spinner({ label }: { label?: string }) {
   return (
-    <span className="pointer-events-none absolute inset-0 grid place-items-center">
-      <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-accent" />
+    <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-black/30">
+      <span className="flex flex-col items-center gap-3">
+        <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-accent" />
+        {label && <span className="text-xs font-medium text-white/60">{label}</span>}
+      </span>
     </span>
   );
 }
@@ -33,15 +37,26 @@ export function WatchPlayer({
 
   const [idx, setIdx] = useState(0);
   const [started, setStarted] = useState(false);
-  const [buffering, setBuffering] = useState(false);
+  const [ready, setReady] = useState(false); // first frame / iframe loaded
   const [countdown, setCountdown] = useState<number | null>(null);
   const [dead, setDead] = useState(false);
 
   const cur = servers[idx];
 
+  // reset the "loading" veil whenever the active server changes
+  useEffect(() => {
+    if (started) setReady(false);
+  }, [idx, started]);
+
+  // safety: never let the loading veil hang forever (iframe with no load event)
+  useEffect(() => {
+    if (!started || ready) return;
+    const t = setTimeout(() => setReady(true), 9000);
+    return () => clearTimeout(t);
+  }, [started, ready, idx]);
+
   // silent failover to the next server
   const failover = useCallback(() => {
-    setBuffering(false);
     setIdx((i) => {
       if (i + 1 < servers.length) return i + 1;
       setDead(true);
@@ -169,19 +184,23 @@ export function WatchPlayer({
             onClick={play}
             aria-label="Play"
             className="absolute inset-0 h-full w-full"
+            style={
+              poster ? undefined : { backgroundImage: gradientFor(cur.key) }
+            }
           >
             {poster && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={poster}
                 alt=""
-                className="h-full w-full object-cover opacity-70 transition group-hover:opacity-90"
+                className="h-full w-full object-cover opacity-60 transition group-hover:opacity-80"
                 decoding="async"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
             )}
+            <span className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
             <span className="absolute inset-0 grid place-items-center">
               <span className="grid h-16 w-16 place-items-center rounded-full bg-accent/90 text-white shadow-glow backdrop-blur-sm transition group-hover:scale-110">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
@@ -191,15 +210,19 @@ export function WatchPlayer({
             </span>
           </button>
         ) : cur.type === "bunny" || cur.type === "iframe" ? (
-          <iframe
-            key={cur.key}
-            src={cur.src}
-            title="Video player"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            referrerPolicy="no-referrer"
-            className="h-full w-full border-0"
-          />
+          <>
+            <iframe
+              key={cur.key}
+              src={cur.src}
+              title="Video player"
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+              onLoad={() => setReady(true)}
+              className="h-full w-full border-0"
+            />
+            {!ready && <Spinner label="Loading…" />}
+          </>
         ) : (
           <>
             <video
@@ -210,14 +233,14 @@ export function WatchPlayer({
               controls
               autoPlay
               playsInline
-              preload="metadata"
+              preload="auto"
               controlsList="nodownload noremoteplayback noplaybackrate"
               disablePictureInPicture
               disableRemotePlayback
-              onWaiting={() => setBuffering(true)}
-              onPlaying={() => setBuffering(false)}
+              onLoadedData={() => setReady(true)}
+              onCanPlay={() => setReady(true)}
+              onPlaying={() => setReady(true)}
               onError={failover}
-              onStalled={() => setBuffering(true)}
               onVolumeChange={(e) => {
                 try {
                   localStorage.setItem(
@@ -231,7 +254,9 @@ export function WatchPlayer({
               onEnded={() => nextHref && setCountdown(10)}
               className="h-full w-full bg-black"
             />
-            {buffering && <Spinner />}
+            {/* our veil only until the first frame; the browser owns the
+                buffering indicator after that, so there's just one spinner */}
+            {!ready && <Spinner label="Loading…" />}
           </>
         )}
 

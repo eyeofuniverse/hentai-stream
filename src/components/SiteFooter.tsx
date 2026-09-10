@@ -35,11 +35,14 @@ export function SiteFooter() {
               href="/"
               className="flex items-center gap-2 font-display text-lg font-extrabold tracking-tight"
             >
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-white">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/android-chrome-192x192.png"
+                alt=""
+                width={28}
+                height={28}
+                className="h-7 w-7 rounded-lg"
+              />
               Lust<span className="text-accent">Hentai</span>
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/45">

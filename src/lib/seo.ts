@@ -76,7 +76,7 @@ export function organizationLd() {
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE,
-    logo: `${SITE}/icon.svg`,
+    logo: `${SITE}/android-chrome-512x512.png`,
   };
 }
 
