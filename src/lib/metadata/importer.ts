@@ -10,6 +10,15 @@ import {
   type NormalizedSeries,
   type MalSeason,
 } from "@/lib/metadata/mal";
+import { uploadRemoteToCloudinary } from "@/lib/cloudinary-upload";
+
+/** MAL's raw cover URL, uploaded into our own Cloudinary — never store a
+ *  hotlink. Falls back to the raw URL if the upload fails (source down,
+ *  Cloudinary hiccup) so a transient failure never loses the cover outright. */
+async function resolveCover(rawUrl: string | null, slug: string): Promise<string | null> {
+  if (!rawUrl) return null;
+  return (await uploadRemoteToCloudinary(rawUrl, "series/covers", slug)) ?? rawUrl;
+}
 
 const CAT_BY_NAME = new Map<string, TagCategory>(
   TAG_DICTIONARY.map((t) => [slugify(t.name), t.category]),
@@ -169,7 +178,7 @@ export async function importSeries(
   const existing = await db(() =>
     prisma.series.findUnique({
       where: { malId: n.malId },
-      select: { id: true, slug: true, metadataSource: true, publish: true },
+      select: { id: true, slug: true, metadataSource: true, publish: true, coverUrl: true },
     }),
   );
 
@@ -223,7 +232,8 @@ export async function importSeries(
     totalEpisodes: n.totalEpisodes,
     airDay: (n.airDay as Prisma.SeriesCreateInput["airDay"]) ?? null,
     externalScore: n.externalScore,
-    coverUrl: n.coverUrl,
+    // coverUrl deliberately left out here — it needs the row's slug to pick
+    // a Cloudinary public_id, which isn't settled until each branch below
     contentWarnings,
     studioId: studio?.id ?? null,
     metadataSource: "mal",
@@ -232,10 +242,12 @@ export async function importSeries(
 
   if (!existing) {
     const slug = await freeSlug(n.title, n.malId);
+    const coverUrl = await resolveCover(n.coverUrl, slug);
     const created = await db(() =>
       prisma.series.create({
         data: {
           ...core,
+          coverUrl,
           slug,
           malId: n.malId,
           publish: "DRAFT",
@@ -272,6 +284,7 @@ export async function importSeries(
         },
       }),
     );
+    const coverUrl = cur?.coverUrl ?? (await resolveCover(n.coverUrl, existing.slug));
     await db(() =>
       prisma.series.update({
         where: { id: existing.id },
@@ -279,7 +292,7 @@ export async function importSeries(
           synopsis: cur?.synopsis ?? n.synopsis,
           titleOriginal: cur?.titleOriginal ?? n.titleOriginal,
           titleEnglish: cur?.titleEnglish ?? n.titleEnglish,
-          coverUrl: cur?.coverUrl ?? n.coverUrl,
+          coverUrl,
           year: cur?.year ?? n.year,
           animeSeason:
             cur?.animeSeason ??
@@ -299,12 +312,20 @@ export async function importSeries(
     return;
   }
 
-  // our own metadata row — full refresh
+  // our own metadata row — full refresh. Skip re-uploading a cover we've
+  // already migrated to Cloudinary (existing.coverUrl no longer starts with
+  // http) — MAL's art for an already-catalogued series essentially never
+  // changes, so there's nothing to gain from re-fetching it every sync.
+  const coverUrl =
+    existing.coverUrl && !existing.coverUrl.startsWith("http")
+      ? existing.coverUrl
+      : await resolveCover(n.coverUrl, existing.slug);
   await db(() =>
     prisma.series.update({
       where: { id: existing.id },
       data: {
         ...core,
+        coverUrl,
         tags: { set: tagIds.map((id) => ({ id })) },
       },
     }),

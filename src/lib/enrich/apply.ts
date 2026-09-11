@@ -1,6 +1,7 @@
 import { prisma, db } from "@/lib/db";
 import { slugify } from "@/lib/metadata/tags";
 import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
+import { uploadRemoteToCloudinary } from "@/lib/cloudinary-upload";
 import type { EnrichResult } from "./types";
 
 export interface ApplyStats {
@@ -33,6 +34,7 @@ export async function applyEnrichment(
     prisma.series.findUnique({
       where: { id: seriesId },
       select: {
+        slug: true,
         metadataSource: true,
         titleEnglish: true,
         titleOriginal: true,
@@ -70,8 +72,16 @@ export async function applyEnrichment(
     fill("titleOriginal", s.titleOriginal, !cur.titleOriginal);
     fill("titleRomaji", s.titleRomaji, !cur.titleRomaji);
     fill("synopsis", s.synopsis, !cur.synopsis);
-    fill("coverUrl", s.coverUrl, !cur.coverUrl);
-    fill("bannerUrl", s.bannerUrl, !cur.bannerUrl);
+    // covers/banners go through Cloudinary, never stored as a raw hotlink
+    if (s.coverUrl && !cur.coverUrl) {
+      data.coverUrl = (await uploadRemoteToCloudinary(s.coverUrl, "series/covers", cur.slug)) ?? s.coverUrl;
+      stats.fieldsFilled++;
+    }
+    if (s.bannerUrl && !cur.bannerUrl) {
+      data.bannerUrl =
+        (await uploadRemoteToCloudinary(s.bannerUrl, "series/banners", cur.slug)) ?? s.bannerUrl;
+      stats.fieldsFilled++;
+    }
     fill("externalScore", s.externalScore, cur.externalScore == null);
     fill("year", s.year, cur.year == null);
     // censorship: external sources are authoritative, always apply when given

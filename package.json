@@ -17,6 +17,7 @@
     "recompute": "tsx --env-file=.env scripts/recompute.mts",
     "indexnow": "tsx --env-file=.env scripts/indexnow-recent.mts",
     "backfill:censored": "tsx --env-file=.env scripts/backfill-censored.mts",
+    "backfill:cloudinary": "tsx --env-file=.env scripts/backfill-cloudinary.mts",
     "scrape": "tsx --env-file=.env scripts/scrape.mts",
     "enrich": "tsx --env-file=.env scripts/enrich.mts",
     "verify": "tsx --env-file=.env scripts/verify.mts",
