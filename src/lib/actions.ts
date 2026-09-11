@@ -240,9 +240,18 @@ export async function setSeriesPublish(id: string, publish: PublishStatus) {
 
 export async function deleteSeries(id: string) {
   await requireAdmin("ADMIN");
-  const s = await prisma.series
-    .findUnique({ where: { id }, select: { slug: true } })
-    .catch(() => null);
+  const s = await prisma.series.findUnique({
+    where: { id },
+    select: { slug: true, episodes: { select: { bunnyGuid: true } } },
+  });
+  // Prisma cascades the DB rows, but Bunny has no idea any of this happened —
+  // its videos are a separate, billed resource that just sits there forever
+  // unless we explicitly tell it to delete each one first.
+  const guids = s?.episodes.map((e) => e.bunnyGuid).filter((g): g is string => !!g) ?? [];
+  if (guids.length) {
+    const { deleteVideo } = await import("@/lib/hosting/bunny");
+    await Promise.all(guids.map((g) => deleteVideo(g).catch(() => {})));
+  }
   await prisma.series.delete({ where: { id } });
   revalidatePath("/console/series");
   if (s) revalidatePath(`/hentai/${s.slug}`);
@@ -251,6 +260,13 @@ export async function deleteSeries(id: string) {
 
 export async function deleteEpisode(id: string) {
   await requireAdmin();
+  const before = await prisma.episode
+    .findUnique({ where: { id }, select: { bunnyGuid: true } })
+    .catch(() => null);
+  if (before?.bunnyGuid) {
+    const { deleteVideo } = await import("@/lib/hosting/bunny");
+    await deleteVideo(before.bunnyGuid).catch(() => {});
+  }
   const e = await prisma.episode.delete({
     where: { id },
     select: { seriesId: true },

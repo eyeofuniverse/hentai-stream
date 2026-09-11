@@ -146,8 +146,16 @@ export async function runMigrate(opts: {
 
     let done = false;
     for (const src of srcs) {
+      // Tracked outside the try so the catch block can always clean up a
+      // video Bunny created for this attempt — createVideo() succeeding but
+      // a LATER step throwing (a transport error out of fetchIntoVideo after
+      // its own retries, a timeout, etc.) used to leave that video behind in
+      // Bunny forever: never saved to episode.bunnyGuid, so nothing here or
+      // in a later retry ever knew to delete it. That's how the library
+      // count drifted far above what the DB thinks is hosted.
+      let video: Awaited<ReturnType<typeof createVideo>> | null = null;
       try {
-        const video = await createVideo(`${ep.series.title} - E${ep.number}`);
+        video = await createVideo(`${ep.series.title} - E${ep.number}`);
         const ref = src.sourceSite ? SITE_REFERER[src.sourceSite] : undefined;
         const res = await fetchIntoVideo(
           video.guid,
@@ -156,6 +164,7 @@ export async function runMigrate(opts: {
         );
         if (!res.success && res.statusCode >= 400) {
           await deleteVideo(video.guid);
+          video = null; // already deleted — don't delete again in the catch
           // the source URL itself is gone (stream sites rotate their CDN links)
           // — mark it DEAD so verify/re-scrape replaces it instead of retrying
           if (/\b(404|410|not found|gone)\b/i.test(res.message ?? "")) {
@@ -175,20 +184,23 @@ export async function runMigrate(opts: {
         const chk = await getVideo(video.guid).catch(() => null);
         if (chk && chk.status === 6) {
           await deleteVideo(video.guid);
+          video = null;
           throw new Error(`bunny fetch failed (source rate-limited?)`);
         }
 
+        const guid = video.guid;
         await db(() =>
           prisma.episode.update({
             where: { id: ep.id },
-            data: { bunnyGuid: video.guid, bunnyStatus: "fetching", bunnyError: null },
+            data: { bunnyGuid: guid, bunnyStatus: "fetching", bunnyError: null },
           }),
         );
         s.queued++;
-        log(`  ↑ ${ep.series.title} E${ep.number} → ${video.guid} (${src.sourceSite})`);
+        log(`  ↑ ${ep.series.title} E${ep.number} → ${guid} (${src.sourceSite})`);
         done = true;
         break;
       } catch (e) {
+        if (video) await deleteVideo(video.guid).catch(() => {});
         log(`  · ${ep.series.title} E${ep.number} via ${src.sourceSite}: ${(e as Error).message}`);
       }
     }
