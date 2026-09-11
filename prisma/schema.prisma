@@ -888,3 +888,30 @@ model SearchTermStat {
   @@index([lastResultCount])
   @@index([lastSearchedAt])
 }
+
+/// One row per page load, written by the public /api/track beacon. Pruned
+/// implicitly by only ever querying a recent window — nothing deletes these,
+/// so a periodic cleanup job is worth adding once volume gets large.
+model PageVisit {
+  id         String   @id @default(cuid())
+  ip         String
+  path       String
+  userAgent  String?
+  referrer   String?
+  deviceType String?
+  visitedAt  DateTime @default(now())
+
+  @@index([visitedAt])
+  @@index([ip])
+  @@index([referrer])
+}
+
+/// Cache of ip-api.com lookups so the same visitor IP isn't re-resolved on
+/// every admin analytics page load.
+model IpGeoCache {
+  ip          String   @id
+  country     String?
+  countryCode String?
+  city        String?
+  cachedAt    DateTime @default(now()) @updatedAt
+}

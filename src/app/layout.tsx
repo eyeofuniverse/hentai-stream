@@ -3,6 +3,7 @@ import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { AgeGate } from "@/components/AgeGate";
 import { Analytics } from "@/components/Analytics";
+import { PageTracker } from "@/components/PageTracker";
 import { GlobalPopUnder } from "@/components/ads/GlobalPopUnder";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -93,6 +94,7 @@ export default function RootLayout({
           }}
         />
         <Analytics />
+        <PageTracker />
         <GlobalPopUnder />
       </body>
     </html>

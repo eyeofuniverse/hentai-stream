@@ -14,6 +14,7 @@ import {
   Search,
   Megaphone,
   DatabaseZap,
+  BarChart2,
   Home,
   Menu,
   X,
@@ -51,6 +52,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   search: Search,
   ads: Megaphone,
   metadata: DatabaseZap,
+  analytics: BarChart2,
 };
 
 const TONE: Record<string, string> = {

@@ -60,6 +60,10 @@ export default async function PanelLayout({
       ],
     },
     {
+      label: "Insights",
+      items: [{ href: "/console/analytics", label: "Analytics", icon: "analytics" }],
+    },
+    {
       label: "Moderation",
       items: [
         {
