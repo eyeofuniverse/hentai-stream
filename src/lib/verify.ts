@@ -1,5 +1,6 @@
 import { prisma, db } from "@/lib/db";
 import type { SourceStatus } from "@prisma/client";
+import { pingIndexNow } from "@/lib/indexnow";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
@@ -69,7 +70,11 @@ export async function checkUrl(url: string, direct: boolean): Promise<CheckResul
 }
 
 /** Publish an episode if it has a live source, and its series if it has a live
- *  episode — respecting the possible-minor gate. Used by verify + ingest. */
+ *  episode — respecting the possible-minor gate. Used by verify + ingest.
+ *  Whatever newly goes live gets pinged to IndexNow right here, so every
+ *  auto-publish path (webhook, poll, verify, torrent-approve) reports new
+ *  content the moment it's actually reachable — not just admin-triggered
+ *  edits through the console. */
 export async function publishIfLive(episodeId: string): Promise<{
   episodePublished: boolean;
   seriesPublished: boolean;
@@ -80,9 +85,10 @@ export async function publishIfLive(episodeId: string): Promise<{
       select: {
         publish: true,
         seriesId: true,
+        number: true,
         bunnyStatus: true,
         needsReview: true,
-        series: { select: { publish: true, contentWarnings: true } },
+        series: { select: { slug: true, publish: true, contentWarnings: true } },
         _count: { select: { sources: { where: { status: "ACTIVE" } } } },
       },
     }),
@@ -123,6 +129,14 @@ export async function publishIfLive(episodeId: string): Promise<{
       seriesPublished = true;
     }
   }
+
+  if (episodePublished || seriesPublished) {
+    const urls = [`/hentai/${ep.series.slug}/${ep.number}`];
+    // a brand-new series also means its series page is new/changed
+    if (seriesPublished) urls.push(`/hentai/${ep.series.slug}`);
+    await pingIndexNow(urls);
+  }
+
   return { episodePublished, seriesPublished };
 }
 

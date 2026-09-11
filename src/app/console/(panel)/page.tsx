@@ -11,6 +11,7 @@ import {
 } from "@/components/console/ui";
 import { runMetadataSync } from "@/lib/metadata-actions";
 import { SubmitButton } from "@/components/console/SubmitButton";
+import { IndexNowButton } from "@/components/console/IndexNowButton";
 
 type SyncLog = {
   at?: string;
@@ -311,6 +312,16 @@ export default async function AdminHome() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-6 p-5">
+        <SectionTitle>SEO tools</SectionTitle>
+        <p className="mb-4 text-xs text-white/45">
+          Submit the whole published catalogue to IndexNow (Bing and other IndexNow-compatible
+          search engines) in one go. New series and episodes don&apos;t need this — they&apos;re
+          already submitted automatically the moment they go live.
+        </p>
+        <IndexNowButton />
+      </Card>
     </div>
   );
 }
