@@ -104,7 +104,7 @@ export function WatchlistCard({
           setOpen((o) => !o);
         }}
         disabled={busy}
-        className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white/90 backdrop-blur-sm transition hover:bg-black/90 disabled:opacity-50"
+        className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/85 px-1.5 py-0.5 text-[10px] font-bold text-white/90 transition hover:bg-black/90 disabled:opacity-50"
       >
         {SHORT[st]} ▾
       </button>

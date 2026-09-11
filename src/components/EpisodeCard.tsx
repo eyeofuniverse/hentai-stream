@@ -12,11 +12,17 @@ export function EpisodeCard({
     runtimeSec?: number | null;
     bunnyGuid?: string | null;
     bunnyStatus?: string | null;
+    thumbUrl?: string | null;
     series: { slug: string; title: string; coverUrl: string | null };
   };
 }) {
   const hosted = ep.bunnyStatus === "ready" && ep.bunnyGuid;
-  const src = hosted ? bunnyThumb(ep.bunnyGuid!) : thumb(ep.series.coverUrl);
+  // Bunny's own thumbnail once hosted, else the episode's own scraped
+  // thumbnail (often available well before hosting finishes), else the
+  // series cover as a last resort before SmartImg's gradient placeholder.
+  const seriesThumb = thumb(ep.series.coverUrl);
+  const src = hosted ? bunnyThumb(ep.bunnyGuid!) : (thumb(ep.thumbUrl) ?? seriesThumb);
+  const srcSetSource = !hosted ? (ep.thumbUrl ?? ep.series.coverUrl) : null;
   const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
 
   return (
@@ -27,9 +33,9 @@ export function EpisodeCard({
       <div className="relative aspect-video overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/5">
         <SmartImg
           src={src}
-          fallback={thumb(ep.series.coverUrl)}
+          fallback={seriesThumb}
           seed={`${ep.series.slug}-${ep.number}`}
-          srcSet={hosted ? undefined : thumbSet(ep.series.coverUrl) ?? undefined}
+          srcSet={srcSetSource ? (thumbSet(srcSetSource) ?? undefined) : undefined}
           sizes={THUMB_SIZES}
           width={360}
           height={203}
@@ -50,7 +56,7 @@ export function EpisodeCard({
           EP {ep.number}
         </span>
         {mins && (
-          <span className="absolute bottom-2 right-2 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+          <span className="absolute bottom-2 right-2 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-semibold text-white/90">
             {mins}m
           </span>
         )}

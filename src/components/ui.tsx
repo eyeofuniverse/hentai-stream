@@ -112,7 +112,7 @@ export function Poster({
 export function PlayGlyph() {
   return (
     <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-0 transition duration-300 group-hover:opacity-100">
-      <span className="grid h-12 w-12 place-items-center rounded-full bg-accent/90 text-white shadow-glow backdrop-blur-sm">
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-accent/90 text-white shadow-glow">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z" />
         </svg>

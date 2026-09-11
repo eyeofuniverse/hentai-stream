@@ -266,6 +266,55 @@ const EMPTY_HOME = {
   tagRows: [] as never[],
 };
 
+const HERO_INCLUDE = {
+  tags: { take: 4, orderBy: { name: "asc" as const } },
+  studio: { select: { name: true, slug: true } },
+  episodes: {
+    where: { publish: "PUBLISHED" as const },
+    orderBy: { number: "asc" as const },
+    take: 1,
+    select: { number: true },
+  },
+  _count: { select: { episodes: { where: { publish: "PUBLISHED" as const } } } },
+};
+
+/**
+ * Hero rail, preferring series that actually have a banner — the fallback for
+ * a bannerless series is a heavily blurred, darkened cover, which against the
+ * dark theme reads as "nothing there" more than as a backdrop. Only ~1 in 5
+ * series has a banner, so picking the newest 7 releases outright (as before)
+ * could — and in practice did — land on a run of hero slides with no banner
+ * at all. Two-pass: fill from banner-having candidates first, pad with
+ * bannerless ones (in the same recency order) only if that's not enough.
+ */
+async function getHero(pub: { publish: "PUBLISHED" }, heroYear: number | null) {
+  const baseWhere = {
+    ...pub,
+    coverUrl: { not: null },
+    ...(heroYear ? { year: { gte: heroYear - 1 } } : {}),
+  };
+  const orderBy = [
+    { releaseDate: { sort: "desc" as const, nulls: "last" as const } },
+    { createdAt: "desc" as const },
+  ];
+
+  const withBanner = await prisma.series.findMany({
+    where: { ...baseWhere, bannerUrl: { not: null } },
+    orderBy,
+    take: 7,
+    include: HERO_INCLUDE,
+  });
+  if (withBanner.length >= 7) return withBanner;
+
+  const rest = await prisma.series.findMany({
+    where: { ...baseWhere, id: { notIn: withBanner.map((s) => s.id) } },
+    orderBy,
+    take: 7 - withBanner.length,
+    include: HERO_INCLUDE,
+  });
+  return [...withBanner, ...rest];
+}
+
 export async function homeSections() {
   try {
     return await db(() => homeSectionsInner());
@@ -309,32 +358,7 @@ async function homeSectionsInner() {
     featuredTags,
     railTags,
   ] = await Promise.all([
-    prisma.series.findMany({
-      // hero: never feature an art-less series — a gradient block as the first
-      // thing a visitor sees looks broken. Widen to the last two years so it
-      // stays full even when this year's crop isn't enriched yet.
-      where: {
-        ...pub,
-        coverUrl: { not: null },
-        ...(heroYear ? { year: { gte: heroYear - 1 } } : {}),
-      },
-      orderBy: [
-        { releaseDate: { sort: "desc", nulls: "last" } },
-        { createdAt: "desc" },
-      ],
-      take: 7,
-      include: {
-        tags: { take: 4, orderBy: { name: "asc" } },
-        studio: { select: { name: true, slug: true } },
-        episodes: {
-          where: pub,
-          orderBy: { number: "asc" },
-          take: 1,
-          select: { number: true },
-        },
-        _count: { select: { episodes: { where: pub } } },
-      },
-    }),
+    getHero(pub, heroYear),
     prisma.series.findMany({
       where: pubArt,
       orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],

@@ -85,9 +85,16 @@ export function SiteHeader() {
 
   return (
     <header
+      // Deliberately no backdrop-blur here — this header is `sticky`, so a
+      // blur filter has to be recomposited by the browser on every single
+      // scroll frame for the entire life of the page (the content sliding
+      // underneath it never stops changing). That's one of the most common,
+      // well-documented causes of janky scrolling. A near-opaque solid
+      // background reads almost identically against this site's dark theme
+      // at a fraction of the compositing cost.
       className={`sticky top-0 z-50 transition-colors duration-300 ${
         scrolled || menu
-          ? "border-b border-line bg-bg/85 backdrop-blur-xl"
+          ? "border-b border-line bg-bg/97"
           : "border-b border-transparent bg-gradient-to-b from-bg/90 to-transparent"
       }`}
     >
