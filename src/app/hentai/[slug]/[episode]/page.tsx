@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getEpisode, relatedSeries, miniLists } from "@/lib/queries";
+import { findRedirect } from "@/lib/redirect-map";
 import { cover, thumb, thumbSet } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
 import { SmartImg } from "@/components/SmartImg";
@@ -68,7 +69,11 @@ export default async function WatchPage({
   const { slug, episode } = await params;
   const num = Number(episode);
   const ep = await getEpisode(slug, num);
-  if (!ep) notFound();
+  if (!ep) {
+    const to = await findRedirect(`/hentai/${slug}/${episode}`);
+    if (to) permanentRedirect(to);
+    notFound();
+  }
 
   const s = ep.series;
   const eps = s.episodes;

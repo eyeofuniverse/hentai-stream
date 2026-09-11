@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { AdSlot } from "@/components/AdSlot";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getSeries, relatedSeries } from "@/lib/queries";
+import { findRedirect } from "@/lib/redirect-map";
 import { prisma } from "@/lib/db";
 import { cover, coverSet, banner, bannerSet, thumb } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
@@ -82,7 +83,11 @@ export default async function SeriesPage({
 }) {
   const { slug } = await params;
   const s = await getSeries(slug);
-  if (!s) notFound();
+  if (!s) {
+    const to = await findRedirect(`/hentai/${slug}`);
+    if (to) permanentRedirect(to);
+    notFound();
+  }
 
   const related = await relatedSeries(
     s.id,
