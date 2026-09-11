@@ -41,7 +41,6 @@ export async function generateMetadata({
   if (!ep) return { title: "Not found", robots: { index: false } };
 
   const { title, description } = episodeSeo(ep);
-  const img = thumb(ep.series.coverUrl) ?? cover(ep.series.coverUrl);
   const canonical = `/hentai/${slug}/${ep.number}`;
 
   return {
@@ -54,14 +53,10 @@ export async function generateMetadata({
       url: canonical,
       type: "video.episode",
       siteName: SITE_NAME,
-      images: img ? [{ url: img, width: 480, height: 270 }] : [],
+      // image comes from opengraph-image.tsx in this route segment — the
+      // episode's real Bunny thumbnail when hosted, always a proper 1200x630
     },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: img ? [img] : [],
-    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

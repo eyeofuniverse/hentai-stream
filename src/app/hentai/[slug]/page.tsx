@@ -57,8 +57,6 @@ export async function generateMetadata({
         }. Free HD on ${SITE_NAME}.`,
     300,
   );
-  const img = cover(s.coverUrl);
-
   return {
     title,
     description: desc,
@@ -68,10 +66,12 @@ export async function generateMetadata({
       description: desc,
       url: `/hentai/${s.slug}`,
       siteName: SITE_NAME,
-      images: img ? [{ url: img, width: 360, height: 540 }] : [],
       type: "video.tv_show",
+      // image comes from opengraph-image.tsx in this route segment — a
+      // properly-sized 1200x630 branded card, not the raw (often portrait,
+      // often third-party-hotlinked) cover art
     },
-    twitter: { card: "summary_large_image", title, description: desc, images: img ? [img] : [] },
+    twitter: { card: "summary_large_image", title, description: desc },
   };
 }
 

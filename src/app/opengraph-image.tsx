@@ -33,16 +33,9 @@ export default function OG() {
               justifyContent: "center",
             }}
           >
-            <div
-              style={{
-                width: 0,
-                height: 0,
-                borderTop: "16px solid transparent",
-                borderBottom: "16px solid transparent",
-                borderLeft: "26px solid #ffffff",
-                marginLeft: 6,
-              }}
-            />
+            <svg width="26" height="30" viewBox="0 0 26 30" style={{ marginLeft: 6 }}>
+              <path d="M0 0L26 15L0 30V0Z" fill="#ffffff" />
+            </svg>
           </div>
           <div
             style={{ display: "flex", fontSize: 44, fontWeight: 800, marginLeft: 20 }}
