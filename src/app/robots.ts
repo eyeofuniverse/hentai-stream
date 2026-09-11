@@ -11,7 +11,16 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       // note: the management console is deliberately NOT listed — it's
       // noindex + 404-cloaked, and naming it here would just advertise it
-      disallow: ["/api", "/auth", "/login", "/search", "/watchlist", "/submit"],
+      disallow: [
+        "/api",
+        "/auth",
+        "/login",
+        "/search",
+        "/watchlist",
+        "/submit",
+        "/history",
+        "/account",
+      ],
     },
     sitemap: `${SITE}/sitemap.xml`,
     host: SITE,
