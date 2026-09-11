@@ -9,27 +9,29 @@ const authorSel = {
 /** Comments the operator should look at: open reports first, then anything the
  *  auto-hide threshold caught. */
 export async function moderationQueue() {
-  const [reportRows, hidden] = await Promise.all([
-    prisma.report.findMany({
-      where: { targetType: "comment", status: "OPEN" },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: { targetId: true, reason: true, details: true, createdAt: true },
-    }),
-    prisma.comment.findMany({
-      where: { status: "HIDDEN" },
-      orderBy: { updatedAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        body: true,
-        createdAt: true,
-        targetType: true,
-        targetId: true,
-        profile: { select: authorSel },
-      },
-    }),
-  ]);
+  const reportRows = await prisma.report.findMany({
+    where: { targetType: "comment", status: "OPEN" },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    select: { targetId: true, reason: true, details: true, createdAt: true },
+  });
+
+  // auto-hidden comments that still have an open report belong in "Reported"
+  // (below) — excluding them here stops the same comment appearing twice.
+  const openReportedIds = [...new Set(reportRows.map((r) => r.targetId))];
+  const hidden = await prisma.comment.findMany({
+    where: { status: "HIDDEN", id: { notIn: openReportedIds } },
+    orderBy: { updatedAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      body: true,
+      createdAt: true,
+      targetType: true,
+      targetId: true,
+      profile: { select: authorSel },
+    },
+  });
 
   const byComment = new Map<
     string,

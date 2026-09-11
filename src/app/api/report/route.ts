@@ -81,6 +81,8 @@ export async function POST(req: Request) {
             targetId: d.targetId,
             reason: "UNDERAGE",
             reporterId: { not: null },
+            status: "OPEN", // a moderator's "keep" resolves stale reports — they must not
+            // keep counting toward re-triggering auto-hide once dismissed
           },
           select: { reporterId: true },
           distinct: ["reporterId"],
@@ -106,7 +108,12 @@ export async function POST(req: Request) {
     if (!hide && session) {
       const reporters = await prisma.report
         .findMany({
-          where: { targetType: "comment", targetId: d.targetId, reporterId: { not: null } },
+          where: {
+            targetType: "comment",
+            targetId: d.targetId,
+            reporterId: { not: null },
+            status: "OPEN", // same reasoning as the UNDERAGE case above
+          },
           select: { reporterId: true },
           distinct: ["reporterId"],
         })
