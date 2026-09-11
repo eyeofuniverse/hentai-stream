@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const COLS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -26,6 +29,10 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
 ];
 
 export function SiteFooter() {
+  const pathname = usePathname() || "/";
+  // the admin console has its own chrome — never the public footer
+  if (pathname.startsWith("/console")) return null;
+
   return (
     <footer className="mt-20 border-t border-line bg-surface/30">
       <div className="mx-auto max-w-content px-4 py-12 lg:px-8">

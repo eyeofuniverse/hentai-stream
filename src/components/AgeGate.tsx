@@ -1,12 +1,25 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 /**
- * Server-rendered so it paints with the HTML. The `vok` class is added to
- * <html> by a tiny inline script in the root layout <body> that runs before
- * first paint (so a returning visitor never sees a flash or a blocked click);
- * this script only handles the button press. It NEVER removes DOM nodes, so
- * React's hydration of the surrounding tree is untouched (that was #418). CSS
- * hides the gate + unlocks scroll when the class is present.
+ * Rendered as part of the initial HTML (a client component still SSRs) so it
+ * paints with the page — no flash, no blocked click while JS loads. The
+ * `vok` class is added to <html> by a tiny inline script in the root layout
+ * <body> that runs before first paint (so a returning visitor never sees the
+ * gate at all); this script only handles the button press. It NEVER removes
+ * DOM nodes, so React's hydration of the surrounding tree is untouched (that
+ * was #418). CSS hides the gate + unlocks scroll when the class is present.
+ *
+ * Never shown on /console — the admin panel isn't public-facing content, and
+ * the gate's full-viewport overlay would otherwise sit on top of it (and
+ * block every click) for anyone whose browser doesn't already carry the
+ * lh_vok cookie.
  */
 export function AgeGate() {
+  const pathname = usePathname() || "/";
+  if (pathname.startsWith("/console")) return null;
+
   return (
     <>
       <div

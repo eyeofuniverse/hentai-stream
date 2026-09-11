@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { confirmAutoPublish } from "@/lib/scraper-actions";
 import { setSeriesPublish } from "@/lib/actions";
-import { SubmitButton } from "@/components/console/SubmitButton";
 import { Card, Badge, SectionTitle, EmptyState, btnCls, timeAgo } from "@/components/console/ui";
 
 export type AutoPubItem = {
@@ -16,12 +15,42 @@ export type AutoPubItem = {
   episodeCount: number;
 };
 
-/** Auto-published spot-check queue: per-row actions plus a checkbox-driven
- *  bulk "Looks good" / "Unpublish" for clearing several at once. */
-export function AutoPublishQueue({ items }: { items: AutoPubItem[] }) {
+/**
+ * Auto-published spot-check queue: per-row actions plus a checkbox-driven
+ * bulk "Looks good" / "Unpublish" for clearing several at once.
+ *
+ * Rows are removed from view the moment their own action actually succeeds,
+ * from local state — not by waiting on router.refresh() to bring back a
+ * fresh server list. A directly-invoked Server Action (no <form>, called
+ * from a plain onClick) isn't guaranteed to have its router.refresh() land
+ * as a visible re-render on every Next.js/Turbopack dev build, so the
+ * visible list can't depend on that succeeding. router.refresh() is still
+ * called as a best-effort background sync (nav badge counts, etc.) — and
+ * *because* it's best-effort, a stale round-trip that lands late must never
+ * be allowed to resurrect a row this component already removed locally;
+ * removedIds guards against exactly that.
+ */
+export function AutoPublishQueue({ items: initialItems }: { items: AutoPubItem[] }) {
   const router = useRouter();
+  const [items, setItems] = useState(initialItems);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
+  const removedIds = useRef<Set<string>>(new Set());
+
+  // Pick up a fresh server list whenever one arrives (e.g. a background
+  // router.refresh() does land, or the admin navigates back here) — minus
+  // anything we've already removed locally, so a late/stale refresh can't
+  // bring a just-processed row back.
+  useEffect(() => {
+    setItems(initialItems.filter((i) => !removedIds.current.has(i.id)));
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(initialItems.map((i) => i.id));
+      const next = new Set([...prev].filter((id) => live.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [initialItems]);
 
   const allSelected = items.length > 0 && selected.size === items.length;
 
@@ -36,6 +65,35 @@ export function AutoPublishQueue({ items }: { items: AutoPubItem[] }) {
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(items.map((s) => s.id)));
+  }
+
+  function removeLocally(ids: Set<string>) {
+    for (const id of ids) removedIds.current.add(id);
+    setItems((prev) => prev.filter((it) => !ids.has(it.id)));
+    setSelected((prev) => {
+      if (![...ids].some((id) => prev.has(id))) return prev;
+      const next = new Set(prev);
+      for (const id of ids) next.delete(id);
+      return next;
+    });
+  }
+
+  async function runOne(id: string, action: "confirm" | "unpublish") {
+    if (busyIds.has(id) || pending) return;
+    setBusyIds((b) => new Set(b).add(id));
+    try {
+      await (action === "confirm" ? confirmAutoPublish(id) : setSeriesPublish(id, "HIDDEN"));
+      removeLocally(new Set([id]));
+      router.refresh();
+    } catch {
+      window.alert("That didn't go through. Try again.");
+    } finally {
+      setBusyIds((b) => {
+        const next = new Set(b);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   function runBulk(action: "confirm" | "unpublish") {
@@ -55,8 +113,9 @@ export function AutoPublishQueue({ items }: { items: AutoPubItem[] }) {
           action === "confirm" ? confirmAutoPublish(id) : setSeriesPublish(id, "HIDDEN"),
         ),
       );
+      const succeeded = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
       const failed = ids.filter((_, i) => results[i].status === "rejected");
-      // drop the ones that succeeded so a retry only touches what's left
+      removeLocally(succeeded);
       setSelected(new Set(failed));
       router.refresh();
       if (failed.length > 0) {
@@ -115,39 +174,46 @@ export function AutoPublishQueue({ items }: { items: AutoPubItem[] }) {
             />
             Select all
           </label>
-          {items.map((s) => (
-            <Card key={s.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
-              <input
-                type="checkbox"
-                checked={selected.has(s.id)}
-                onChange={() => toggle(s.id)}
-                className="h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-accent"
-                aria-label={`Select ${s.title}`}
-              />
-              <Badge tone="green">auto-published</Badge>
-              <Link
-                href={`/console/series/${s.id}`}
-                className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
-              >
-                {s.title}
-              </Link>
-              <span className="text-xs text-white/35">
-                {s.year ?? "—"} · {s.episodeCount} live ep · {timeAgo(s.autoPublishedAt)}
-              </span>
-              <div className="flex gap-1.5">
-                <form action={confirmAutoPublish.bind(null, s.id)}>
-                  <SubmitButton variant="secondary" size="sm" pendingText="…">
-                    Looks good
-                  </SubmitButton>
-                </form>
-                <form action={setSeriesPublish.bind(null, s.id, "HIDDEN")}>
-                  <SubmitButton variant="ghost" size="sm" pendingText="…">
-                    Unpublish
-                  </SubmitButton>
-                </form>
-              </div>
-            </Card>
-          ))}
+          {items.map((s) => {
+            const busy = busyIds.has(s.id);
+            return (
+              <Card key={s.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selected.has(s.id)}
+                  onChange={() => toggle(s.id)}
+                  className="h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-accent"
+                  aria-label={`Select ${s.title}`}
+                />
+                <Badge tone="green">auto-published</Badge>
+                <Link
+                  href={`/console/series/${s.id}`}
+                  className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
+                >
+                  {s.title}
+                </Link>
+                <span className="text-xs text-white/35">
+                  {s.year ?? "—"} · {s.episodeCount} live ep · {timeAgo(s.autoPublishedAt)}
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => runOne(s.id, "confirm")}
+                    disabled={busy || pending}
+                    className={`${btnCls("secondary", "sm")} disabled:cursor-wait disabled:opacity-60`}
+                  >
+                    {busy ? "…" : "Looks good"}
+                  </button>
+                  <button
+                    onClick={() => runOne(s.id, "unpublish")}
+                    disabled={busy || pending}
+                    className={`${btnCls("ghost", "sm")} disabled:cursor-wait disabled:opacity-60`}
+                  >
+                    {busy ? "…" : "Unpublish"}
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </>

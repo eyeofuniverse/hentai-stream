@@ -80,6 +80,9 @@ export function SiteHeader() {
       active ? "text-white" : "text-white/55 hover:bg-white/5 hover:text-white"
     }`;
 
+  // the admin console has its own chrome (AdminNav) — never the public header
+  if (pathname.startsWith("/console")) return null;
+
   return (
     <header
       className={`sticky top-0 z-50 transition-colors duration-300 ${
