@@ -2,13 +2,12 @@ import Link from "next/link";
 import { prisma, db } from "@/lib/db";
 import {
   reviewFlag,
-  setSeriesPublish,
   approveTorrentEpisode,
   rejectTorrentEpisode,
 } from "@/lib/actions";
-import { confirmAutoPublish } from "@/lib/scraper-actions";
 import { SubmitButton } from "@/components/console/SubmitButton";
 import { HlsPreview } from "@/components/console/HlsPreview";
+import { AutoPublishQueue } from "@/components/console/AutoPublishQueue";
 import {
   PageHeader,
   Card,
@@ -126,42 +125,16 @@ export default async function ReviewQueue() {
         </div>
       )}
 
-      <SectionTitle>
-        Auto-published — spot check{autoPub.length > 0 ? ` (${autoPub.length})` : ""}
-      </SectionTitle>
-      {autoPub.length === 0 ? (
-        <EmptyState title="Nothing to spot-check." hint="Scraper auto-publishes land here." />
-      ) : (
-        <div className="mb-8 grid gap-2">
-          {autoPub.map((s) => (
-            <Card key={s.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
-              <Badge tone="green">auto-published</Badge>
-              <Link
-                href={`/console/series/${s.id}`}
-                className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
-              >
-                {s.title}
-              </Link>
-              <span className="text-xs text-white/35">
-                {s.year ?? "—"} · {s._count.episodes} live ep ·{" "}
-                {s.autoPublishedAt ? timeAgo(s.autoPublishedAt) : ""}
-              </span>
-              <div className="flex gap-1.5">
-                <form action={confirmAutoPublish.bind(null, s.id)}>
-                  <SubmitButton variant="secondary" size="sm" pendingText="…">
-                    Looks good
-                  </SubmitButton>
-                </form>
-                <form action={setSeriesPublish.bind(null, s.id, "HIDDEN")}>
-                  <SubmitButton variant="ghost" size="sm" pendingText="…">
-                    Unpublish
-                  </SubmitButton>
-                </form>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <AutoPublishQueue
+        items={autoPub.map((s) => ({
+          id: s.id,
+          title: s.title,
+          year: s.year,
+          // guaranteed non-null: the query filters `autoPublishedAt: { not: null }`
+          autoPublishedAt: s.autoPublishedAt!.toISOString(),
+          episodeCount: s._count.episodes,
+        }))}
+      />
 
       <SectionTitle>
         Possible-minor flags{flagged.length > 0 ? ` (${flagged.length})` : ""}
