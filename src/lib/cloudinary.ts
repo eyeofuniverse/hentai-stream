@@ -6,8 +6,12 @@
 // (stored DB values are bare keys like "series/covers/<slug>", unchanged)
 // so no call site anywhere else needed to change. Rename once this has
 // settled.
-import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
-
+//
+// Deliberately no import from "@/lib/hosting/bunny" here, even though
+// episodeThumb() needs a Bunny fallback URL — this file is imported by
+// client components too (e.g. HomeHero.tsx), and bunny.ts pulls in
+// Node-only modules that break the browser bundle. Callers compute the
+// Bunny fallback themselves and pass it in.
 const R2_HOST = process.env.NEXT_PUBLIC_R2_PUBLIC_HOST;
 
 /**
@@ -64,14 +68,15 @@ export const bannerSet = (id?: string | null) =>
  * thumbnail has been copied into R2 (see hosting/migrate.ts's
  * copyBunnyThumbToR2, which runs the moment a video finishes transcoding),
  * `thumbUrl` holds that R2 key and this returns it — free egress, cached,
- * same as every other image on the site. Falls back to hotlinking Bunny's
- * CDN directly only in the brief window between a video going ready and
- * that copy landing (or if it fails), so nothing ever shows a blank card.
+ * same as every other image on the site. `bunnyFallback` (pass
+ * `ep.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null`
+ * from the caller, which already has bunny.ts available) covers the brief
+ * window between a video going ready and that copy landing, or a failed
+ * copy, so nothing ever shows a blank card.
  */
-export function episodeThumb(ep: {
-  thumbUrl?: string | null;
-  bunnyGuid?: string | null;
-  bunnyStatus?: string | null;
-}): string | null {
-  return thumb(ep.thumbUrl) ?? (ep.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null);
+export function episodeThumb(
+  thumbUrl: string | null | undefined,
+  bunnyFallback: string | null,
+): string | null {
+  return thumb(thumbUrl) ?? bunnyFallback;
 }

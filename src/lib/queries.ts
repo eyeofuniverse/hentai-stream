@@ -135,6 +135,7 @@ function getEpisodeInner(seriesSlug: string, number: number) {
               title: true,
               bunnyGuid: true,
               bunnyStatus: true,
+              thumbUrl: true,
             },
           },
         },

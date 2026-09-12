@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getEpisode, relatedSeries, miniLists } from "@/lib/queries";
 import { findRedirect } from "@/lib/redirect-map";
 import { cover, thumb, thumbSet, episodeThumb } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { SmartImg } from "@/components/SmartImg";
 import { SeriesCard } from "@/components/SeriesCard";
 import { buildServers } from "@/lib/stream";
@@ -82,7 +83,10 @@ export default async function WatchPage({
 
   const bunnyReady = ep.bunnyStatus === "ready" && !!ep.bunnyGuid;
   const servers = buildServers(ep.id, bunnyReady, ep.sources);
-  const poster = episodeThumb(ep);
+  const poster = episodeThumb(
+    ep.thumbUrl,
+    bunnyReady ? bunnyThumbUrl(ep.bunnyGuid!) : null,
+  );
 
   const [related, mini] = await Promise.all([
     relatedSeries(s.id, s.tags.map((t) => t.slug), 12),
@@ -197,7 +201,12 @@ export default async function WatchPage({
       >
         <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-surface-2">
           <SmartImg
-            src={episodeThumb(next) ?? thumb(s.coverUrl)}
+            src={
+              episodeThumb(
+                next.thumbUrl,
+                next.bunnyStatus === "ready" && next.bunnyGuid ? bunnyThumbUrl(next.bunnyGuid) : null,
+              ) ?? thumb(s.coverUrl)
+            }
             fallback={thumb(s.coverUrl)}
             seed={`${slug}-${next.number}`}
             srcSet={thumbSet(s.coverUrl) ?? undefined}

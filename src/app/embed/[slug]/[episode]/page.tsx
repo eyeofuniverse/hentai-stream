@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEpisode } from "@/lib/queries";
 import { episodeThumb } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { buildServers } from "@/lib/stream";
 import { WatchPlayer } from "@/components/WatchPlayer";
 
@@ -28,7 +29,7 @@ export default async function EmbedPage({
 
   const bunnyReady = ep.bunnyStatus === "ready" && !!ep.bunnyGuid;
   const servers = buildServers(ep.id, bunnyReady, ep.sources);
-  const poster = episodeThumb(ep);
+  const poster = episodeThumb(ep.thumbUrl, bunnyReady ? bunnyThumbUrl(ep.bunnyGuid!) : null);
 
   return (
     <div className="fixed inset-0 z-[9998] grid place-items-center bg-black">

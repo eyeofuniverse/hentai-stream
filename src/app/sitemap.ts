@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { thumb, cover, episodeThumb } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { SITE, SITE_NAME, excerpt } from "@/lib/seo";
 
 export const revalidate = 7200;
@@ -23,7 +24,8 @@ function safeThumb(
   coverUrl: string | null,
   ep: { bunnyGuid: string | null; bunnyStatus: string | null; thumbUrl?: string | null },
 ): string | null {
-  const raw = episodeThumb(ep) ?? thumb(coverUrl) ?? cover(coverUrl);
+  const bunnyFallback = ep.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null;
+  const raw = episodeThumb(ep.thumbUrl, bunnyFallback) ?? thumb(coverUrl) ?? cover(coverUrl);
   if (!raw) return null;
   try {
     const u = encodeURI(raw);

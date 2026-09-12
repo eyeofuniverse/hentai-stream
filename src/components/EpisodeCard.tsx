@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { thumb, thumbSet, THUMB_SIZES, episodeThumb } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { SmartImg } from "@/components/SmartImg";
 
 export function EpisodeCard({
@@ -19,7 +20,8 @@ export function EpisodeCard({
   // hosted — see episodeThumb), else the series cover, else SmartImg's
   // gradient placeholder.
   const seriesThumb = thumb(ep.series.coverUrl);
-  const src = episodeThumb(ep) ?? seriesThumb;
+  const bunnyFallback = ep.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null;
+  const src = episodeThumb(ep.thumbUrl, bunnyFallback) ?? seriesThumb;
   // srcSet needs an actual R2 key to build width variants from — a raw
   // Bunny hotlink fallback has none, so only offer one when thumbUrl itself
   // is what's driving `src`.

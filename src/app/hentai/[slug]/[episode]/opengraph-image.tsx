@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/db";
 import { episodeThumb, thumb } from "@/lib/cloudinary";
+import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { fetchAsDataUri } from "@/lib/og-image-fetch";
 
 // Node runtime, not edge — this needs the standard Prisma client (a raw TCP
@@ -49,7 +50,8 @@ export default async function Image({
   // fetch doesn't send — fetchAsDataUri does the fetch itself with the right
   // header, whether the source ends up being our own R2 copy or a live
   // Bunny hotlink.
-  const rawThumb = ep ? (episodeThumb(ep) ?? thumb(ep.series.coverUrl)) : null;
+  const bunnyFallback = ep?.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null;
+  const rawThumb = ep ? (episodeThumb(ep.thumbUrl, bunnyFallback) ?? thumb(ep.series.coverUrl)) : null;
   const dataUri = await fetchAsDataUri(rawThumb);
 
   return new ImageResponse(
