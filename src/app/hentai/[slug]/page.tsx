@@ -181,7 +181,7 @@ export default async function SeriesPage({
         </div>
 
         <div className="mx-auto max-w-5xl px-4 pb-2 pt-6 lg:px-8">
-          <nav className="mb-5 text-xs text-white/40">
+          <nav className="mb-5 text-xs text-white/50">
             <Link href="/" className="hover:text-white">Home</Link>
             <span className="mx-1.5">/</span>
             <Link href="/browse" className="hover:text-white">Browse</Link>
@@ -211,7 +211,7 @@ export default async function SeriesPage({
                 {s.title}
               </h1>
               {s.altTitles.length > 0 && (
-                <p className="mt-2 text-sm text-white/40">{s.altTitles.slice(0, 3).join(" · ")}</p>
+                <p className="mt-2 text-sm text-white/50">{s.altTitles.slice(0, 3).join(" · ")}</p>
               )}
 
               <div className="mt-4 flex flex-wrap items-center gap-1.5">
@@ -296,13 +296,13 @@ export default async function SeriesPage({
         <h2 className="mb-4 flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
           <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
           Episodes
-          <span className="text-sm font-normal text-white/35">
+          <span className="text-sm font-normal text-white/50">
             {s.episodes.length}
           </span>
         </h2>
 
         {s.episodes.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line px-6 py-12 text-center text-sm text-white/40">
+          <p className="rounded-xl border border-dashed border-line px-6 py-12 text-center text-sm text-white/50">
             No episodes published yet — check back soon.
           </p>
         ) : (
@@ -337,13 +337,13 @@ export default async function SeriesPage({
                   <div className="min-w-0 flex-1 py-1 pr-2">
                     <p className="text-sm font-semibold text-white/85">
                       Episode {ep.number}
-                      {ep.part > 1 && <span className="text-white/40"> · pt {ep.part}</span>}
+                      {ep.part > 1 && <span className="text-white/50"> · pt {ep.part}</span>}
                     </p>
                     <p className="mt-0.5 line-clamp-1 text-xs text-white/45">
                       {ep.title || `${s.title} episode ${ep.number}`}
                     </p>
                     {mins && (
-                      <p className="mt-1.5 text-[11px] text-white/35">{mins} min</p>
+                      <p className="mt-1.5 text-[11px] text-white/50">{mins} min</p>
                     )}
                   </div>
                 </Link>
@@ -384,7 +384,7 @@ export default async function SeriesPage({
                 ] as const
               ).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3">
-                  <dt className="shrink-0 text-white/40">{k}</dt>
+                  <dt className="shrink-0 text-white/50">{k}</dt>
                   <dd className="text-right font-medium capitalize text-white/75">{v}</dd>
                 </div>
               ))}
@@ -418,7 +418,7 @@ export default async function SeriesPage({
                 )}
               </p>
               {s.altTitles.length > 0 && (
-                <p className="mt-3 text-xs text-white/40">
+                <p className="mt-3 text-xs text-white/50">
                   Also known as: {s.altTitles.slice(0, 6).join(" · ")}
                 </p>
               )}

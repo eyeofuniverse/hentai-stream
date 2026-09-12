@@ -94,7 +94,7 @@ export default async function TagsPage() {
             <h2 className="mb-3 flex items-center gap-2.5 font-display text-base font-bold">
               <span className="h-4 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
               {cat.label}
-              <span className="text-xs font-normal text-white/30">{group.length}</span>
+              <span className="text-xs font-normal text-white/50">{group.length}</span>
             </h2>
             <div className="flex flex-wrap gap-2">
               {group.map((t) => (

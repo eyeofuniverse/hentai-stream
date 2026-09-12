@@ -17,7 +17,7 @@ export default async function HistoryPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 lg:px-8">
-      <nav className="mb-4 text-xs text-white/40">
+      <nav className="mb-4 text-xs text-white/50">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">History</span>

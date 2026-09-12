@@ -5,7 +5,7 @@ type S = Parameters<typeof SeriesCard>[0]["series"];
 export function SeriesGrid({ items, cols }: { items: S[]; cols?: "wide" | "sidebar" }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-line px-6 py-16 text-center text-sm text-white/40">
+      <p className="rounded-2xl border border-dashed border-line px-6 py-16 text-center text-sm text-white/50">
         Nothing here yet — try a different filter.
       </p>
     );

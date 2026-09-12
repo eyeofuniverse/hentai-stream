@@ -30,7 +30,7 @@ export function ScrollRow({
           {href && (
             <Link
               href={href}
-              className="text-xs font-medium text-white/40 transition-colors hover:text-accent"
+              className="text-xs font-medium text-white/50 transition-colors hover:text-accent"
             >
               View all →
             </Link>

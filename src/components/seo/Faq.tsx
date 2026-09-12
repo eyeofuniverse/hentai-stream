@@ -34,7 +34,7 @@ export function Faq({ items, title = "FAQ" }: { items: QA[]; title?: string }) {
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-white/85 [&::-webkit-details-marker]:hidden">
               {x.q}
               <svg
-                className="shrink-0 text-white/30 transition-transform group-open:rotate-45"
+                className="shrink-0 text-white/50 transition-transform group-open:rotate-45"
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"

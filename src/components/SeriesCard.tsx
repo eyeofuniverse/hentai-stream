@@ -64,7 +64,7 @@ export function SeriesCard({
         {series.title}
       </p>
       {(series.year || series.status) && (
-        <p className="mt-0.5 text-[11px] text-white/40">
+        <p className="mt-0.5 text-[11px] text-white/50">
           {[series.year, cap(series.status)].filter(Boolean).join(" · ")}
         </p>
       )}

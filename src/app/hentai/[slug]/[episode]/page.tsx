@@ -185,7 +185,7 @@ export default async function WatchPage({
         {dir === "next" && <span aria-hidden>→</span>}
       </Link>
     ) : (
-      <span className="inline-flex items-center gap-1.5 rounded-lg border border-line/50 px-3 py-2 text-xs text-white/20">
+      <span className="inline-flex items-center gap-1.5 rounded-lg border border-line/50 px-3 py-2 text-xs text-white/50">
         {dir === "prev" ? "← Prev" : "Next →"}
       </span>
     );
@@ -240,7 +240,7 @@ export default async function WatchPage({
             You&apos;ve reached the last episode
           </span>
         </span>
-        <span className="shrink-0 text-white/40">↗</span>
+        <span className="shrink-0 text-white/50">↗</span>
       </Link>
     );
 
@@ -268,7 +268,7 @@ export default async function WatchPage({
 
             {/* title + facts */}
             <div className="mt-4 px-1 sm:mt-5 sm:px-0">
-              <nav className="text-xs text-white/40" aria-label="Breadcrumb">
+              <nav className="text-xs text-white/50" aria-label="Breadcrumb">
                 <Link href="/" className="hover:text-white">Home</Link>
                 <span className="mx-1.5">/</span>
                 <Link href={`/hentai/${slug}`} className="hover:text-white">
@@ -337,7 +337,7 @@ export default async function WatchPage({
             {/* description / SEO copy */}
             <section className="mt-6 rounded-2xl border border-line bg-surface/30 p-5 sm:p-6">
               <p className="text-sm leading-relaxed text-white/72">{bodyText}</p>
-              <p className="mt-2.5 text-xs text-white/35">
+              <p className="mt-2.5 text-xs text-white/50">
                 {seoTitle}
                 {s.studio ? ` · Studio ${s.studio.name}` : ""} ·{" "}
                 {servers.length} streaming server{servers.length === 1 ? "" : "s"}

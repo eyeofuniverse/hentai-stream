@@ -150,7 +150,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="shrink-0 text-white/35 transition-colors group-focus-within:text-accent"
+          className="shrink-0 text-white/50 transition-colors group-focus-within:text-accent"
         >
           <circle cx="11" cy="11" r="7" />
           <path d="m21 21-4.3-4.3" />
@@ -168,7 +168,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
           placeholder={big ? "Search series, genres…" : "Search titles…"}
           aria-label="Search"
           autoComplete="off"
-          className="w-full bg-transparent text-sm outline-none focus:outline-none focus-visible:outline-none placeholder:text-white/35"
+          className="w-full bg-transparent text-sm outline-none focus:outline-none focus-visible:outline-none placeholder:text-white/50"
         />
         {q && (
           <button
@@ -179,13 +179,13 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
               setSug(EMPTY);
               inputRef.current?.focus();
             }}
-            className="shrink-0 text-white/30 hover:text-white"
+            className="grid h-6 w-6 shrink-0 place-items-center text-white/50 hover:text-white"
           >
             ✕
           </button>
         )}
         {!q && !big && (
-          <kbd className="hidden shrink-0 rounded border border-line px-1.5 text-[10px] font-medium text-white/30 sm:block">
+          <kbd className="hidden shrink-0 rounded border border-line px-1.5 text-[10px] font-medium text-white/50 sm:block">
             /
           </kbd>
         )}
@@ -245,7 +245,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
                           <span className="block truncate text-sm font-semibold text-white/90">
                             {s.title}
                           </span>
-                          <span className="mt-0.5 block text-[11px] text-white/40">
+                          <span className="mt-0.5 block text-[11px] text-white/50">
                             {[s.type, s.year, s.episodes > 0 && `${s.episodes} ep`]
                               .filter(Boolean)
                               .join(" · ")}
@@ -259,7 +259,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
 
               {sug.tags.length > 0 && (
                 <div className="border-t border-line px-3 py-2.5">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/50">
                     Genres
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -274,7 +274,7 @@ export function SearchBar({ initial = "", big = false }: { initial?: string; big
                         className="rounded-full bg-white/8 px-2.5 py-1 text-xs text-white/75 transition hover:bg-white/15 hover:text-white"
                       >
                         {t.name}
-                        <span className="ml-1 text-white/30">{t.count}</span>
+                        <span className="ml-1 text-white/50">{t.count}</span>
                       </Link>
                     ))}
                   </div>

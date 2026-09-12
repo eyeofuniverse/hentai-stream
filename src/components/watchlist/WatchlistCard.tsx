@@ -126,7 +126,7 @@ export function WatchlistCard({
           ))}
           <button
             onClick={() => change("remove")}
-            className="block w-full border-t border-line px-3 py-1.5 text-left text-xs text-white/40 hover:bg-white/5 hover:text-white"
+            className="block w-full border-t border-line px-3 py-1.5 text-left text-xs text-white/50 hover:bg-white/5 hover:text-white"
           >
             Remove
           </button>

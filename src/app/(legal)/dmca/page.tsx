@@ -29,7 +29,7 @@ export default function DmcaPage() {
         If your content was removed in error, send a counter-notice to the same
         address with the same elements plus your consent to jurisdiction.
       </p>
-      <p className="text-xs text-white/40">
+      <p className="text-xs text-white/50">
         Before launch: set up the dmca@ mailbox and register a designated DMCA
         agent with the U.S. Copyright Office (dmca.copyright.gov).
       </p>

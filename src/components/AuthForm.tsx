@@ -115,7 +115,7 @@ export function AuthForm({ next = "/" }: { next?: string }) {
             setMode("in");
             setMsg(null);
           }}
-          className="block w-full text-xs text-white/40 hover:text-white"
+          className="block w-full text-xs text-white/50 hover:text-white"
         >
           ← Back to sign in
         </button>
@@ -170,7 +170,7 @@ export function AuthForm({ next = "/" }: { next?: string }) {
           type="button"
           onClick={() => setShow((s) => !s)}
           aria-label={show ? "Hide password" : "Show password"}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/70"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70"
         >
           {show ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -201,7 +201,7 @@ export function AuthForm({ next = "/" }: { next?: string }) {
               />
             ))}
           </div>
-          <span className="text-[11px] text-white/40">{pw.label}</span>
+          <span className="text-[11px] text-white/50">{pw.label}</span>
         </div>
       )}
 
@@ -209,7 +209,7 @@ export function AuthForm({ next = "/" }: { next?: string }) {
         <div className="text-right">
           <Link
             href="/reset-password"
-            className="text-xs text-white/40 hover:text-accent"
+            className="text-xs text-white/50 hover:text-accent"
           >
             Forgot password?
           </Link>
@@ -236,7 +236,7 @@ export function AuthForm({ next = "/" }: { next?: string }) {
         {busy ? "…" : mode === "in" ? "Sign in" : "Create account"}
       </button>
 
-      <p className="text-center text-[11px] leading-relaxed text-white/30">
+      <p className="text-center text-[11px] leading-relaxed text-white/50">
         {mode === "up"
           ? "By creating an account you confirm you're 18+ and agree to the "
           : ""}

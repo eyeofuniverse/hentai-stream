@@ -1,4 +1,5 @@
 import { AwsClient } from "aws4fetch";
+import sharp from "sharp";
 
 // this module is imported transitively by importer.ts/enrich/apply.ts, which
 // run both inside Next.js AND as plain tsx CLI scripts (the scrape/enrich
@@ -16,6 +17,41 @@ const client =
     ? new AwsClient({ accessKeyId, secretAccessKey, service: "s3", region: "auto" })
     : null;
 
+// R2 has no on-the-fly resize pipeline (unlike Cloudinary), so every image is
+// pre-shrunk + re-encoded as webp once, here, at upload time. Caps chosen
+// against the largest width each `cloudinary.ts` helper actually requests
+// (cover 500w, banner 1920w, thumb 560w) plus modest retina headroom — not
+// the original's full resolution, which is routinely 2-10x more than any
+// card on the site ever displays.
+const LIMITS: Record<string, { w: number; q: number }> = {
+  covers: { w: 600, q: 82 },
+  banners: { w: 1600, q: 78 },
+  thumbs: { w: 640, q: 78 },
+};
+function limitFor(key: string): { w: number; q: number } {
+  for (const [name, limit] of Object.entries(LIMITS)) {
+    if (key.includes(`/${name}/`) || key.startsWith(`${name}/`)) return limit;
+  }
+  return { w: 800, q: 80 };
+}
+
+/** Resize/re-encode to webp. Falls back to the original bytes untouched if
+ *  sharp can't process it (corrupt/unsupported source) — a slightly heavier
+ *  image beats none at all. */
+async function optimize(buf: ArrayBuffer, key: string): Promise<{ body: Buffer; contentType: string }> {
+  const { w, q } = limitFor(key);
+  try {
+    const out = await sharp(Buffer.from(buf))
+      .rotate() // respect EXIF orientation before any downstream consumer sees it
+      .resize({ width: w, withoutEnlargement: true })
+      .webp({ quality: q })
+      .toBuffer();
+    return { body: out, contentType: "image/webp" };
+  } catch {
+    return { body: Buffer.from(buf), contentType: "image/jpeg" };
+  }
+}
+
 /**
  * Fetch a remote image and PUT it into R2 at an exact key. Returns true on
  * success. Used both for fresh uploads (importer/enrich) and for re-populating
@@ -29,14 +65,20 @@ export async function putR2FromUrl(key: string, remoteUrl: string): Promise<bool
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) return false;
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength === 0 || buf.byteLength > 10 * 1024 * 1024) return false;
+    const raw = await res.arrayBuffer();
+    if (raw.byteLength === 0 || raw.byteLength > 10 * 1024 * 1024) return false;
 
-    const contentType = res.headers.get("content-type") || "image/jpeg";
+    const { body, contentType } = await optimize(raw, key);
     const put = await client.fetch(`${endpoint}/${bucket}/${key}`, {
       method: "PUT",
-      body: buf,
-      headers: { "Content-Type": contentType },
+      body: body as BodyInit,
+      headers: {
+        "Content-Type": contentType,
+        // images are re-uploaded in place only by intent (recovery/backfill
+        // scripts, both idempotent) — a year is safe, and CDN-Cache-Control
+        // lets Cloudflare's edge cache it separately from the browser.
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
     });
     return put.ok;
   } catch {

@@ -118,7 +118,7 @@ export default async function BrowsePage({
     <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
 
-      <nav className="mb-4 text-xs text-white/40" aria-label="Breadcrumb">
+      <nav className="mb-4 text-xs text-white/50" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">Browse</span>
@@ -132,7 +132,7 @@ export default async function BrowsePage({
       <div className="mt-6 flex gap-8">
         <div className="min-w-0 flex-1">
           <FilterBar base="/browse" current={current} />
-          <p className="mb-4 text-xs text-white/35">
+          <p className="mb-4 text-xs text-white/50">
             {total.toLocaleString()} result{total === 1 ? "" : "s"}
             {pages > 1 ? ` · page ${page} of ${pages}` : ""}
           </p>

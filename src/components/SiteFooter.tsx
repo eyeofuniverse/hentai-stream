@@ -60,7 +60,7 @@ export function SiteFooter() {
 
           {COLS.map((c) => (
             <div key={c.title}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">
                 {c.title}
               </h3>
               <ul className="mt-3 space-y-2 text-sm text-white/55">
@@ -77,13 +77,13 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 border-t border-line pt-6">
-          <p className="text-xs leading-relaxed text-white/30">
+          <p className="text-xs leading-relaxed text-white/50">
             LustHentai streams animated adult content. All characters depicted are
             fictional and represented as adults (18+). No real persons appear in any
             content, so the record-keeping requirements of 18 U.S.C. § 2257 do not
             apply. 18+ only.
           </p>
-          <p className="mt-3 text-xs text-white/25">
+          <p className="mt-3 text-xs text-white/50">
             © {new Date().getFullYear()} LustHentai. All rights reserved.
           </p>
         </div>

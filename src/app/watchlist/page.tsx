@@ -60,7 +60,7 @@ export default async function WatchlistPage({
 
   return (
     <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
-      <nav className="mb-4 text-xs text-white/40">
+      <nav className="mb-4 text-xs text-white/50">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">Watchlist</span>
@@ -87,14 +87,14 @@ export default async function WatchlistPage({
               >
                 {t.label}
                 {n > 0 && (
-                  <span className={active ? "ml-1 text-white/70" : "ml-1 text-white/30"}>{n}</span>
+                  <span className={active ? "ml-1 text-white/70" : "ml-1 text-white/50"}>{n}</span>
                 )}
               </Link>
             );
           })}
         </div>
         <div className="ml-auto flex items-center gap-1.5 text-xs">
-          <span className="text-white/30">Sort</span>
+          <span className="text-white/50">Sort</span>
           {SORTS.map((s) => (
             <Link
               key={s.key}

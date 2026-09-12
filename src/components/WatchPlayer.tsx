@@ -261,7 +261,7 @@ export function WatchPlayer({
                 ))}
               </div>
             )}
-            <p className="mt-3 text-xs text-white/30">
+            <p className="mt-3 text-xs text-white/50">
               Or check back shortly — mirrors refresh automatically.
             </p>
           </div>
@@ -371,7 +371,7 @@ export function WatchPlayer({
             </div>
             <button
               onClick={stopAutoplay}
-              className="mt-3 text-xs text-white/40 underline-offset-2 hover:text-white/70 hover:underline"
+              className="mt-3 text-xs text-white/50 underline-offset-2 hover:text-white/70 hover:underline"
             >
               Turn off autoplay
             </button>

@@ -153,7 +153,7 @@ export function SiteHeader() {
               <div className="absolute left-0 top-full w-[520px] pt-2">
                 <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
                   <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-white/40">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
                       Genres &amp; kinks
                     </span>
                     <Link href="/tags" className="text-xs font-medium text-accent hover:underline">

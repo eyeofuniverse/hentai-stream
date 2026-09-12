@@ -68,7 +68,7 @@ export function AdSlot({
       {label && (
         <div className="mb-2 flex items-center gap-2.5">
           <span className="h-px flex-1 bg-line" />
-          <span className="text-[10px] uppercase tracking-[0.2em] text-white/25">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">
             Advertisement
           </span>
           <span className="h-px flex-1 bg-line" />

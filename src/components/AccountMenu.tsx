@@ -78,7 +78,7 @@ export function AccountMenu() {
           <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-line bg-surface shadow-card">
             <div className="border-b border-line px-4 py-3">
               <p className="truncate text-sm font-semibold">@{me.handle}</p>
-              <p className="mt-0.5 text-[11px] uppercase tracking-wide text-white/35">
+              <p className="mt-0.5 text-[11px] uppercase tracking-wide text-white/50">
                 {me.role.toLowerCase()}
               </p>
             </div>

@@ -37,7 +37,7 @@ export function WatchInternalLinks({
     children: React.ReactNode;
   }) => (
     <div>
-      <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">
+      <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">
         {heading}
       </h3>
       <ul className="space-y-1.5 text-sm">{children}</ul>
@@ -79,7 +79,7 @@ export function WatchInternalLinks({
             <Row key={t.slug} href={`/tag/${t.slug}`}>
               {t.name} hentai
               {t.seriesCount ? (
-                <span className="ml-1 text-xs text-white/25">
+                <span className="ml-1 text-xs text-white/50">
                   {t.seriesCount}
                 </span>
               ) : null}
@@ -92,7 +92,7 @@ export function WatchInternalLinks({
             <Row key={t.slug} href={`/tag/${t.slug}`}>
               {t.name} hentai
               {t.seriesCount ? (
-                <span className="ml-1 text-xs text-white/25">
+                <span className="ml-1 text-xs text-white/50">
                   {t.seriesCount}
                 </span>
               ) : null}

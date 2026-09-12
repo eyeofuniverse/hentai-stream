@@ -125,7 +125,7 @@ export default async function TagPage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(listLd) }} />
 
-      <nav className="mb-4 text-xs text-white/40" aria-label="Breadcrumb">
+      <nav className="mb-4 text-xs text-white/50" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <Link href="/tags" className="hover:text-white">Genres</Link>
@@ -143,7 +143,7 @@ export default async function TagPage({
           {tag.name} Hentai
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-white/60">{blurb}</p>
-        <p className="mt-3 text-xs text-white/40">
+        <p className="mt-3 text-xs text-white/50">
           {total.toLocaleString()} series{pages > 1 ? ` · page ${page} of ${pages}` : ""}
         </p>
       </div>
@@ -186,7 +186,7 @@ export default async function TagPage({
 
       <AdSlot slotKey="catalog-footer" className="mt-10" />
 
-      <Link href="/tags" className="mt-10 inline-block text-xs text-white/40 hover:text-accent">
+      <Link href="/tags" className="mt-10 inline-block text-xs text-white/50 hover:text-accent">
         ← All genres &amp; tags
       </Link>
     </main>

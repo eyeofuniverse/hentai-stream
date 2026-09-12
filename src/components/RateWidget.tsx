@@ -60,7 +60,7 @@ export function RateWidget({
   return (
     <div className="rounded-2xl border border-line bg-surface/40 p-4">
       <div className="flex items-baseline justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-white/40">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-white/50">
           {mine ? "Your rating" : "Rate this"}
         </p>
         {count > 0 && (
@@ -97,7 +97,7 @@ export function RateWidget({
           </button>
         ))}
       </div>
-      <p className="mt-1.5 h-4 text-xs text-white/40">
+      <p className="mt-1.5 h-4 text-xs text-white/50">
         {shown ? `${shown} / 10` : mine ? "" : "Click a star"}
       </p>
     </div>

@@ -24,7 +24,7 @@ export default async function AccountPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 lg:px-8">
-      <nav className="mb-4 text-xs text-white/40">
+      <nav className="mb-4 text-xs text-white/50">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">Account</span>
@@ -34,7 +34,7 @@ export default async function AccountPage() {
         {/* identity card */}
         <aside className="space-y-4">
           <div className="rounded-2xl border border-line bg-surface/40 p-4 text-center">
-            <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-surface-2 text-xl font-bold text-white/40 ring-1 ring-white/10">
+            <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-surface-2 text-xl font-bold text-white/50 ring-1 ring-white/10">
               {me.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -45,8 +45,8 @@ export default async function AccountPage() {
             <p className="mt-2 truncate text-sm font-bold">
               {me.displayName || `@${me.handle}`}
             </p>
-            <p className="truncate text-[11px] text-white/40">{me.email}</p>
-            <p className="mt-1 text-[11px] text-white/30">Member since {joined}</p>
+            <p className="truncate text-[11px] text-white/50">{me.email}</p>
+            <p className="mt-1 text-[11px] text-white/50">Member since {joined}</p>
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 md:grid-cols-1">
@@ -62,7 +62,7 @@ export default async function AccountPage() {
                   className="rounded-xl border border-line bg-surface/40 p-3 text-center transition hover:border-accent/30 md:flex md:items-center md:justify-between md:text-left"
                 >
                   <span className="font-display text-lg font-extrabold">{s.n}</span>
-                  <span className="block text-[11px] text-white/40 md:inline">{s.l}</span>
+                  <span className="block text-[11px] text-white/50 md:inline">{s.l}</span>
                 </Link>
               ) : (
                 <div
@@ -70,7 +70,7 @@ export default async function AccountPage() {
                   className="rounded-xl border border-line bg-surface/40 p-3 text-center md:flex md:items-center md:justify-between md:text-left"
                 >
                   <span className="font-display text-lg font-extrabold">{s.n}</span>
-                  <span className="block text-[11px] text-white/40 md:inline">{s.l}</span>
+                  <span className="block text-[11px] text-white/50 md:inline">{s.l}</span>
                 </div>
               ),
             )}

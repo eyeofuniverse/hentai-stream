@@ -95,7 +95,7 @@ export function ReactionBar({
 
       <button
         onClick={() => (signedIn ? setOpen((o) => !o) : onNeedAuth())}
-        className="grid h-6 w-6 place-items-center rounded-full border border-line text-white/40 transition hover:border-accent/40 hover:text-white"
+        className="grid h-6 w-6 place-items-center rounded-full border border-line text-white/50 transition hover:border-accent/40 hover:text-white"
         aria-label="Add a reaction"
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

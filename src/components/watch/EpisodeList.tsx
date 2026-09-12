@@ -56,7 +56,7 @@ export function EpisodeList({
             onChange={(e) => setQ(e.target.value)}
             inputMode="numeric"
             placeholder="Jump to episode…"
-            className="w-full rounded-lg bg-black/30 px-3 py-1.5 text-sm text-white/80 outline-none ring-1 ring-white/10 placeholder:text-white/30 focus:ring-accent/40"
+            className="w-full rounded-lg bg-black/30 px-3 py-1.5 text-sm text-white/80 outline-none ring-1 ring-white/10 placeholder:text-white/50 focus:ring-accent/40"
           />
         </div>
       )}
@@ -67,7 +67,7 @@ export function EpisodeList({
         style={{ maxHeight }}
       >
         {filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-white/35">No match.</p>
+          <p className="px-3 py-6 text-center text-xs text-white/50">No match.</p>
         ) : (
           filtered.map((e) => {
             const isCur = e.number === current;

@@ -49,7 +49,7 @@ function Chip({
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/30">
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">
         {label}
       </p>
       <div className="flex flex-wrap gap-1.5">{children}</div>
@@ -103,7 +103,7 @@ export function FilterBar({
             fill="none"
             stroke="currentColor"
             strokeWidth="2.5"
-            className="text-white/30 transition-transform group-open:rotate-180 lg:hidden"
+            className="text-white/50 transition-transform group-open:rotate-180 lg:hidden"
           >
             <path d="m6 9 6 6 6-6" />
           </svg>

@@ -48,7 +48,7 @@ export default async function LoginPage({
               </span>
               <span>
                 <span className="text-sm font-semibold text-white/85">{p.t}</span>
-                <span className="block text-xs text-white/40">{p.d}</span>
+                <span className="block text-xs text-white/50">{p.d}</span>
               </span>
             </li>
           ))}
@@ -86,7 +86,7 @@ export default async function LoginPage({
 
         <Link
           href={dest}
-          className="mt-6 block text-center text-xs text-white/35 underline-offset-2 hover:text-white/60 hover:underline"
+          className="mt-6 block text-center text-xs text-white/50 underline-offset-2 hover:text-white/60 hover:underline"
         >
           Continue without an account
         </Link>

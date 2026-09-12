@@ -114,7 +114,7 @@ export function CommentItem({
   return (
     <div className={isReply ? "flex gap-2.5" : "flex gap-3"}>
       <span
-        className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 font-bold text-white/40 ring-1 ring-white/10 ${
+        className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 font-bold text-white/50 ring-1 ring-white/10 ${
           isReply ? "h-7 w-7 text-[11px]" : "h-9 w-9 text-xs"
         }`}
       >
@@ -129,8 +129,8 @@ export function CommentItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-xs">
           <span className="font-semibold text-white/85">{name}</span>
-          <span className="text-white/30">{ago(node.createdAt)}</span>
-          {node.edited && <span className="text-white/25">· edited</span>}
+          <span className="text-white/50">{ago(node.createdAt)}</span>
+          {node.edited && <span className="text-white/50">· edited</span>}
         </div>
 
         {editing ? (
@@ -158,7 +158,7 @@ export function CommentItem({
           onNeedAuth={onNeedAuth}
         />
 
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/40">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/50">
           {!isReply && (
             <button
               onClick={() => (signedIn ? setReplying((r) => !r) : onNeedAuth())}

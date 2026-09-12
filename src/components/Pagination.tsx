@@ -40,12 +40,12 @@ export function Pagination({
           ‹ Prev
         </Link>
       ) : (
-        <span className={`${cell} border border-line/40 text-white/20`}>‹ Prev</span>
+        <span className={`${cell} border border-line/40 text-white/50`}>‹ Prev</span>
       )}
 
       {nums.map((n, i) =>
         n === "…" ? (
-          <span key={`e${i}`} className={`${cell} text-white/30`}>
+          <span key={`e${i}`} className={`${cell} text-white/50`}>
             …
           </span>
         ) : n === page ? (
@@ -72,7 +72,7 @@ export function Pagination({
           Next ›
         </Link>
       ) : (
-        <span className={`${cell} border border-line/40 text-white/20`}>Next ›</span>
+        <span className={`${cell} border border-line/40 text-white/50`}>Next ›</span>
       )}
     </nav>
   );

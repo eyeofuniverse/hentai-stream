@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 /**
@@ -18,6 +19,23 @@ import { usePathname } from "next/navigation";
  */
 export function AgeGate() {
   const pathname = usePathname() || "/";
+
+  // Belt-and-suspenders for the boot script above: a third-party ad script
+  // sometimes mutates the DOM before React hydrates, which makes React treat
+  // hydration as failed (error #418) and fully remount client-side, discarding
+  // the boot script's imperative `vok` class along with whatever the ad
+  // script touched. This re-applies it after React has settled, so a returning
+  // visitor doesn't see the gate again just because that remount happened.
+  useEffect(() => {
+    try {
+      if (/(?:^|;\s*)lh_vok=1(?:;|$)/.test(document.cookie)) {
+        document.documentElement.classList.add("vok");
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   if (pathname.startsWith("/console")) return null;
 
   return (
@@ -26,6 +44,8 @@ export function AgeGate() {
         id="lh-vg"
         data-nosnippet
         aria-modal="true"
+        aria-labelledby="lh-vg-title"
+        aria-describedby="lh-vg-desc"
         role="dialog"
         className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-6 backdrop-blur-md"
       >
@@ -35,17 +55,17 @@ export function AgeGate() {
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
-          <h1 className="font-display text-xl font-extrabold">
+          <h1 id="lh-vg-title" className="font-display text-xl font-extrabold">
             Lust<span className="text-accent">Hentai</span>
           </h1>
-          <p className="mt-4 text-sm leading-relaxed text-white/70">
+          <p id="lh-vg-desc" className="mt-4 text-sm leading-relaxed text-white/70">
             This site contains sexually explicit animated material. By entering you
             confirm you are at least{" "}
             <strong className="text-white">18 years old</strong> (or the age of
             majority where you live) and that viewing this content is legal in your
             location.
           </p>
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-white/50">
             All content is animated — no real persons are depicted.
           </p>
           <div className="mt-6 flex flex-col gap-2.5">

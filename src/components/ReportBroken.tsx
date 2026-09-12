@@ -7,7 +7,7 @@ export function ReportBroken({ episodeId }: { episodeId: string }) {
 
   if (state === "done") {
     return (
-      <span className="text-xs text-white/40">Thanks — flagged for review.</span>
+      <span className="text-xs text-white/50">Thanks — flagged for review.</span>
     );
   }
 

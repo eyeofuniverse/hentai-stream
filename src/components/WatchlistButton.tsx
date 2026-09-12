@@ -116,7 +116,7 @@ export function WatchlistButton({
           {status && (
             <button
               onClick={() => set("remove")}
-              className="block w-full border-t border-line px-3.5 py-2 text-left text-sm text-white/40 hover:bg-white/5 hover:text-white"
+              className="block w-full border-t border-line px-3.5 py-2 text-left text-sm text-white/50 hover:bg-white/5 hover:text-white"
             >
               Remove from watchlist
             </button>

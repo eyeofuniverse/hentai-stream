@@ -89,7 +89,7 @@ export default async function CalendarPage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
 
-      <nav className="mb-4 text-xs text-white/40" aria-label="Breadcrumb">
+      <nav className="mb-4 text-xs text-white/50" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">Release calendar</span>
@@ -153,7 +153,7 @@ export default async function CalendarPage({
               <section key={d} className="flex gap-4">
                 <div className="w-12 shrink-0 text-right">
                   <p className="font-display text-2xl font-extrabold leading-none">{d}</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-wide text-white/35">
+                  <p className="mt-1 text-[11px] uppercase tracking-wide text-white/50">
                     {DOW[date.getUTCDay()]}
                   </p>
                 </div>
@@ -187,7 +187,7 @@ export default async function CalendarPage({
                             Episode {e.number}
                           </p>
                         </div>
-                        <span className="pr-1 text-white/20 transition group-hover:text-accent">
+                        <span className="pr-1 text-white/50 transition group-hover:text-accent">
                           →
                         </span>
                       </Link>

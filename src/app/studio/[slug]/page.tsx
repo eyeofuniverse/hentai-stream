@@ -93,7 +93,7 @@ export default async function StudioPage({
     <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
 
-      <nav className="mb-4 text-xs text-white/40" aria-label="Breadcrumb">
+      <nav className="mb-4 text-xs text-white/50" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-white">Home</Link>
         <span className="mx-1.5">/</span>
         <Link href="/browse" className="hover:text-white">Browse</Link>
@@ -107,7 +107,7 @@ export default async function StudioPage({
           {studio.name} Hentai
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-white/60">{blurb}</p>
-        <p className="mt-3 text-xs text-white/40">
+        <p className="mt-3 text-xs text-white/50">
           {total.toLocaleString()} series{pages > 1 ? ` · page ${page} of ${pages}` : ""}
         </p>
       </div>
@@ -129,7 +129,7 @@ export default async function StudioPage({
 
       <Link
         href="/browse"
-        className="mt-10 inline-block text-xs text-white/40 hover:text-accent"
+        className="mt-10 inline-block text-xs text-white/50 hover:text-accent"
       >
         ← Browse everything
       </Link>

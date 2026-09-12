@@ -145,7 +145,7 @@ export function Comments({
         <h2 className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
           <span className="h-5 w-1 rounded-full bg-gradient-to-b from-accent to-accent-2" />
           {title}
-          {total != null && <span className="text-sm font-normal text-white/35">{total}</span>}
+          {total != null && <span className="text-sm font-normal text-white/50">{total}</span>}
         </h2>
         <div className="ml-auto flex gap-1 text-xs">
           {SORTS.map((s) => (
@@ -153,7 +153,7 @@ export function Comments({
               key={s.k}
               onClick={() => setSort(s.k)}
               className={`rounded px-2 py-1 transition ${
-                sort === s.k ? "bg-white/10 text-white" : "text-white/40 hover:text-white"
+                sort === s.k ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
               }`}
             >
               {s.l}
@@ -175,9 +175,9 @@ export function Comments({
 
       <div className="mt-6 space-y-6">
         {loading ? (
-          <p className="py-6 text-center text-sm text-white/35">Loading comments…</p>
+          <p className="py-6 text-center text-sm text-white/50">Loading comments…</p>
         ) : items.length === 0 ? (
-          <p className="py-8 text-center text-sm text-white/35">
+          <p className="py-8 text-center text-sm text-white/50">
             No comments yet. Be the first.
           </p>
         ) : (

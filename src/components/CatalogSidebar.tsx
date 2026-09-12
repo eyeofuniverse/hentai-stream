@@ -35,7 +35,7 @@ function Box({
         {href && (
           <Link
             href={href}
-            className="text-[11px] font-medium text-white/40 transition-colors hover:text-accent"
+            className="text-[11px] font-medium text-white/50 transition-colors hover:text-accent"
           >
             All →
           </Link>
@@ -64,7 +64,7 @@ export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }
                     href={`/hentai/${s.slug}`}
                     className="group -mx-2 flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
                   >
-                    <span className="w-4 shrink-0 text-center font-display text-sm font-extrabold text-white/25">
+                    <span className="w-4 shrink-0 text-center font-display text-sm font-extrabold text-white/50">
                       {i + 1}
                     </span>
                     <span className="block h-12 w-9 shrink-0 overflow-hidden rounded bg-surface-2">
@@ -90,7 +90,7 @@ export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }
                           />
                         ) : null}
                         {s.year && (
-                          <span className="text-[10px] text-white/35">{s.year}</span>
+                          <span className="text-[10px] text-white/50">{s.year}</span>
                         )}
                       </span>
                     </span>
@@ -112,7 +112,7 @@ export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }
                   className="flex items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-[13px] text-white/65 transition-colors hover:bg-white/[0.04] hover:text-white"
                 >
                   <span className="truncate">{t.name}</span>
-                  <span className="shrink-0 text-[11px] tabular-nums text-white/25">
+                  <span className="shrink-0 text-[11px] tabular-nums text-white/50">
                     {t.seriesCount.toLocaleString()}
                   </span>
                 </Link>

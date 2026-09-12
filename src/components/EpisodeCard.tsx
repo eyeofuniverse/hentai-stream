@@ -65,7 +65,7 @@ export function EpisodeCard({
       <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-white/90 transition group-hover:text-accent">
         {ep.series.title}
       </p>
-      <p className="mt-0.5 line-clamp-1 text-[11px] text-white/40">
+      <p className="mt-0.5 line-clamp-1 text-[11px] text-white/50">
         {ep.title || `Episode ${ep.number}`}
       </p>
     </Link>

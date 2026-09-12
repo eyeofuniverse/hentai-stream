@@ -32,11 +32,11 @@ export function AccountForm({
     <form action={action} className="space-y-6">
       {/* Profile */}
       <section className="space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">
           Profile
         </h2>
         <div className="flex items-start gap-4">
-          <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-lg font-bold text-white/40 ring-1 ring-white/10">
+          <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-lg font-bold text-white/50 ring-1 ring-white/10">
             {avatar && !broken ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -52,13 +52,13 @@ export function AccountForm({
           </span>
           <div className="min-w-0 flex-1 space-y-3">
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/35">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/50">
                 Display name
               </label>
               <input name="displayName" defaultValue={displayName} maxLength={40} className={inputCls} />
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/35">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/50">
                 Avatar URL
               </label>
               <input
@@ -76,7 +76,7 @@ export function AccountForm({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/35">
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/50">
             Bio
           </label>
           <textarea name="bio" defaultValue={bio} rows={3} maxLength={300} className={inputCls} />
@@ -85,7 +85,7 @@ export function AccountForm({
 
       {/* Playback */}
       <section className="space-y-2 rounded-xl border border-line bg-surface/40 p-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">
           Playback
         </h2>
         <label className="flex items-center gap-2.5 text-sm text-white/75">
@@ -105,7 +105,7 @@ export function AccountForm({
 
       {/* Notifications */}
       <section className="space-y-2 rounded-xl border border-line bg-surface/40 p-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">
           Notifications
         </h2>
         <label className="flex items-center gap-2.5 text-sm text-white/75">

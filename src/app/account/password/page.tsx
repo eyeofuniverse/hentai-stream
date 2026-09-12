@@ -12,7 +12,7 @@ export default async function PasswordPage() {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-10 lg:px-8">
-      <nav className="mb-4 text-xs text-white/40">
+      <nav className="mb-4 text-xs text-white/50">
         <Link href="/account" className="hover:text-white">Account</Link>
         <span className="mx-1.5">/</span>
         <span className="text-white/60">Password</span>
