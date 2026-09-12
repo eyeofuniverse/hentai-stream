@@ -115,12 +115,13 @@ a {
   }
 }
 
-/* age gate — while it's up, lock the page; once `vok` is set it's gone and
-   scrolling is normal again (see AgeGate + the boot script in layout.tsx) */
-html:not(.vok),
-html:not(.vok) body {
+/* age gate — while it's up, lock the page; once confirmed it's gone and
+   scrolling is normal again (see AgeGate + the boot script in layout.tsx).
+   A data-attribute rather than a class — see the boot script's comment. */
+html:not([data-vok]),
+html:not([data-vok]) body {
   overflow: hidden;
 }
-html.vok #lh-vg {
+html[data-vok] #lh-vg {
   display: none !important;
 }

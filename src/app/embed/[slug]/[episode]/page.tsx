@@ -37,7 +37,7 @@ export default async function EmbedPage({
           gates it; drop our overlay for this route */}
       <script
         dangerouslySetInnerHTML={{
-          __html: "document.documentElement.classList.add('vok')",
+          __html: "document.documentElement.setAttribute('data-vok','1')",
         }}
       />
       <div className="w-full">

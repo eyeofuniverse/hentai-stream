@@ -76,11 +76,18 @@ export default function RootLayout({
         className="min-h-screen bg-bg font-sans text-[#ececf1] antialiased"
       >
         {/* before first paint: if the visitor already confirmed their age, mark
-            <html> so the gate CSS hides it — no flash, no swallowed taps */}
+            <html> so the gate CSS hides it — no flash, no swallowed taps.
+            A data-attribute, not a class: <html> already has a React-owned
+            className (the font variables), and mutating that same attribute
+            imperatively before hydration is exactly what was triggering a
+            React hydration error (#418) in production — React expects the
+            DOM to match its rendered className and forces a full client
+            remount when it doesn't, which wiped this flag right back off.
+            An attribute React's JSX never declares has nothing to mismatch. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(/(?:^|;\\s*)lh_vok=1(?:;|$)/.test(document.cookie))document.documentElement.classList.add('vok')}catch(e){}",
+              "try{if(/(?:^|;\\s*)lh_vok=1(?:;|$)/.test(document.cookie))document.documentElement.setAttribute('data-vok','1')}catch(e){}",
           }}
         />
         <SiteHeader />

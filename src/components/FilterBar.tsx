@@ -82,7 +82,7 @@ export function FilterBar({
           </svg>
           Filters
           {active > 0 && (
-            <span className="rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+            <span className="rounded-full bg-accent px-1.5 text-[11px] font-bold text-bg">
               {active}
             </span>
           )}

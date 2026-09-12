@@ -54,7 +54,7 @@ export function SeriesCard({
           </span>
         ) : null}
         {eps > 0 && (
-          <span className="absolute bottom-2 right-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="absolute bottom-2 right-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-bg">
             {eps} EP
           </span>
         )}

@@ -88,7 +88,7 @@ export function WatchlistCard({
         <Poster src={cover(series.coverUrl)} coverId={series.coverUrl} title={series.title} seed={series.slug}>
           <PlayGlyph />
           {eps > 0 && (
-            <span className="absolute bottom-2 right-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
+            <span className="absolute bottom-2 right-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-bg">
               {eps} EP
             </span>
           )}

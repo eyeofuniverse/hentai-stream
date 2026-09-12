@@ -5,12 +5,18 @@ import { usePathname } from "next/navigation";
 
 /**
  * Rendered as part of the initial HTML (a client component still SSRs) so it
- * paints with the page — no flash, no blocked click while JS loads. The
- * `vok` class is added to <html> by a tiny inline script in the root layout
- * <body> that runs before first paint (so a returning visitor never sees the
- * gate at all); this script only handles the button press. It NEVER removes
- * DOM nodes, so React's hydration of the surrounding tree is untouched (that
- * was #418). CSS hides the gate + unlocks scroll when the class is present.
+ * paints with the page — no flash, no blocked click while JS loads. A
+ * `data-vok` attribute is set on <html> by a tiny inline script in the root
+ * layout <body> that runs before first paint (so a returning visitor never
+ * sees the gate at all); this script only handles the button press. It's an
+ * attribute, not a class — <html> already carries a React-owned className
+ * (the font variables), and an earlier version of this mutated THAT via
+ * classList, which is exactly what was triggering a React hydration error
+ * (#418) in production: React expects the DOM to match its rendered
+ * className and forces a full client remount when it doesn't, wiping the
+ * flag right back off and making a returning visitor see the gate again.
+ * `data-vok` is an attribute React's JSX never declares, so there's nothing
+ * for it to mismatch. CSS hides the gate + unlocks scroll once it's present.
  *
  * Never shown on /console — the admin panel isn't public-facing content, and
  * the gate's full-viewport overlay would otherwise sit on top of it (and
@@ -20,16 +26,15 @@ import { usePathname } from "next/navigation";
 export function AgeGate() {
   const pathname = usePathname() || "/";
 
-  // Belt-and-suspenders for the boot script above: a third-party ad script
-  // sometimes mutates the DOM before React hydrates, which makes React treat
-  // hydration as failed (error #418) and fully remount client-side, discarding
-  // the boot script's imperative `vok` class along with whatever the ad
-  // script touched. This re-applies it after React has settled, so a returning
-  // visitor doesn't see the gate again just because that remount happened.
+  // Belt-and-suspenders for the boot script above, now that it sets a plain
+  // attribute instead of fighting React over a class: re-apply after mount
+  // in case anything else on the page (a third-party ad script mutating the
+  // DOM early, for instance) still forces a hydration remount for an
+  // unrelated reason.
   useEffect(() => {
     try {
       if (/(?:^|;\s*)lh_vok=1(?:;|$)/.test(document.cookie)) {
-        document.documentElement.classList.add("vok");
+        document.documentElement.setAttribute("data-vok", "1");
       }
     } catch {
       // ignore
@@ -88,7 +93,7 @@ export function AgeGate() {
       <script
         dangerouslySetInnerHTML={{
           __html:
-            "(function(){var d=document;function ok(){try{var s=location.protocol==='https:'?';secure':'';d.cookie='lh_vok=1;path=/;max-age=34560000;samesite=lax'+s}catch(e){}try{fetch('/api/age',{method:'POST',keepalive:true})}catch(e){}d.documentElement.classList.add('vok')}var b=d.getElementById('lh-vg-in');if(b)b.addEventListener('click',ok);d.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('#lh-vg-in'))ok()})})();",
+            "(function(){var d=document;function ok(){try{var s=location.protocol==='https:'?';secure':'';d.cookie='lh_vok=1;path=/;max-age=34560000;samesite=lax'+s}catch(e){}try{fetch('/api/age',{method:'POST',keepalive:true})}catch(e){}d.documentElement.setAttribute('data-vok','1')}var b=d.getElementById('lh-vg-in');if(b)b.addEventListener('click',ok);d.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('#lh-vg-in'))ok()})})();",
         }}
       />
     </>

@@ -52,7 +52,7 @@ export function EpisodeCard({
           </span>
         </span>
 
-        <span className="absolute left-2 top-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="absolute left-2 top-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-bg">
           EP {ep.number}
         </span>
         {mins && (
