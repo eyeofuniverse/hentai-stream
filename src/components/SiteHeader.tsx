@@ -215,6 +215,15 @@ export function SiteHeader() {
                       {m.label}
                     </Link>
                   ))}
+                  <a
+                    href="https://lustpages.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between gap-2 border-t border-line px-4 py-2 text-sm text-white/70 transition hover:bg-white/5 hover:text-white"
+                  >
+                    LustPages — erotic stories
+                    <ExternalIcon />
+                  </a>
                 </div>
               </div>
             )}
@@ -287,6 +296,15 @@ export function SiteHeader() {
                   {m.label}
                 </Link>
               ))}
+              <a
+                href="https://lustpages.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 flex items-center justify-between gap-2 rounded-lg border-t border-line px-4 py-2 pt-3 text-sm text-white/70 hover:bg-white/5"
+              >
+                LustPages — erotic stories
+                <ExternalIcon />
+              </a>
             </MobileAccordion>
           </nav>
         </div>
@@ -307,6 +325,23 @@ function Caret() {
       strokeWidth="3"
     >
       <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+/** Marks a link as leaving the site — used on the LustPages partner link. */
+function ExternalIcon() {
+  return (
+    <svg
+      className="shrink-0 opacity-50"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <path d="M7 17L17 7M7 7h10v10" />
     </svg>
   );
 }
