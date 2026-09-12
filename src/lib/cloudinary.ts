@@ -1,45 +1,43 @@
-const CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+// NOTE: this file's name is legacy — Cloudinary disabled account-wide image
+// delivery for this site's content on 2026-09-12 (ACL deny, all resource
+// types, even untransformed) and disabled export/archive too, so there was
+// no way to migrate the actual bytes out. Every helper here now serves from
+// Cloudflare R2 instead. Kept the filename + every export signature as-is
+// (stored DB values are bare keys like "series/covers/<slug>", unchanged)
+// so no call site anywhere else needed to change. Rename once this has
+// settled.
+const R2_HOST = process.env.NEXT_PUBLIC_R2_PUBLIC_HOST;
 
 /**
- * Build a Cloudinary delivery URL.
- *   - stored value is a public id  -> upload delivery
- *   - stored value is already https -> returned as-is (MAL images, dev)
+ * Build an image delivery URL.
+ *   - stored value is a storage key -> R2 public delivery
+ *   - stored value is already https -> returned as-is (MAL images, dev,
+ *     or anything not yet re-hosted)
+ *
+ * R2 has no on-the-fly resize/format/crop pipeline (unlike Cloudinary) — every
+ * width/aspect request gets the same original image; `object-cover` in CSS
+ * handles the visual crop client-side. `opts` is kept for call-site
+ * compatibility. Pre-generated size variants (e.g. via sharp at upload time)
+ * are a follow-up, not needed for images to work.
  */
 export function img(
   stored: string | null | undefined,
-  opts: { w?: number; h?: number; ar?: string } = {},
+  _opts: { w?: number; h?: number; ar?: string } = {},
 ): string | null {
   if (!stored) return null;
   if (stored.startsWith("http")) return stored;
-  if (!CLOUD) return null;
-
-  const t = [
-    "f_auto",
-    "q_auto",
-    opts.w && `w_${opts.w}`,
-    opts.h && `h_${opts.h}`,
-    opts.ar && `ar_${opts.ar}`,
-    (opts.w || opts.h) && "c_fill",
-    "g_auto",
-  ]
-    .filter(Boolean)
-    .join(",");
-
-  return `https://res.cloudinary.com/${CLOUD}/image/upload/${t}/${stored}`;
+  if (!R2_HOST) return null;
+  return `https://${R2_HOST}/${stored}`;
 }
 
-/** Responsive srcset across a few widths at a fixed aspect ratio. Returns null
- *  for MAL/full-URL images (can't resize those) so the caller falls back to a
- *  plain src. */
+/** No responsive variants on R2 yet — same image at every width, so a srcset
+ *  would add nothing over a plain src. Null tells callers to skip it. */
 export function srcSet(
-  stored: string | null | undefined,
-  widths: number[],
-  ar: string,
+  _stored: string | null | undefined,
+  _widths: number[],
+  _ar: string,
 ): string | null {
-  if (!stored || stored.startsWith("http") || !CLOUD) return null;
-  return widths
-    .map((w) => `${img(stored, { w, ar })} ${w}w`)
-    .join(", ");
+  return null;
 }
 
 /* ── portrait cover (series) ── */

@@ -1,7 +1,7 @@
 import { prisma, db } from "@/lib/db";
 import { slugify } from "@/lib/metadata/tags";
 import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
-import { uploadRemoteToCloudinary } from "@/lib/cloudinary-upload";
+import { uploadRemoteToR2 } from "@/lib/r2-upload";
 import type { EnrichResult } from "./types";
 
 export interface ApplyStats {
@@ -74,12 +74,12 @@ export async function applyEnrichment(
     fill("synopsis", s.synopsis, !cur.synopsis);
     // covers/banners go through Cloudinary, never stored as a raw hotlink
     if (s.coverUrl && !cur.coverUrl) {
-      data.coverUrl = (await uploadRemoteToCloudinary(s.coverUrl, "series/covers", cur.slug)) ?? s.coverUrl;
+      data.coverUrl = (await uploadRemoteToR2(s.coverUrl, "series/covers", cur.slug)) ?? s.coverUrl;
       stats.fieldsFilled++;
     }
     if (s.bannerUrl && !cur.bannerUrl) {
       data.bannerUrl =
-        (await uploadRemoteToCloudinary(s.bannerUrl, "series/banners", cur.slug)) ?? s.bannerUrl;
+        (await uploadRemoteToR2(s.bannerUrl, "series/banners", cur.slug)) ?? s.bannerUrl;
       stats.fieldsFilled++;
     }
     fill("externalScore", s.externalScore, cur.externalScore == null);

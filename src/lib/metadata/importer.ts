@@ -10,14 +10,14 @@ import {
   type NormalizedSeries,
   type MalSeason,
 } from "@/lib/metadata/mal";
-import { uploadRemoteToCloudinary } from "@/lib/cloudinary-upload";
+import { uploadRemoteToR2 } from "@/lib/r2-upload";
 
 /** MAL's raw cover URL, uploaded into our own Cloudinary — never store a
  *  hotlink. Falls back to the raw URL if the upload fails (source down,
  *  Cloudinary hiccup) so a transient failure never loses the cover outright. */
 async function resolveCover(rawUrl: string | null, slug: string): Promise<string | null> {
   if (!rawUrl) return null;
-  return (await uploadRemoteToCloudinary(rawUrl, "series/covers", slug)) ?? rawUrl;
+  return (await uploadRemoteToR2(rawUrl, "series/covers", slug)) ?? rawUrl;
 }
 
 const CAT_BY_NAME = new Map<string, TagCategory>(
