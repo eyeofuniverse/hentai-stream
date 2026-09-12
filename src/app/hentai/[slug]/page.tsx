@@ -17,7 +17,7 @@ import { seriesFaq } from "@/lib/faq";
 import { Comments } from "@/components/comments/Comments";
 import { SITE, SITE_NAME, abs, excerpt, breadcrumbLd } from "@/lib/seo";
 
-export const revalidate = 600;
+export const revalidate = 7200;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {

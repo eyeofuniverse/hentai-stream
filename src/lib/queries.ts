@@ -29,7 +29,7 @@ export async function browseSeries(params: BrowseParams) {
 }
 
 const browseSeriesCached = unstable_cache(browseSeriesInner, ["browse-series"], {
-  revalidate: 120,
+  revalidate: 1800,
 });
 
 async function browseSeriesInner(params: BrowseParams) {
@@ -481,7 +481,7 @@ const calendarMonthCached = unstable_cache(
     return db(() => calendarMonthInner(start, end));
   },
   ["calendar-month"],
-  { revalidate: 900 },
+  { revalidate: 3600 },
 );
 
 export async function calendarMonth(year: number, month1to12: number) {
@@ -567,7 +567,7 @@ const miniListsCached = unstable_cache(
     });
   },
   ["mini-lists"],
-  { revalidate: 600 },
+  { revalidate: 3600 },
 );
 
 export async function miniLists() {

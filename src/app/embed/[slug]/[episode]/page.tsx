@@ -9,7 +9,7 @@ import { WatchPlayer } from "@/components/WatchPlayer";
 // A bare, chrome-less player — used as the VideoObject embedUrl and by anyone
 // iframing an episode. Never indexed. It covers the site chrome with a
 // full-viewport layer and dismisses the age gate for this route only.
-export const revalidate = 600;
+export const revalidate = 7200;
 export const dynamicParams = true;
 
 export function generateStaticParams() {

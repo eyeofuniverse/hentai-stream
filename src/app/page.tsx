@@ -8,7 +8,7 @@ import { GenreGrid } from "@/components/GenreGrid";
 import { SeriesCard } from "@/components/SeriesCard";
 import { EpisodeCard } from "@/components/EpisodeCard";
 
-export const revalidate = 120;
+export const revalidate = 1800;
 
 export default async function HomePage() {
   const h = await homeSections();

@@ -8,7 +8,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { CatalogSidebar } from "@/components/CatalogSidebar";
 import { SITE_NAME, breadcrumbLd } from "@/lib/seo";
 
-export const revalidate = 300;
+export const revalidate = 1800;
 
 type SP = Record<string, string | string[] | undefined>;
 
