@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/db";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { episodeThumb, thumb } from "@/lib/cloudinary";
 import { fetchAsDataUri } from "@/lib/og-image-fetch";
 
 // Node runtime, not edge — this needs the standard Prisma client (a raw TCP
@@ -45,11 +45,12 @@ export default async function Image({
   const cen = ep?.series.isCensored === false ? "Uncensored" : null;
   const genres = ep?.series.tags.map((t) => t.name) ?? [];
 
-  const rawThumb =
-    ep?.bunnyStatus === "ready" && ep.bunnyGuid
-      ? bunnyThumb(ep.bunnyGuid) // Bunny's pull zone hotlink-checks the Referer
-      : (ep?.thumbUrl ?? ep?.series.coverUrl ?? null);
-  const thumb = await fetchAsDataUri(rawThumb);
+  // Bunny's pull zone hotlink-checks the Referer, which next/og's own image
+  // fetch doesn't send — fetchAsDataUri does the fetch itself with the right
+  // header, whether the source ends up being our own R2 copy or a live
+  // Bunny hotlink.
+  const rawThumb = ep ? (episodeThumb(ep) ?? thumb(ep.series.coverUrl)) : null;
+  const dataUri = await fetchAsDataUri(rawThumb);
 
   return new ImageResponse(
     (
@@ -65,10 +66,10 @@ export default async function Image({
       >
         {/* top: thumbnail strip */}
         <div style={{ width: "100%", height: 400, display: "flex", position: "relative" }}>
-          {thumb ? (
+          {dataUri ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={thumb}
+              src={dataUri}
               width={1200}
               height={400}
               style={{ objectFit: "cover", width: 1200, height: 400 }}

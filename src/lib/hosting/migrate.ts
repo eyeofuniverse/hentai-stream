@@ -6,8 +6,36 @@ import {
   getVideo,
   mapStatus,
   deleteVideo,
+  thumbUrl as bunnyThumbUrl,
 } from "./bunny";
 import { publishIfLive } from "@/lib/verify";
+import { uploadRemoteToR2 } from "@/lib/r2-upload";
+
+/**
+ * Once a video finishes transcoding, Bunny's own thumbnail is the best one
+ * we'll ever get for it (generated from the actual hosted file, not
+ * whatever the scrape source happened to have) — but hotlinking Bunny's CDN
+ * for every card on every page is exactly the recurring-bandwidth cost that
+ * prompted this. Copy it into R2 once and store that key in thumbUrl; the
+ * display side already prefers thumbUrl over a live Bunny hotlink once it's
+ * set (see episodeThumbSrc in cloudinary.ts). Best-effort — a failed copy
+ * just leaves the existing hotlink fallback in place, never blocks
+ * publishing.
+ */
+export async function copyBunnyThumbToR2(episodeId: string): Promise<void> {
+  try {
+    const ep = await db(() =>
+      prisma.episode.findUnique({ where: { id: episodeId }, select: { bunnyGuid: true } }),
+    );
+    if (!ep?.bunnyGuid) return;
+    const key = await uploadRemoteToR2(bunnyThumbUrl(ep.bunnyGuid), "episodes/thumbs", episodeId);
+    if (key) {
+      await db(() => prisma.episode.update({ where: { id: episodeId }, data: { thumbUrl: key } }));
+    }
+  } catch {
+    // best-effort — the live Bunny hotlink stays as the fallback
+  }
+}
 
 /** Referer a source site's CDN expects, if any. */
 const SITE_REFERER: Record<string, string> = {
@@ -268,6 +296,7 @@ export async function pollHosting(opts: { limit?: number; log?: (m: string) => v
       );
       if (status === "ready") {
         ready++;
+        await copyBunnyThumbToR2(ep.id);
         await publishIfLive(ep.id);
       } else if (status === "failed") {
         failed++;

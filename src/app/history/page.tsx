@@ -3,8 +3,7 @@ import Link from "next/link";
 import { viewer } from "@/lib/user";
 import { myHistory } from "@/lib/user-queries";
 import { SmartImg } from "@/components/SmartImg";
-import { thumb } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { thumb, episodeThumb } from "@/lib/cloudinary";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Watch History", robots: { index: false } };
@@ -32,10 +31,7 @@ export default async function HistoryPage() {
         <ul className="mt-6 space-y-2">
           {rows.map((r, i) => {
             const e = r.episode;
-            const t =
-              e.bunnyStatus === "ready" && e.bunnyGuid
-                ? bunnyThumb(e.bunnyGuid)
-                : thumb(e.thumbUrl) ?? thumb(e.series.coverUrl);
+            const t = episodeThumb(e) ?? thumb(e.series.coverUrl);
             return (
               <li key={`${e.series.slug}-${e.number}-${i}`}>
                 <Link

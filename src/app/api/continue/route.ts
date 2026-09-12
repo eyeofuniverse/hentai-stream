@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { viewer } from "@/lib/user";
 import { continueWatching } from "@/lib/user-queries";
-import { thumb } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { thumb, episodeThumb } from "@/lib/cloudinary";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +16,7 @@ export async function GET() {
     number: r.number,
     title: r.title,
     resume: r.resume,
-    thumb:
-      r.bunnyStatus === "ready" && r.bunnyGuid
-        ? bunnyThumb(r.bunnyGuid)
-        : thumb(r.thumbUrl) ?? thumb(r.coverUrl),
+    thumb: episodeThumb(r) ?? thumb(r.coverUrl),
   }));
   return NextResponse.json({ items }, { headers: { "Cache-Control": "private, no-store" } });
 }

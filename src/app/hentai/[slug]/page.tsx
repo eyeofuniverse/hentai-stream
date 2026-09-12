@@ -5,8 +5,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getSeries, relatedSeries } from "@/lib/queries";
 import { findRedirect } from "@/lib/redirect-map";
 import { prisma } from "@/lib/db";
-import { cover, coverSet, banner, bannerSet, thumb } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { cover, coverSet, banner, bannerSet, thumb, episodeThumb } from "@/lib/cloudinary";
 import { Pill } from "@/components/ui";
 import { SmartImg } from "@/components/SmartImg";
 import { SeriesCard } from "@/components/SeriesCard";
@@ -308,10 +307,7 @@ export default async function SeriesPage({
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2">
             {s.episodes.map((ep) => {
-              const t =
-                ep.bunnyStatus === "ready" && ep.bunnyGuid
-                  ? bunnyThumb(ep.bunnyGuid)
-                  : thumb(s.coverUrl);
+              const t = episodeThumb(ep) ?? thumb(s.coverUrl);
               const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
               return (
                 <Link

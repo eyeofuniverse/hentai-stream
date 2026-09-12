@@ -472,6 +472,7 @@ export type CalendarEntry = {
   airedAt: Date;
   bunnyGuid: string | null;
   bunnyStatus: string | null;
+  thumbUrl: string | null;
 };
 
 const calendarMonthCached = unstable_cache(
@@ -511,13 +512,14 @@ async function calendarMonthInner(start: Date, end: Date) {
         effectiveDate: Date;
         bunnyGuid: string | null;
         bunnyStatus: string | null;
+        thumbUrl: string | null;
         slug: string;
         title: string;
         coverUrl: string | null;
       }[]
     >(Prisma.sql`
       SELECT e.number, COALESCE(e."airedAt", s."releaseDate") AS "effectiveDate",
-             e."bunnyGuid", e."bunnyStatus",
+             e."bunnyGuid", e."bunnyStatus", e."thumbUrl",
              s.slug, s.title, s."coverUrl"
       FROM "Episode" e
       JOIN "Series" s ON s.id = e."seriesId"
@@ -545,6 +547,7 @@ async function calendarMonthInner(start: Date, end: Date) {
     airedAt: e.effectiveDate,
     bunnyGuid: e.bunnyGuid,
     bunnyStatus: e.bunnyStatus,
+    thumbUrl: e.thumbUrl,
   }));
 
   return { entries, latestAiredAt: latest[0]?.effectiveDate ?? null };

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { thumb, thumbSet, THUMB_SIZES } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { thumb, thumbSet, THUMB_SIZES, episodeThumb } from "@/lib/cloudinary";
 import { SmartImg } from "@/components/SmartImg";
 
 export function EpisodeCard({
@@ -16,13 +15,15 @@ export function EpisodeCard({
     series: { slug: string; title: string; coverUrl: string | null };
   };
 }) {
-  const hosted = ep.bunnyStatus === "ready" && ep.bunnyGuid;
-  // Bunny's own thumbnail once hosted, else the episode's own scraped
-  // thumbnail (often available well before hosting finishes), else the
-  // series cover as a last resort before SmartImg's gradient placeholder.
+  // R2 copy of the episode's own thumbnail (scraped, or Bunny's own once
+  // hosted — see episodeThumb), else the series cover, else SmartImg's
+  // gradient placeholder.
   const seriesThumb = thumb(ep.series.coverUrl);
-  const src = hosted ? bunnyThumb(ep.bunnyGuid!) : (thumb(ep.thumbUrl) ?? seriesThumb);
-  const srcSetSource = !hosted ? (ep.thumbUrl ?? ep.series.coverUrl) : null;
+  const src = episodeThumb(ep) ?? seriesThumb;
+  // srcSet needs an actual R2 key to build width variants from — a raw
+  // Bunny hotlink fallback has none, so only offer one when thumbUrl itself
+  // is what's driving `src`.
+  const srcSetSource = thumb(ep.thumbUrl) ? ep.thumbUrl : null;
   const mins = ep.runtimeSec ? Math.round(ep.runtimeSec / 60) : null;
 
   return (

@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
-import { thumb, cover } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { thumb, cover, episodeThumb } from "@/lib/cloudinary";
 import { SITE, SITE_NAME, excerpt } from "@/lib/seo";
 
 export const revalidate = 7200;
@@ -22,12 +21,9 @@ function esc(s: string): string {
  *  raw scraped URL (those carry spaces and break the whole sitemap). */
 function safeThumb(
   coverUrl: string | null,
-  ep: { bunnyGuid: string | null; bunnyStatus: string | null },
+  ep: { bunnyGuid: string | null; bunnyStatus: string | null; thumbUrl?: string | null },
 ): string | null {
-  const raw =
-    ep.bunnyStatus === "ready" && ep.bunnyGuid
-      ? bunnyThumb(ep.bunnyGuid)
-      : thumb(coverUrl) ?? cover(coverUrl);
+  const raw = episodeThumb(ep) ?? thumb(coverUrl) ?? cover(coverUrl);
   if (!raw) return null;
   try {
     const u = encodeURI(raw);
@@ -54,6 +50,7 @@ type SeriesRow = {
     updatedAt: Date;
     bunnyGuid: string | null;
     bunnyStatus: string | null;
+    thumbUrl: string | null;
   }[];
 };
 
@@ -87,6 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
               updatedAt: true,
               bunnyGuid: true,
               bunnyStatus: true,
+              thumbUrl: true,
             },
           },
         },

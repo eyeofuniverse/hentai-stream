@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, db } from "@/lib/db";
 import { mapStatus, getVideo } from "@/lib/hosting/bunny";
+import { copyBunnyThumbToR2 } from "@/lib/hosting/migrate";
 import { publishIfLive } from "@/lib/verify";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
   );
 
   if (status === "ready") {
+    await copyBunnyThumbToR2(ep.id);
     await publishIfLive(ep.id).catch(() => {});
     const s = await prisma.series
       .findUnique({ where: { id: ep.seriesId }, select: { slug: true } })

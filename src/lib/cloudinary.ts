@@ -6,6 +6,8 @@
 // (stored DB values are bare keys like "series/covers/<slug>", unchanged)
 // so no call site anywhere else needed to change. Rename once this has
 // settled.
+import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
+
 const R2_HOST = process.env.NEXT_PUBLIC_R2_PUBLIC_HOST;
 
 /**
@@ -56,3 +58,20 @@ export const THUMB_SIZES = "(max-width:640px) 60vw, 280px";
 export const banner = (id?: string | null) => img(id, { w: 1200, ar: "16:6" });
 export const bannerSet = (id?: string | null) =>
   srcSet(id, [640, 960, 1280, 1680, 1920], "16:6");
+
+/**
+ * Best available thumbnail for an episode. Once a Bunny-hosted video's
+ * thumbnail has been copied into R2 (see hosting/migrate.ts's
+ * copyBunnyThumbToR2, which runs the moment a video finishes transcoding),
+ * `thumbUrl` holds that R2 key and this returns it — free egress, cached,
+ * same as every other image on the site. Falls back to hotlinking Bunny's
+ * CDN directly only in the brief window between a video going ready and
+ * that copy landing (or if it fails), so nothing ever shows a blank card.
+ */
+export function episodeThumb(ep: {
+  thumbUrl?: string | null;
+  bunnyGuid?: string | null;
+  bunnyStatus?: string | null;
+}): string | null {
+  return thumb(ep.thumbUrl) ?? (ep.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null);
+}

@@ -2,8 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AdSlot } from "@/components/AdSlot";
 import { calendarMonth, miniLists, type CalendarEntry } from "@/lib/queries";
-import { thumb } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumb } from "@/lib/hosting/bunny";
+import { thumb, episodeThumb } from "@/lib/cloudinary";
 import { SmartImg } from "@/components/SmartImg";
 import { CalendarTabs } from "@/components/CalendarTabs";
 import { SITE, SITE_NAME, breadcrumbLd } from "@/lib/seo";
@@ -159,10 +158,7 @@ export default async function CalendarPage({
                 </div>
                 <div className="min-w-0 flex-1 space-y-2 border-l border-line pl-4">
                   {list.map((e, idx) => {
-                    const hosted =
-                      e.bunnyStatus === "ready" && e.bunnyGuid
-                        ? bunnyThumb(e.bunnyGuid)
-                        : thumb(e.coverUrl);
+                    const hosted = episodeThumb(e) ?? thumb(e.coverUrl);
                     return (
                       <Link
                         key={`${e.seriesSlug}-${e.number}-${idx}`}

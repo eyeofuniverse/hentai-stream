@@ -61,7 +61,12 @@ export async function putR2FromUrl(key: string, remoteUrl: string): Promise<bool
   if (!client || !endpoint || !bucket) return false;
   try {
     const res = await fetch(remoteUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; LustHentaiBot/1.0)" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; LustHentaiBot/1.0)",
+        // Bunny's Stream CDN hotlink-checks the Referer (403s without one) —
+        // harmless to send to every other source this fetches from too.
+        Referer: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://lusthentai.com"}/`,
+      },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) return false;
