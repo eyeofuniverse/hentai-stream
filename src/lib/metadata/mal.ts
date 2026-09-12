@@ -220,6 +220,9 @@ export interface NormalizedSeries {
   status: string;
   sourceMaterial: string | null;
   year: number | null;
+  /** real calendar date the series first aired/released, when MAL gives us
+   *  one — distinct from `year`, which is all we can fall back to otherwise. */
+  releaseDate: Date | null;
   animeSeason: string | null;
   seasonYear: number | null;
   totalEpisodes: number | null;
@@ -246,6 +249,7 @@ export function normalize(a: MalAnime): NormalizedSeries {
     status: STATUS_MAP[a.status ?? ""] ?? "COMPLETED",
     sourceMaterial: a.source ? (SOURCE_MAP[a.source] ?? "OTHER") : null,
     year: year ?? null,
+    releaseDate: parseFullDate(a.start_date),
     animeSeason: a.start_season?.season
       ? a.start_season.season.toUpperCase()
       : null,
@@ -270,4 +274,12 @@ export function normalize(a: MalAnime): NormalizedSeries {
 function parseYear(d?: string): number | undefined {
   const m = d?.match(/^(\d{4})/);
   return m ? Number(m[1]) : undefined;
+}
+
+/** MAL's start_date is "YYYY-MM-DD", sometimes just "YYYY-MM" or "YYYY" —
+ *  only the full form gives us a real calendar date worth storing. */
+function parseFullDate(d?: string): Date | null {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const dt = new Date(`${d}T00:00:00Z`);
+  return Number.isNaN(dt.getTime()) ? null : dt;
 }

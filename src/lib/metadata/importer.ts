@@ -226,6 +226,7 @@ export async function importSeries(
     sourceMaterial:
       (n.sourceMaterial as Prisma.SeriesCreateInput["sourceMaterial"]) ?? null,
     year: n.year,
+    releaseDate: n.releaseDate,
     animeSeason:
       (n.animeSeason as Prisma.SeriesCreateInput["animeSeason"]) ?? null,
     seasonYear: n.seasonYear,
@@ -277,6 +278,7 @@ export async function importSeries(
           titleEnglish: true,
           coverUrl: true,
           year: true,
+          releaseDate: true,
           animeSeason: true,
           sourceMaterial: true,
           totalEpisodes: true,
@@ -294,6 +296,7 @@ export async function importSeries(
           titleEnglish: cur?.titleEnglish ?? n.titleEnglish,
           coverUrl,
           year: cur?.year ?? n.year,
+          releaseDate: cur?.releaseDate ?? n.releaseDate,
           animeSeason:
             cur?.animeSeason ??
             (n.animeSeason as Prisma.SeriesCreateInput["animeSeason"]) ??

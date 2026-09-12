@@ -45,6 +45,7 @@ export async function applyEnrichment(
         studioId: true,
         externalScore: true,
         year: true,
+        releaseDate: true,
         artist: true,
         parody: true,
         altTitles: true,
@@ -84,6 +85,7 @@ export async function applyEnrichment(
     }
     fill("externalScore", s.externalScore, cur.externalScore == null);
     fill("year", s.year, cur.year == null);
+    fill("releaseDate", s.releaseDate, cur.releaseDate == null);
     // censorship: external sources are authoritative, always apply when given
     if (typeof s.isCensored === "boolean") {
       data.isCensored = s.isCensored;

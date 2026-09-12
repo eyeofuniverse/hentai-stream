@@ -41,6 +41,7 @@ export interface EnrichResult {
     studioName?: string | null;
     externalScore?: number | null;
     year?: number | null;
+    releaseDate?: Date | null;
   };
   tags?: string[];
   characters?: string[];

@@ -10,6 +10,7 @@ title { romaji english native }
 synonyms
 description(asHtml: false)
 seasonYear
+startDate { year month day }
 averageScore
 coverImage { extraLarge large }
 bannerImage
@@ -26,6 +27,7 @@ interface AniMedia {
   synonyms: string[];
   description: string | null;
   seasonYear: number | null;
+  startDate: { year: number | null; month: number | null; day: number | null } | null;
   averageScore: number | null;
   coverImage: { extraLarge: string | null; large: string | null } | null;
   bannerImage: string | null;
@@ -64,6 +66,15 @@ async function query(
   }
 }
 
+/** AniList gives year/month/day separately and sometimes only part of it
+ *  (e.g. year-only for an unannounced-day release) — only build a real Date
+ *  out of a full y/m/d triple, same standard as the MAL side. */
+function fullDate(d: AniMedia["startDate"]): Date | null {
+  if (!d?.year || !d.month || !d.day) return null;
+  const dt = new Date(Date.UTC(d.year, d.month - 1, d.day));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 function toResult(m: AniMedia): EnrichResult {
   const desc = m.description
     ? m.description.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim()
@@ -80,6 +91,7 @@ function toResult(m: AniMedia): EnrichResult {
       bannerUrl: m.bannerImage,
       externalScore: m.averageScore != null ? m.averageScore / 10 : null,
       year: m.seasonYear,
+      releaseDate: fullDate(m.startDate),
       isCensored: null, // AniList doesn't track this
       studioName: m.studios.nodes[0]?.name ?? null,
     },
