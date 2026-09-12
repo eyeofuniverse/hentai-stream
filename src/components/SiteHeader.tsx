@@ -38,8 +38,8 @@ const MORE: { label: string; href: string }[] = [
   { label: "Top rated", href: "/browse?sort=rating" },
   { label: "Ongoing", href: "/browse?status=ongoing" },
   { label: "Release calendar", href: "/calendar" },
-  { label: "Uncensored", href: "/browse?censored=false" },
-  { label: `${YEAR} releases`, href: `/browse?year=${YEAR}` },
+  { label: "Uncensored", href: "/browse/uncensored" },
+  { label: `${YEAR} releases`, href: `/browse/year/${YEAR}` },
 ];
 
 export function SiteHeader() {
@@ -183,7 +183,7 @@ export function SiteHeader() {
           </div>
 
           <Link
-            href="/browse?sort=new"
+            href="/browse/new"
             className={linkCls(false)}
           >
             Latest
@@ -269,7 +269,7 @@ export function SiteHeader() {
               </div>
             </MobileAccordion>
 
-            <Link href="/browse?sort=new" className="block rounded-lg px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5">
+            <Link href="/browse/new" className="block rounded-lg px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/5">
               Latest
             </Link>
 

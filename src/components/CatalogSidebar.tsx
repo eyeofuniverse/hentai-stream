@@ -128,7 +128,7 @@ export function CatalogSidebar({ data, bare }: { data: Sidebar; bare?: boolean }
             {data.years.map((y) => (
               <Link
                 key={y}
-                href={`/browse?year=${y}`}
+                href={`/browse/year/${y}`}
                 className="rounded-md bg-white/[0.04] py-1.5 text-center text-xs font-medium tabular-nums text-white/60 transition-colors hover:bg-accent hover:text-white"
               >
                 {y}

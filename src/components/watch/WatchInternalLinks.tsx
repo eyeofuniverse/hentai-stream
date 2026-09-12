@@ -68,7 +68,7 @@ export function WatchInternalLinks({
           {studio && (
             <Row href={`/studio/${studio.slug}`}>More from {studio.name}</Row>
           )}
-          {year && <Row href={`/browse?year=${year}`}>Hentai from {year}</Row>}
+          {year && <Row href={`/browse/year/${year}`}>Hentai from {year}</Row>}
           <Row href={`/browse?type=${type.toLowerCase()}`}>
             All {typeLabel} hentai
           </Row>
@@ -105,10 +105,10 @@ export function WatchInternalLinks({
 
         <Col heading={`On ${SITE_NAME}`}>
           {!isCensored && (
-            <Row href="/browse?censored=false">Uncensored hentai</Row>
+            <Row href="/browse/uncensored">Uncensored hentai</Row>
           )}
-          <Row href="/browse?sort=trending">Trending now</Row>
-          <Row href="/browse?sort=new">Latest additions</Row>
+          <Row href="/browse/trending">Trending now</Row>
+          <Row href="/browse/new">Latest additions</Row>
           <Row href="/calendar">Release calendar</Row>
           <Row href="/browse">Full catalogue</Row>
         </Col>

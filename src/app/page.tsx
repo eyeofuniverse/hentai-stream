@@ -58,7 +58,7 @@ export default async function HomePage() {
         <AdSlot slotKey="home-top" className="mt-6 px-4 lg:px-0" />
 
         {h.recentEpisodes.length > 0 && (
-          <ScrollRow title="Latest episodes" href="/browse?sort=new">
+          <ScrollRow title="Latest episodes" href="/browse/new">
             {h.recentEpisodes.map((ep) => (
               <EpisodeCard key={ep.id} ep={ep} />
             ))}
@@ -66,7 +66,7 @@ export default async function HomePage() {
         )}
 
         {h.newSeries.length > 0 && (
-          <ScrollRow title="New series" href="/browse?sort=new">
+          <ScrollRow title="New series" href="/browse/new">
             {h.newSeries.map((s) => (
               <SeriesCard key={s.slug} series={s} inRow />
             ))}
@@ -82,7 +82,7 @@ export default async function HomePage() {
         )}
 
         {h.uncensored.length > 0 && (
-          <ScrollRow title="Uncensored" href="/browse?censored=false">
+          <ScrollRow title="Uncensored" href="/browse/uncensored">
             {h.uncensored.map((s) => (
               <SeriesCard key={s.slug} series={s} inRow />
             ))}

@@ -425,13 +425,13 @@ export default async function WatchPage({
 
               <RailSeriesList
                 title="Trending now"
-                href="/browse?sort=trending"
+                href="/browse/trending"
                 items={mini.popular}
               />
 
               <RailSeriesList
                 title={`New on ${SITE_NAME}`}
-                href="/browse?sort=new"
+                href="/browse/new"
                 items={mini.fresh}
               />
             </div>

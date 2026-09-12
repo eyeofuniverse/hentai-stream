@@ -43,6 +43,49 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // legacy single-filter /browse?query URLs → their dedicated indexable page.
+  // Has to happen here, not in browse/page.tsx: that route has a loading.tsx
+  // sibling, so by the time the page component's data resolves and calls
+  // redirect(), Next has already started streaming a 200 shell — the
+  // redirect still "works" as a client-side navigation, but a crawler
+  // reading the raw HTTP status never sees a real 3xx. Middleware runs
+  // before any of that, so it can issue one for real.
+  if (pathname === "/browse") {
+    const keys = [...searchParams.keys()].filter((k) => k !== "page");
+    if (keys.length === 1) {
+      const k = keys[0];
+      const v = searchParams.get(k) ?? "";
+      const page = searchParams.get("page");
+      const suffix = page && page !== "1" ? `?page=${page}` : "";
+      const dest =
+        k === "sort" && v === "new"
+          ? "/browse/new"
+          : k === "sort" && v === "trending"
+            ? "/browse/trending"
+            : k === "censored" && v === "false"
+              ? "/browse/uncensored"
+              : k === "year" && /^\d{4}$/.test(v)
+                ? `/browse/year/${v}`
+                : null;
+      if (dest) {
+        const url = req.nextUrl.clone();
+        url.pathname = dest;
+        url.search = suffix;
+        return NextResponse.redirect(url, 308);
+      }
+    }
+  }
+
+  // /browse/year/[year] inherits the same loading.tsx boundary, so its own
+  // notFound() for a malformed year has the same problem redirect() did
+  // above — the 404 status never actually reaches a crawler. Validate here.
+  const yearMatch = pathname.match(/^\/browse\/year\/([^/]+)$/);
+  if (yearMatch) {
+    const y = Number(yearMatch[1]);
+    const validYear = Number.isInteger(y) && y >= 1980 && y <= new Date().getUTCFullYear() + 1;
+    if (!validYear) return new NextResponse(null, { status: 404 });
+  }
+
   // Supabase cookie refresh for the public authenticated areas
   return updateSession(req);
 }
@@ -57,5 +100,7 @@ export const config = {
     "/account/:path*",
     "/submit/:path*",
     "/auth/:path*",
+    "/browse",
+    "/browse/year/:path*",
   ],
 };

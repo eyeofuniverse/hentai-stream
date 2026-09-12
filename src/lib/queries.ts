@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma, db } from "@/lib/db";
-import type { Prisma, SeriesStatus, SeriesType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { SeriesStatus, SeriesType } from "@prisma/client";
 
 const PAGE = 30;
 
@@ -491,41 +492,56 @@ export async function calendarMonth(year: number, month1to12: number) {
   }
 }
 
+/** real per-episode air dates barely exist for this catalogue (~0.2% of
+ *  published episodes have one — hentai OVAs/doujin don't carry the weekly
+ *  broadcast schedule TV anime does), so the calendar falls back to
+ *  createdAt (when the episode went live on the site) wherever airedAt is
+ *  missing. That's the same thing "see what dropped this month" already
+ *  promises — it just stops being empty for 99.8% of the catalogue. */
 async function calendarMonthInner(start: Date, end: Date) {
   const [eps, latest] = await Promise.all([
-    prisma.episode.findMany({
-      where: {
-        publish: "PUBLISHED",
-        series: { publish: "PUBLISHED" },
-        airedAt: { gte: start, lt: end },
-      },
-      orderBy: { airedAt: "asc" },
-      select: {
-        number: true,
-        airedAt: true,
-        bunnyGuid: true,
-        bunnyStatus: true,
-        series: { select: { slug: true, title: true, coverUrl: true } },
-      },
-    }),
-    prisma.episode.findFirst({
-      where: { publish: "PUBLISHED", airedAt: { not: null } },
-      orderBy: { airedAt: "desc" },
-      select: { airedAt: true },
-    }),
+    prisma.$queryRaw<
+      {
+        number: number;
+        effectiveDate: Date;
+        bunnyGuid: string | null;
+        bunnyStatus: string | null;
+        slug: string;
+        title: string;
+        coverUrl: string | null;
+      }[]
+    >(Prisma.sql`
+      SELECT e.number, COALESCE(e."airedAt", e."createdAt") AS "effectiveDate",
+             e."bunnyGuid", e."bunnyStatus",
+             s.slug, s.title, s."coverUrl"
+      FROM "Episode" e
+      JOIN "Series" s ON s.id = e."seriesId"
+      WHERE e.publish = 'PUBLISHED' AND s.publish = 'PUBLISHED'
+        AND COALESCE(e."airedAt", e."createdAt") >= ${start}
+        AND COALESCE(e."airedAt", e."createdAt") < ${end}
+      ORDER BY "effectiveDate" ASC
+    `),
+    prisma.$queryRaw<{ effectiveDate: Date }[]>(Prisma.sql`
+      SELECT COALESCE(e."airedAt", e."createdAt") AS "effectiveDate"
+      FROM "Episode" e
+      JOIN "Series" s ON s.id = e."seriesId"
+      WHERE e.publish = 'PUBLISHED' AND s.publish = 'PUBLISHED'
+      ORDER BY "effectiveDate" DESC
+      LIMIT 1
+    `),
   ]);
 
   const entries: CalendarEntry[] = eps.map((e) => ({
-    seriesSlug: e.series.slug,
-    seriesTitle: e.series.title,
-    coverUrl: e.series.coverUrl,
+    seriesSlug: e.slug,
+    seriesTitle: e.title,
+    coverUrl: e.coverUrl,
     number: e.number,
-    airedAt: e.airedAt as Date,
+    airedAt: e.effectiveDate,
     bunnyGuid: e.bunnyGuid,
     bunnyStatus: e.bunnyStatus,
   }));
 
-  return { entries, latestAiredAt: latest?.airedAt ?? null };
+  return { entries, latestAiredAt: latest[0]?.effectiveDate ?? null };
 }
 
 /** Two small series lists for secondary rails (calendar page, empty states). */

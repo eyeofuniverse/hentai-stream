@@ -61,9 +61,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let series: SeriesRow[] = [];
   let tags: { slug: string; updatedAt: Date }[] = [];
   let studios: { slug: string; updatedAt: Date }[] = [];
+  let years: number[] = [];
 
   try {
-    [series, tags, studios] = await Promise.all([
+    [series, tags, studios, years] = await Promise.all([
       prisma.series.findMany({
         where: { publish: "PUBLISHED" },
         orderBy: { updatedAt: "desc" },
@@ -98,6 +99,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         where: { seriesCount: { gt: 0 } },
         select: { slug: true, updatedAt: true },
       }),
+      prisma.series
+        .findMany({
+          where: { publish: "PUBLISHED", year: { not: null } },
+          select: { year: true },
+          distinct: ["year"],
+        })
+        .then((rows) => rows.map((r) => r.year as number)),
     ]);
   } catch {
     // DB unreachable — still return the static routes
@@ -107,9 +115,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     [
       ["", 1, "daily"],
       ["/browse", 0.8, "daily"],
+      ["/browse/new", 0.7, "daily"],
+      ["/browse/trending", 0.7, "daily"],
+      ["/browse/uncensored", 0.6, "weekly"],
       ["/tags", 0.7, "weekly"],
       ["/calendar", 0.5, "daily"],
-      ["/browse?censored=false", 0.5, "weekly"],
       ["/dmca", 0.2, "yearly"],
       ["/2257", 0.2, "yearly"],
       ["/terms", 0.2, "yearly"],
@@ -182,5 +192,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.4,
   }));
 
-  return [...staticRoutes, ...seriesRoutes, ...tagRoutes, ...studioRoutes];
+  const yearRoutes: MetadataRoute.Sitemap = years.map((y) => ({
+    url: `${SITE}/browse/year/${y}`,
+    changeFrequency: "weekly",
+    priority: 0.4,
+  }));
+
+  return [...staticRoutes, ...seriesRoutes, ...tagRoutes, ...studioRoutes, ...yearRoutes];
 }

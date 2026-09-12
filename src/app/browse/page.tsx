@@ -77,6 +77,12 @@ export default async function BrowsePage({
     if (v) current[k] = v;
   }
   const page = Math.max(1, Number(one(sp, "page")) || 1);
+  // legacy ?sort=new / ?sort=trending / ?censored=false / ?year=YYYY single-
+  // param URLs redirect to their dedicated page in middleware.ts — has to
+  // happen there, not here: this route has a loading.tsx sibling, so by the
+  // time this component's data resolves, Next has already started streaming
+  // a 200 shell and a redirect() call here can only become a client-side
+  // navigation, never a real HTTP 3xx a crawler would see.
 
   const [{ items, total, pages }, sidebar] = await Promise.all([
     browseSeries({
