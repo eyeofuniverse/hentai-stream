@@ -86,6 +86,18 @@ export function SiteFooter() {
           <p className="mt-3 text-xs text-white/50">
             © {new Date().getFullYear()} LustHentai. All rights reserved.
           </p>
+          <p className="mt-2 text-xs text-white/50">
+            Partner site:{" "}
+            <a
+              href="https://lustpages.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/70 hover:text-accent"
+            >
+              LustPages
+            </a>{" "}
+            — erotic stories
+          </p>
         </div>
       </div>
     </footer>
