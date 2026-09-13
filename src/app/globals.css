@@ -125,3 +125,24 @@ html:not([data-vok]) body {
 html[data-vok] #lh-vg {
   display: none !important;
 }
+
+/* Skin Plyr (the control bar for direct/mirror video sources) to match the
+   Bunny Stream player's look, so a hotlinked source doesn't feel like a
+   different, older site. See WatchPlayer.tsx. */
+.lh-plyr .plyr {
+  position: absolute !important;
+  inset: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  --plyr-color-main: #ff3d7f;
+  --plyr-video-background: #09090e;
+  --plyr-video-control-color: #ececf1;
+  --plyr-video-control-color-hover: #fff;
+  --plyr-video-control-background-hover: #ff3d7f;
+  --plyr-menu-background: #14141d;
+  --plyr-menu-color: #ececf1;
+  --plyr-tooltip-background: #14141d;
+  --plyr-tooltip-color: #ececf1;
+  --plyr-control-radius: 8px;
+  --plyr-font-family: inherit;
+}

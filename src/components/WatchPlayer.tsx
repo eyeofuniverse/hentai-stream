@@ -1,5 +1,6 @@
 "use client";
 
+import "plyr/dist/plyr.css";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "@/lib/stream";
@@ -47,6 +48,7 @@ export function WatchPlayer({
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const plyrRef = useRef<import("plyr").default | null>(null);
 
   const [idx, setIdx] = useState(0);
   const [started, setStarted] = useState(false); // mirror pre-play gate only
@@ -192,6 +194,27 @@ export function WatchPlayer({
     };
   }, [started, cur, failover]);
 
+  /* ── mirror <video>: skin native controls to match the Bunny player ── */
+  useEffect(() => {
+    if (!started || !isVideo) return;
+    const video = videoRef.current;
+    if (!video) return;
+    let killed = false;
+    import("plyr").then(({ default: Plyr }) => {
+      if (killed || !videoRef.current) return;
+      plyrRef.current = new Plyr(videoRef.current, {
+        // our own keydown handler (n/p/f) already covers this; avoid double-handling
+        keyboard: { focused: false, global: false },
+        tooltips: { controls: false, seek: true },
+      });
+    });
+    return () => {
+      killed = true;
+      plyrRef.current?.destroy();
+      plyrRef.current = null;
+    };
+  }, [started, isVideo, cur?.key]);
+
   useEffect(() => {
     if (!started || !isVideo) return;
     videoRef.current?.play().catch(() => {});
@@ -275,7 +298,7 @@ export function WatchPlayer({
       ref={wrapRef}
       tabIndex={0}
       onContextMenu={(e) => e.preventDefault()}
-      className={`group ${frame}`}
+      className={`lh-plyr group ${frame}`}
       style={frameStyle}
     >
       {isBunny || isEmbed ? (
