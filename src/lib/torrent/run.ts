@@ -238,7 +238,7 @@ export async function runTorrentGrab(
       .sort((a, b) => b.sc - a.sc);
 
     if (!ranked.length) {
-      log(`  ✗ ${label}: no usable torrent`);
+      log(`  ✗ ${label}: no usable torrent (${results.length} nyaa hit${results.length === 1 ? "" : "s"}, 0 scored)`);
       continue;
     }
 
