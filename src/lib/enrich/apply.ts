@@ -156,17 +156,27 @@ export async function applyEnrichment(
       if (slug.length < 2 || seen.has(slug)) continue;
       seen.add(slug);
 
-      const imageUrl = c.imageUrl
-        ? ((await uploadRemoteToR2(c.imageUrl, "characters", slug)) ?? c.imageUrl)
-        : null;
+      // avoid re-fetching + re-uploading on every weekly re-run: only touch
+      // image/description when this character doesn't already have one
+      const existing = await db(() =>
+        prisma.character.findUnique({
+          where: { slug },
+          select: { id: true, imageUrl: true, description: true },
+        }),
+      );
+      const imageUrl =
+        c.imageUrl && !existing?.imageUrl
+          ? ((await uploadRemoteToR2(c.imageUrl, "characters", slug)) ?? c.imageUrl)
+          : null;
+      const description = c.description && !existing?.description ? c.description : null;
       const row = await db(() =>
         prisma.character.upsert({
           where: { slug },
           update: {
             ...(imageUrl ? { imageUrl } : {}),
-            ...(c.description ? { description: c.description } : {}),
+            ...(description ? { description } : {}),
           },
-          create: { slug, name, imageUrl, description: c.description ?? null },
+          create: { slug, name, imageUrl, description },
           select: { id: true },
         }),
       );

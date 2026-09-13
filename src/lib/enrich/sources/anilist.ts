@@ -82,7 +82,15 @@ function fullDate(d: AniMedia["startDate"]): Date | null {
 }
 
 function stripHtml(s: string | null): string | null {
-  return s ? s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim() || null : null;
+  if (!s) return null;
+  return (
+    s
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      // AniList markdown wraps spoiler text in ~! !~ — drop the markers, keep the text
+      .replace(/~!|!~/g, "")
+      .trim() || null
+  );
 }
 
 function toResult(m: AniMedia): EnrichResult {
