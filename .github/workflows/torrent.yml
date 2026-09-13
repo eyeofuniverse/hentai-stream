@@ -5,6 +5,12 @@ name: Grab from torrent
 #   - weekly schedule: auto-publishes once Bunny transcodes (successful transcode
 #     proves it's a real video); wrong episode/lang is rare and reportable
 #
+# Runs on a self-hosted runner (torrent-capable label), not GitHub's hosted
+# runners — sukebei.nyaa.si blocks connections from GitHub Actions' network
+# entirely (confirmed: real search hits from elsewhere, `fetch failed` from a
+# hosted runner). aria2c is pre-installed on that runner as a user-local
+# binary (no root available there), so no apt-get step is needed here.
+#
 # Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_*
 
 on:
@@ -43,7 +49,7 @@ concurrency:
 
 jobs:
   grab:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, torrent-capable]
     timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +57,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: sudo apt-get update && sudo apt-get install -y aria2
+      - name: Ensure aria2c
+        run: command -v aria2c >/dev/null || (sudo apt-get update && sudo apt-get install -y aria2)
       - run: npm ci
       - name: Write .env
         run: |
