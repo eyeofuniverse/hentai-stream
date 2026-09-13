@@ -8,7 +8,7 @@ import { SmartImg } from "@/components/SmartImg";
 import { CalendarTabs } from "@/components/CalendarTabs";
 import { SITE, SITE_NAME, breadcrumbLd } from "@/lib/seo";
 
-export const revalidate = 3600;
+export const revalidate = 7200;
 
 export const metadata: Metadata = {
   title: "Hentai Release Calendar — New Episodes by Date",

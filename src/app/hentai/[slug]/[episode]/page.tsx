@@ -25,7 +25,7 @@ import { episodeFaq } from "@/lib/faq";
 import { Comments } from "@/components/comments/Comments";
 
 // ISR — most requests serve cached HTML; admin edits call revalidatePath.
-export const revalidate = 7200;
+export const revalidate = 43200;
 export const dynamicParams = true;
 
 export function generateStaticParams() {

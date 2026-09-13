@@ -4,7 +4,7 @@ import { thumb, cover, episodeThumb } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { SITE, SITE_NAME, excerpt } from "@/lib/seo";
 
-export const revalidate = 7200;
+export const revalidate = 21600;
 export const dynamic = "force-dynamic";
 
 /** Next does NOT XML-escape the google video extension fields (or <loc>) — so

@@ -10,7 +10,7 @@ import { CatalogSidebar } from "@/components/CatalogSidebar";
 import { gradientFor } from "@/lib/gradient";
 import { SITE, SITE_NAME, breadcrumbLd } from "@/lib/seo";
 
-export const revalidate = 7200;
+export const revalidate = 21600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {

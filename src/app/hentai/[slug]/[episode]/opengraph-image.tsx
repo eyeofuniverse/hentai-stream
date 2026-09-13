@@ -11,7 +11,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 // Cache the generated PNG — a social crawler revisiting the same URL
 // shouldn't pay for a fresh DB query + thumbnail fetch + render every time.
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 export default async function Image({
   params,

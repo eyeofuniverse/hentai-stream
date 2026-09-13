@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BrowseView } from "@/components/BrowseView";
 import { SITE_NAME } from "@/lib/seo";
 
-export const revalidate = 1800;
+export const revalidate = 3600;
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (sp: SP, k: string) => {

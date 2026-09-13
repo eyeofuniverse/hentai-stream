@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { prisma, db } from "@/lib/db";
 import { gradientFor } from "@/lib/gradient";
 
-export const revalidate = 7200;
+export const revalidate = 21600;
 export const metadata: Metadata = {
   title: "Hentai Genres & Tags — Browse by Category",
   description:
