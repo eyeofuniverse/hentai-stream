@@ -5,7 +5,8 @@ name: Enrich metadata
 #   anilist — adult tags, EN/native titles, description, characters, score
 #   nhentai — granular tags, characters, parody, artist (Cloudflare-gated)
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL
+# Repo secrets: DATABASE_URL, DIRECT_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+#               R2_SECRET_ACCESS_KEY, R2_BUCKET
 
 on:
   workflow_dispatch:
@@ -45,6 +46,10 @@ jobs:
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
             echo "DB_RETRY_ATTEMPTS=12"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
+            echo "R2_BUCKET=${{ secrets.R2_BUCKET }}"
           } > .env
       - run: npx prisma generate
       - name: Enrich

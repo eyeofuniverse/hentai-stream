@@ -5,7 +5,8 @@ name: Weekly metadata sync
 # other pipeline jobs), so there's no SITE_URL / redirect / serverless-timeout
 # fragility. Idempotent (every title is an upsert).
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID
+# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, R2_ACCOUNT_ID,
+#               R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 
 on:
   schedule:
@@ -39,6 +40,10 @@ jobs:
             echo "DB_RETRY_ATTEMPTS=12"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
             echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
+            echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
+            echo "R2_BUCKET=${{ secrets.R2_BUCKET }}"
           } > .env
       - run: npx prisma generate
       - name: Sync latest seasons

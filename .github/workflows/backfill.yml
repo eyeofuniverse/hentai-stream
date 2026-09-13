@@ -6,10 +6,14 @@ name: Backfill catalogue (one-off)
 #
 # Run it: repo → Actions → "Backfill catalogue (one-off)" → Run workflow.
 #
-# Needs three repo secrets (Settings → Secrets and variables → Actions):
-#   DATABASE_URL    same value as the app env (password @ must be %40-encoded)
-#   DIRECT_URL      same value as the app env
-#   MAL_CLIENT_ID   the MyAnimeList API client id
+# Needs these repo secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL          same value as the app env (password @ must be %40-encoded)
+#   DIRECT_URL            same value as the app env
+#   MAL_CLIENT_ID         the MyAnimeList API client id
+#   R2_ACCOUNT_ID         same value as the app env — without these four, cover
+#   R2_ACCESS_KEY_ID      uploads silently fall back to hotlinking the source's
+#   R2_SECRET_ACCESS_KEY  CDN instead of mirroring to R2
+#   R2_BUCKET
 
 on:
   workflow_dispatch:
@@ -53,6 +57,10 @@ jobs:
             echo "DB_RETRY_ATTEMPTS=12"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
             echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
+            echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
+            echo "R2_BUCKET=${{ secrets.R2_BUCKET }}"
           } > .env
 
       - run: npx prisma generate
