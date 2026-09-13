@@ -401,4 +401,25 @@ export async function recountTaxonomy() {
       );
     `),
   );
+  await db(() =>
+    prisma.$executeRawUnsafe(`
+      UPDATE "Character" c SET "seriesCount" = COALESCE(sub.n, 0)
+      FROM (
+        SELECT sc."A" AS character_id, count(*)::int AS n
+        FROM "_SeriesCharacters" sc
+        JOIN "Series" s ON s.id = sc."B" AND s.publish = 'PUBLISHED'
+        GROUP BY sc."A"
+      ) sub
+      WHERE c.id = sub.character_id;
+    `),
+  );
+  await db(() =>
+    prisma.$executeRawUnsafe(`
+      UPDATE "Character" SET "seriesCount" = 0
+      WHERE id NOT IN (
+        SELECT DISTINCT sc."A" FROM "_SeriesCharacters" sc
+        JOIN "Series" s ON s.id = sc."B" AND s.publish = 'PUBLISHED'
+      );
+    `),
+  );
 }

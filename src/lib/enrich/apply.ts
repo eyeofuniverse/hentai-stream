@@ -144,21 +144,33 @@ export async function applyEnrichment(
     }
   }
 
-  // characters — additive
+  // characters — additive; image/description backfilled whenever the source has one
   if (r.characters?.length) {
     const ids: string[] = [];
-    for (const raw of [...new Set(r.characters.map((c) => c.trim()).filter(Boolean))]) {
-      const slug = slugify(raw);
-      if (slug.length < 2) continue;
-      const c = await db(() =>
+    const seen = new Set<string>();
+    for (const raw of r.characters) {
+      const c = typeof raw === "string" ? { name: raw } : raw;
+      const name = c.name?.trim();
+      if (!name) continue;
+      const slug = slugify(name);
+      if (slug.length < 2 || seen.has(slug)) continue;
+      seen.add(slug);
+
+      const imageUrl = c.imageUrl
+        ? ((await uploadRemoteToR2(c.imageUrl, "characters", slug)) ?? c.imageUrl)
+        : null;
+      const row = await db(() =>
         prisma.character.upsert({
           where: { slug },
-          update: {},
-          create: { slug, name: raw },
+          update: {
+            ...(imageUrl ? { imageUrl } : {}),
+            ...(c.description ? { description: c.description } : {}),
+          },
+          create: { slug, name, imageUrl, description: c.description ?? null },
           select: { id: true },
         }),
       );
-      ids.push(c.id);
+      ids.push(row.id);
     }
     if (ids.length) {
       data.characters = { connect: ids.map((id) => ({ id })) };

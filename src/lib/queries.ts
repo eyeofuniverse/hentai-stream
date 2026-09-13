@@ -8,6 +8,7 @@ const PAGE = 30;
 export type BrowseParams = {
   tag?: string;
   studio?: string;
+  character?: string;
   type?: string;
   status?: string;
   year?: string;
@@ -39,6 +40,7 @@ async function browseSeriesInner(params: BrowseParams) {
     publish: "PUBLISHED",
     ...(params.tag ? { tags: { some: { slug: params.tag } } } : {}),
     ...(params.studio ? { studio: { slug: params.studio } } : {}),
+    ...(params.character ? { characters: { some: { slug: params.character } } } : {}),
     ...(params.type ? { type: params.type.toUpperCase() as SeriesType } : {}),
     ...(params.status
       ? { status: params.status.toUpperCase() as SeriesStatus }
@@ -90,6 +92,7 @@ function getSeriesInner(slug: string) {
     include: {
       studio: true,
       tags: { orderBy: { name: "asc" } },
+      characters: { orderBy: { seriesCount: "desc" }, take: 12 },
       episodes: {
         where: { publish: "PUBLISHED" },
         orderBy: { number: "asc" },

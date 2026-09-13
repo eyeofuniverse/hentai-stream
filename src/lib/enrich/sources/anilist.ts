@@ -1,6 +1,6 @@
 import type { Http } from "@/lib/scraper/http";
 import { normalizeTitle } from "@/lib/ingest";
-import type { Enricher, EnrichResult, SeriesForEnrich } from "../types";
+import type { Enricher, EnrichResult, EnrichCharacter, SeriesForEnrich } from "../types";
 
 const API = "https://graphql.anilist.co";
 
@@ -17,7 +17,7 @@ bannerImage
 isAdult
 studios(isMain: true) { nodes { name } }
 tags { name rank isGeneralSpoiler }
-characters(sort: [ROLE, RELEVANCE], perPage: 20) { nodes { name { full } } }
+characters(sort: [ROLE, RELEVANCE], perPage: 20) { nodes { name { full } image { large } description(asHtml: false) } }
 `;
 
 interface AniMedia {
@@ -34,7 +34,13 @@ interface AniMedia {
   isAdult: boolean;
   studios: { nodes: { name: string }[] };
   tags: { name: string; rank: number; isGeneralSpoiler: boolean }[];
-  characters: { nodes: { name: { full: string | null } }[] };
+  characters: {
+    nodes: {
+      name: { full: string | null };
+      image: { large: string | null } | null;
+      description: string | null;
+    }[];
+  };
 }
 
 async function query(
@@ -75,10 +81,12 @@ function fullDate(d: AniMedia["startDate"]): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+function stripHtml(s: string | null): string | null {
+  return s ? s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim() || null : null;
+}
+
 function toResult(m: AniMedia): EnrichResult {
-  const desc = m.description
-    ? m.description.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim()
-    : null;
+  const desc = stripHtml(m.description);
   return {
     matched: true,
     externalId: m.id,
@@ -99,8 +107,14 @@ function toResult(m: AniMedia): EnrichResult {
       .filter((t) => !t.isGeneralSpoiler && t.rank >= 25)
       .map((t) => t.name),
     characters: m.characters.nodes
-      .map((c) => c.name.full)
-      .filter((x): x is string => !!x),
+      .filter((c): c is typeof c & { name: { full: string } } => !!c.name.full)
+      .map(
+        (c): EnrichCharacter => ({
+          name: c.name.full,
+          imageUrl: c.image?.large ?? null,
+          description: stripHtml(c.description)?.slice(0, 1000) ?? null,
+        }),
+      ),
   };
 }
 

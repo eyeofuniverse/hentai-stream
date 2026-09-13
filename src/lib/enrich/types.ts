@@ -16,6 +16,12 @@ export interface SeriesForEnrich {
   anidbId: number | null;
 }
 
+export interface EnrichCharacter {
+  name: string;
+  imageUrl?: string | null;
+  description?: string | null;
+}
+
 export interface EnrichEpisode {
   number: number;
   part?: number;
@@ -44,7 +50,7 @@ export interface EnrichResult {
     releaseDate?: Date | null;
   };
   tags?: string[];
-  characters?: string[];
+  characters?: (string | EnrichCharacter)[];
   parody?: string | null;
   artist?: string | null;
   episodes?: EnrichEpisode[];

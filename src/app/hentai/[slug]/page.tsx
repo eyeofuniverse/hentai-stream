@@ -5,7 +5,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getSeries, relatedSeries } from "@/lib/queries";
 import { findRedirect } from "@/lib/redirect-map";
 import { prisma } from "@/lib/db";
-import { cover, coverSet, banner, bannerSet, thumb, episodeThumb } from "@/lib/cloudinary";
+import { cover, coverSet, banner, bannerSet, thumb, episodeThumb, img } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { Pill } from "@/components/ui";
 import { SmartImg } from "@/components/SmartImg";
@@ -261,6 +261,39 @@ export default async function SeriesPage({
                       {t.name}
                     </Link>
                   ))}
+                </div>
+              )}
+
+              {s.characters.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/40">
+                    Characters
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {s.characters.map((c) => (
+                      <Link
+                        key={c.slug}
+                        href={`/character/${c.slug}`}
+                        className="flex items-center gap-1.5 rounded-full bg-surface py-1 pl-1 pr-3 text-xs text-white/65 transition hover:bg-surface-2 hover:text-white"
+                      >
+                        <span className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-[9px] text-white/40">
+                          {c.imageUrl ? (
+                            <SmartImg
+                              src={img(c.imageUrl)}
+                              fallback={null}
+                              seed={c.slug}
+                              width={40}
+                              height={40}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            c.name[0]
+                          )}
+                        </span>
+                        {c.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
 
