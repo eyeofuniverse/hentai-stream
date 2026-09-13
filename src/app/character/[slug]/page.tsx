@@ -16,8 +16,13 @@ export const dynamicParams = true;
 
 export async function generateStaticParams() {
   try {
+    // unfiltered — a page reading searchParams (pagination) combined with a
+    // numeric revalidate can only be pre-rendered here; any slug this misses
+    // hits Next's on-demand path at request time, which 500s
+    // (DYNAMIC_SERVER_USAGE) rather than degrading to a plain dynamic render.
+    // seriesCount is denormalized and can lag right after a bulk backfill, so
+    // it must not gate this list the way it gates the sitemap.
     const characters = await prisma.character.findMany({
-      where: { seriesCount: { gt: 0 } },
       select: { slug: true },
     });
     return characters.map((c) => ({ slug: c.slug }));
