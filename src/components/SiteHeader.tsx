@@ -48,14 +48,32 @@ export function SiteHeader() {
   const [menu, setMenu] = useState<null | "series" | "more">(null);
   const [mobileSection, setMobileSection] = useState<null | "series" | "more">(null);
   const [scrolled, setScrolled] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const lastY = useRef(0);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    lastY.current = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 8);
+      const delta = y - lastY.current;
+      // near the top: always show. Past that, hide on a real downward swipe,
+      // reveal on any upward one — an 8px deadzone ignores scroll jitter.
+      if (y < 80) setHidden(false);
+      else if (delta > 8) setHidden(true);
+      else if (delta < -8) setHidden(false);
+      lastY.current = y;
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // never hide the header out from under an open dropdown or mobile menu
+  useEffect(() => {
+    if (menu || open) setHidden(false);
+  }, [menu, open]);
 
   useEffect(() => {
     setOpen(false);
@@ -92,7 +110,9 @@ export function SiteHeader() {
       // well-documented causes of janky scrolling. A near-opaque solid
       // background reads almost identically against this site's dark theme
       // at a fraction of the compositing cost.
-      className={`sticky top-0 z-50 transition-colors duration-300 ${
+      className={`sticky top-0 z-50 transition-[background-color,border-color,transform] duration-300 ${
+        hidden ? "-translate-y-full" : "translate-y-0"
+      } ${
         scrolled || menu
           ? "border-b border-line bg-bg/97"
           : "border-b border-transparent bg-gradient-to-b from-bg/90 to-transparent"
