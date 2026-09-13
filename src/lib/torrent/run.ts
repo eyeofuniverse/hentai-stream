@@ -273,9 +273,21 @@ export async function runTorrentGrab(
       log,
     );
 
+    // a non-zero exit means aria2c never finished cleanly — most commonly our
+    // own timeout SIGKILL-ing a slow/low-seeder download partway through. The
+    // partial file it leaves behind can still look "done" to walkVideos (right
+    // extension, over the size floor), so this must be checked BEFORE trusting
+    // any file found in the download dir — otherwise a truncated file gets
+    // uploaded to Bunny, wasting bandwidth and always failing to transcode.
+    if (code !== 0) {
+      s.errors.push(`${label}: aria2 exited ${code} (likely timed out) — skipping`);
+      rmSync(dir, { recursive: true, force: true });
+      continue;
+    }
+
     const files = walkVideos(dir);
     if (!files.length) {
-      s.errors.push(`${label}: download failed (aria2 ${code}, no video files)`);
+      s.errors.push(`${label}: download finished but no video files found`);
       rmSync(dir, { recursive: true, force: true });
       continue;
     }
