@@ -62,9 +62,13 @@ export async function nyaaSearch(query: string): Promise<NyaaResult[]> {
       headers: { "user-agent": "Mozilla/5.0", accept: "application/rss+xml,*/*" },
       signal: AbortSignal.timeout(25_000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`nyaa: HTTP ${res.status} for "${q}"`);
+      return [];
+    }
     xml = await res.text();
-  } catch {
+  } catch (e) {
+    console.error(`nyaa: fetch failed for "${q}": ${(e as Error).message}`);
     return [];
   }
 
@@ -85,5 +89,12 @@ export async function nyaaSearch(query: string): Promise<NyaaResult[]> {
       date: it.find("pubDate").text().trim(),
     });
   });
+  if (!out.length) {
+    console.error(
+      `nyaa: 0 items for "${q}" — response was ${xml.length} bytes, starts: ${xml
+        .replace(/\s+/g, " ")
+        .slice(0, 300)}`,
+    );
+  }
   return out;
 }
