@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Globe, Monitor, Smartphone, Tablet, Link2, FileText, Clock,
-  TrendingUp, RefreshCw, ExternalLink,
+  TrendingUp, RefreshCw, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import type { TrafficData, TrafficSource, TopReferrer, DeviceStat, HourStat, TopPage } from "@/lib/visitor-analytics";
 import { Card } from "@/components/console/ui";
@@ -303,6 +303,16 @@ export function TrafficClient({ data: initial }: { data: TrafficData }) {
 
   return (
     <div>
+      {data.truncated && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            This range has more visits than one query can hold — every number below is computed from
+            only the most recent {fmt(data.totalVisits)}, not the full {days}-day range. Pick a shorter
+            range for exact numbers.
+          </span>
+        </div>
+      )}
       <div className="mb-5 flex items-center justify-between">
         <p className="text-sm text-white/45">
           {fmt(data.totalVisits)} page visits in the last {days === 1 ? "24 hours" : `${days} days`}

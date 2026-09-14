@@ -191,6 +191,13 @@ export function AdsManager() {
     mobile: Variant;
     all: Variant;
   } | null>(null);
+  // each band's updatedAt as last seen from GET — echoed back on save so the
+  // server can detect another admin's edit in between (see slot/route.ts)
+  const [versions, setVersions] = useState<{
+    desktop: string | null;
+    mobile: string | null;
+    all: string | null;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -218,6 +225,7 @@ export function AdsManager() {
   async function open(slot: AdSlotId) {
     setOpenSlot(slot);
     setEditing(null);
+    setVersions(null);
     setErr(null);
     const r = await fetch(`/api/console/ads/slot?slot=${slot}`);
     const d = r.ok ? await r.json() : {};
@@ -225,6 +233,11 @@ export function AdsManager() {
       desktop: fromRow(d.desktop ?? null),
       mobile: fromRow(d.mobile ?? null),
       all: fromRow(d.all ?? null),
+    });
+    setVersions({
+      desktop: d.desktop?.updatedAt ?? null,
+      mobile: d.mobile?.updatedAt ?? null,
+      all: d.all?.updatedAt ?? null,
     });
   }
 
@@ -241,15 +254,21 @@ export function AdsManager() {
         desktop: pack(editing.desktop),
         mobile: pack(editing.mobile),
         all: pack(editing.all),
+        versions,
       }),
     });
     setSaving(false);
+    if (r.status === 409) {
+      setErr("This slot was changed by someone else. Close and reopen it to see the latest, then redo your edit.");
+      return;
+    }
     if (!r.ok) {
       setErr("Save failed. Try again.");
       return;
     }
     setOpenSlot(null);
     setEditing(null);
+    setVersions(null);
     refreshStatus();
   }
 

@@ -16,6 +16,10 @@ export type TrafficData = {
   devices: DeviceStat[];
   peakHours: HourStat[];
   days: number;
+  /** true when the date range holds more rows than the query cap — every
+   *  metric below is computed from only the most recent `totalVisits` of
+   *  them, not the full range. Narrow the range to get exact numbers. */
+  truncated: boolean;
 };
 
 // Primary production host + current Vercel deployment URL, so a preview
@@ -64,19 +68,25 @@ type VisitRow = {
   visitedAt: Date;
 };
 
+const TRAFFIC_ROW_CAP = 20000;
+
 export async function getTrafficAnalytics(days: number): Promise<TrafficData> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const visits: VisitRow[] = await db(() =>
-    prisma.pageVisit.findMany({
-      where: { visitedAt: { gte: since } },
-      select: { path: true, referrer: true, deviceType: true, userAgent: true, visitedAt: true },
-      orderBy: { visitedAt: "desc" },
-      take: 20000,
-    }),
+  const [visits, trueTotal] = await db(() =>
+    Promise.all([
+      prisma.pageVisit.findMany({
+        where: { visitedAt: { gte: since } },
+        select: { path: true, referrer: true, deviceType: true, userAgent: true, visitedAt: true },
+        orderBy: { visitedAt: "desc" },
+        take: TRAFFIC_ROW_CAP,
+      }),
+      prisma.pageVisit.count({ where: { visitedAt: { gte: since } } }),
+    ]),
   );
 
   const total = visits.length;
+  const truncated = trueTotal > TRAFFIC_ROW_CAP;
 
   const sourceMap = new Map<string, { category: string; count: number }>();
   const referrerDomainMap = new Map<string, number>();
@@ -144,7 +154,7 @@ export async function getTrafficAnalytics(days: number): Promise<TrafficData> {
 
   const peakHours: HourStat[] = hourBuckets.map((count, hour) => ({ hour, count }));
 
-  return { totalVisits: total, sources, topReferrers, topPages, devices, peakHours, days };
+  return { totalVisits: total, sources, topReferrers, topPages, devices, peakHours, days, truncated };
 }
 
 // All dates go out as ISO strings — plain data crossing the server/client
@@ -184,6 +194,9 @@ export type VisitorData = {
   recentVisits: RecentVisit[];
   dailyTraffic: DailyTraffic[];
   days: number;
+  /** true when the date range holds more rows than the query cap — see
+   *  TrafficData.truncated for what this means for the numbers below. */
+  truncated: boolean;
 };
 
 type IpApiResult = {
@@ -242,18 +255,24 @@ function toDate(val: Date | string): Date {
   return val instanceof Date ? val : new Date(val);
 }
 
+const VISITOR_ROW_CAP = 10000;
+
 export async function getVisitorData(days = 7): Promise<VisitorData> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-  const visits = await db(() =>
-    prisma.pageVisit.findMany({
-      where: { visitedAt: { gte: since } },
-      orderBy: { visitedAt: "desc" },
-      take: 10000,
-      select: { id: true, ip: true, path: true, visitedAt: true },
-    }),
+  const [visits, trueTotal] = await db(() =>
+    Promise.all([
+      prisma.pageVisit.findMany({
+        where: { visitedAt: { gte: since } },
+        orderBy: { visitedAt: "desc" },
+        take: VISITOR_ROW_CAP,
+        select: { id: true, ip: true, path: true, visitedAt: true },
+      }),
+      prisma.pageVisit.count({ where: { visitedAt: { gte: since } } }),
+    ]),
   );
+  const truncated = trueTotal > VISITOR_ROW_CAP;
 
   const uniqueIps = [...new Set(visits.map((v) => v.ip))].filter(
     (ip) => ip !== "unknown" && ip !== "0.0.0.0",
@@ -361,5 +380,6 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
     recentVisits,
     dailyTraffic,
     days,
+    truncated,
   };
 }

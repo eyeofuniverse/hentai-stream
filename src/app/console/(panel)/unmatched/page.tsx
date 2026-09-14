@@ -76,17 +76,20 @@ async function suggestionsFor(
   return out;
 }
 
+const STATUSES = ["PENDING", "MAPPED", "IGNORED"] as const;
+
 export default async function UnmatchedPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const { status = "PENDING" } = await searchParams;
+  const raw = (await searchParams).status ?? "PENDING";
+  const status = (STATUSES as readonly string[]).includes(raw) ? raw : "PENDING";
 
   const [rows, counts] = await db(() =>
     Promise.all([
       prisma.unmatchedTitle.findMany({
-        where: { status: status as never },
+        where: { status: status as (typeof STATUSES)[number] },
         orderBy: [{ hits: "desc" }, { lastSeenAt: "desc" }],
         take: 200,
       }),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Globe, Users, Activity, TrendingUp, Zap, BarChart2 } from "lucide-react";
+import { RefreshCw, Globe, Users, Activity, TrendingUp, Zap, BarChart2, AlertTriangle } from "lucide-react";
 import type {
   VisitorData,
   VisitorGroup,
@@ -294,6 +294,16 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
 
   return (
     <div className="space-y-5">
+      {data.truncated && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            This range has more visits than one query can hold — every number below is computed from
+            only the most recent {data.totalVisits.toLocaleString()}, not the full {activeDays}-day
+            range. Pick a shorter range for exact numbers.
+          </span>
+        </div>
+      )}
       {/* header controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 rounded-xl border border-white/10 bg-surface p-1">
