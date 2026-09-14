@@ -367,7 +367,8 @@ export function WatchPlayer({
             }}
             className="absolute inset-0 h-full w-full bg-black"
           />
-          {!ready && <Spinner />}
+          {/* Plyr shows its own themed loading spinner for this branch —
+              our overlay Spinner here would double up with it. */}
         </>
       )}
 
