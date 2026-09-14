@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "@/lib/stream";
 import { gradientFor } from "@/lib/gradient";
+import { PreRollAd } from "@/components/ads/PreRollAd";
 
 function Spinner() {
   return (
@@ -51,7 +52,8 @@ export function WatchPlayer({
   const plyrRef = useRef<import("plyr").default | null>(null);
 
   const [idx, setIdx] = useState(0);
-  const [started, setStarted] = useState(false); // mirror pre-play gate only
+  const [started, setStarted] = useState(false); // user clicked play
+  const [adDone, setAdDone] = useState(false); // pre-roll finished/skipped/none-to-show
   const [ready, setReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [dead, setDead] = useState(false);
@@ -61,6 +63,9 @@ export function WatchPlayer({
   const isBunny = cur?.type === "bunny";
   const isEmbed = cur?.type === "iframe";
   const isVideo = !!cur && (cur.type === "file" || cur.type === "hls");
+  // gates the REAL player (iframe or video) — the pre-roll, if any, sits
+  // between the play click and this becoming true
+  const showPlayer = started && adDone;
 
   const autoplayRef = useRef(true);
   const nextRef = useRef(nextHref);
@@ -102,10 +107,10 @@ export function WatchPlayer({
     setReady(false);
   }, [idx]);
   useEffect(() => {
-    if (ready || (!isBunny && !started)) return;
+    if (ready || !showPlayer) return;
     const t = setTimeout(() => setReady(true), 9000);
     return () => clearTimeout(t);
-  }, [ready, isBunny, started, idx]);
+  }, [ready, showPlayer, idx]);
 
   const failover = useCallback(() => {
     setIdx((i) => {
@@ -125,7 +130,7 @@ export function WatchPlayer({
   /* ── Bunny: player.js postMessage bridge — only for "ended" → next episode.
         Origin-checked, so it works through the /api/stream redirect. ── */
   useEffect(() => {
-    if (!isBunny) return;
+    if (!isBunny || !showPlayer) return;
     const iframe = iframeRef.current;
     if (!iframe) return;
 
@@ -162,11 +167,11 @@ export function WatchPlayer({
       clearInterval(ping);
       clearTimeout(stop);
     };
-  }, [isBunny, idx]);
+  }, [isBunny, showPlayer, idx]);
 
   /* ── mirror <video>: HLS attach ── */
   useEffect(() => {
-    if (!started || !cur || cur.type !== "hls") return;
+    if (!showPlayer || !cur || cur.type !== "hls") return;
     const video = videoRef.current;
     if (!video) return;
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -192,11 +197,11 @@ export function WatchPlayer({
       killed = true;
       hls?.destroy();
     };
-  }, [started, cur, failover]);
+  }, [showPlayer, cur, failover]);
 
   /* ── mirror <video>: skin native controls to match the Bunny player ── */
   useEffect(() => {
-    if (!started || !isVideo) return;
+    if (!showPlayer || !isVideo) return;
     const video = videoRef.current;
     if (!video) return;
     let killed = false;
@@ -213,16 +218,20 @@ export function WatchPlayer({
       plyrRef.current?.destroy();
       plyrRef.current = null;
     };
-  }, [started, isVideo, cur?.key]);
+  }, [showPlayer, isVideo, cur?.key]);
 
   useEffect(() => {
-    if (!started || !isVideo) return;
+    if (!showPlayer || !isVideo) return;
     videoRef.current?.play().catch(() => {});
-  }, [started, idx, isVideo]);
+  }, [showPlayer, idx, isVideo]);
 
   const play = useCallback(() => {
     setStarted(true);
     setCountdown(null);
+  }, []);
+
+  const handleAdDone = useCallback(() => {
+    setAdDone(true);
   }, []);
 
   // keyboard: only the bits the Bunny player can't cover from the parent
@@ -301,22 +310,7 @@ export function WatchPlayer({
       className={`lh-plyr group ${frame}`}
       style={frameStyle}
     >
-      {isBunny || isEmbed ? (
-        <>
-          <iframe
-            ref={isBunny ? iframeRef : undefined}
-            key={cur.key}
-            src={cur.src}
-            title={title ? `${title} — player` : "Video player"}
-            allow={iframeAllow}
-            allowFullScreen
-            referrerPolicy="no-referrer"
-            onLoad={() => setReady(true)}
-            className="absolute inset-0 h-full w-full border-0"
-          />
-          {!ready && <Spinner />}
-        </>
-      ) : !started ? (
+      {!started ? (
         <button
           type="button"
           onClick={play}
@@ -345,6 +339,23 @@ export function WatchPlayer({
             </span>
           </span>
         </button>
+      ) : !adDone ? (
+        <PreRollAd onDone={handleAdDone} />
+      ) : isBunny || isEmbed ? (
+        <>
+          <iframe
+            ref={isBunny ? iframeRef : undefined}
+            key={cur.key}
+            src={cur.src}
+            title={title ? `${title} — player` : "Video player"}
+            allow={iframeAllow}
+            allowFullScreen
+            referrerPolicy="no-referrer"
+            onLoad={() => setReady(true)}
+            className="absolute inset-0 h-full w-full border-0"
+          />
+          {!ready && <Spinner />}
+        </>
       ) : (
         <>
           <video
