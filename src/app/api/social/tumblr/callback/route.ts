@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin/auth";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Tumblr's OAuth redirect lands here. Deliberately NOT under /api/console/*
+ * — that whole prefix is cloaked by middleware (404 without a same-site
+ * session/gate cookie), but this is a cross-site redirect from tumblr.com,
+ * and our admin cookies are sameSite:"strict" so they never arrive here.
+ * The random `state` value round-tripped through the httpOnly, sameSite:
+ * "lax" `tumblr_oauth_state` cookie (set by the admin-authenticated
+ * /api/console/social/tumblr/connect step, which IS same-site) is what
+ * actually proves this request follows an admin-initiated connect — that
+ * cookie does survive the cross-site hop, unlike the strict ones.
+ */
 export async function GET(req: NextRequest) {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lusthentai.com";
   const redirect = (status: string) => NextResponse.redirect(`${site}/console/social?tumblr=${status}`);
-
-  try {
-    await requireAdmin();
-  } catch {
-    return redirect("error");
-  }
 
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
@@ -34,7 +38,7 @@ export async function GET(req: NextRequest) {
         code,
         client_id: process.env.TUMBLR_CONSUMER_KEY ?? "",
         client_secret: process.env.TUMBLR_CONSUMER_SECRET ?? "",
-        redirect_uri: `${site}/api/console/social/tumblr/callback`,
+        redirect_uri: `${site}/api/social/tumblr/callback`,
       }),
     });
     if (!tokenRes.ok) return redirect("error");

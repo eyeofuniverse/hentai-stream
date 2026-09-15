@@ -26,7 +26,7 @@ export async function GET() {
     client_id: process.env.TUMBLR_CONSUMER_KEY ?? "",
     response_type: "code",
     scope: "write offline_access",
-    redirect_uri: `${site}/api/console/social/tumblr/callback`,
+    redirect_uri: `${site}/api/social/tumblr/callback`,
     state,
   });
 
