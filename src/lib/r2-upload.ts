@@ -94,6 +94,34 @@ export async function putR2FromUrl(key: string, remoteUrl: string): Promise<bool
 }
 
 /**
+ * Copy an object already in R2 to a new key, byte-for-byte (no re-encoding —
+ * the source is already our own optimized webp). Reads via the authenticated
+ * S3 endpoint directly, NOT the public img-cdn.lusthentai.com custom domain —
+ * that domain sits behind Cloudflare's cache, and with `Cache-Control:
+ * immutable` on every object, overwriting a key in place never actually
+ * reaches real visitors (confirmed live: Cloudflare kept serving the
+ * pre-shrink bytes for an old key long after R2's own copy was updated).
+ * A genuinely new key is the only way to guarantee a fresh fetch.
+ */
+export async function copyR2Object(oldKey: string, newKey: string): Promise<boolean> {
+  if (!client || !endpoint || !bucket) return false;
+  try {
+    const get = await client.fetch(`${endpoint}/${bucket}/${oldKey}`, { method: "GET" });
+    if (!get.ok) return false;
+    const body = await get.arrayBuffer();
+    const contentType = get.headers.get("content-type") ?? "image/webp";
+    const put = await client.fetch(`${endpoint}/${bucket}/${newKey}`, {
+      method: "PUT",
+      body: body as BodyInit,
+      headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=31536000, immutable" },
+    });
+    return put.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Fetch a remote image and store it in R2 at `<folder>/<id>` — the same key
  * shape the old Cloudinary public_ids used, so existing DB rows (which store
  * that bare key, not a full URL) need no migration, only re-populating.
