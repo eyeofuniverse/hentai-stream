@@ -19,12 +19,14 @@ const client =
 
 // R2 has no on-the-fly resize pipeline (unlike Cloudinary), so every image is
 // pre-shrunk + re-encoded as webp once, here, at upload time. Caps chosen
-// against the largest width each `cloudinary.ts` helper actually requests
-// (cover 500w, banner 1920w, thumb 560w) plus modest retina headroom — not
-// the original's full resolution, which is routinely 2-10x more than any
-// card on the site ever displays.
+// against the largest width a card actually renders at CSS-wise (COVER_SIZES
+// tops out around 170-192px) plus 2x retina headroom — not the original's
+// full resolution, which is routinely 2-10x more than any card on the site
+// ever displays. (Was 600w for covers — PageSpeed flagged 1MB+ of wasted
+// bytes on a mobile run because of exactly this gap; there's no responsive
+// srcset yet — see srcSet() below — so every context gets this one size.)
 const LIMITS: Record<string, { w: number; q: number }> = {
-  covers: { w: 600, q: 82 },
+  covers: { w: 400, q: 82 },
   banners: { w: 1600, q: 78 },
   thumbs: { w: 640, q: 78 },
 };

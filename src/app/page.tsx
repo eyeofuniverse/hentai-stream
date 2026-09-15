@@ -59,8 +59,8 @@ export default async function HomePage() {
 
         {h.recentEpisodes.length > 0 && (
           <ScrollRow title="Latest episodes" href="/browse/new">
-            {h.recentEpisodes.map((ep) => (
-              <EpisodeCard key={ep.id} ep={ep} />
+            {h.recentEpisodes.map((ep, i) => (
+              <EpisodeCard key={ep.id} ep={ep} eager={i === 0} />
             ))}
           </ScrollRow>
         )}

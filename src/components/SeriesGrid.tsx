@@ -16,8 +16,8 @@ export function SeriesGrid({ items, cols }: { items: S[]; cols?: "wide" | "sideb
       : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6";
   return (
     <div className={`grid gap-x-3.5 gap-y-6 ${grid}`}>
-      {items.map((s) => (
-        <SeriesCard key={s.slug} series={s} />
+      {items.map((s, i) => (
+        <SeriesCard key={s.slug} series={s} priority={i === 0} />
       ))}
     </div>
   );

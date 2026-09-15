@@ -17,9 +17,13 @@ type S = {
 export function SeriesCard({
   series,
   inRow,
+  priority,
 }: {
   series: S;
   inRow?: boolean;
+  /** LCP image — load eagerly with high fetch priority. Pass for the first
+   *  card in whatever grid/row renders first on the page. */
+  priority?: boolean;
 }) {
   const eps = series._count?.episodes ?? 0;
   return (
@@ -34,6 +38,7 @@ export function SeriesCard({
         coverId={series.coverUrl}
         title={series.title}
         seed={series.slug}
+        priority={priority}
       >
         <PlayGlyph />
         {series.type && (

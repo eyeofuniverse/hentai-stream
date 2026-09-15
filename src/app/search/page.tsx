@@ -147,7 +147,7 @@ export default async function SearchPage({
             Series
           </h2>
           <div className="grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-            {series.map((s) => (
+            {series.map((s, i) => (
               <SeriesCard
                 key={s.slug}
                 series={{
@@ -159,6 +159,7 @@ export default async function SearchPage({
                   status: s.status,
                   _count: { episodes: s.episodes },
                 }}
+                priority={i === 0}
               />
             ))}
           </div>
@@ -192,8 +193,8 @@ export default async function SearchPage({
                 Popular right now
               </h2>
               <div className="grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                {fallback.slice(0, 12).map((s) => (
-                  <SeriesCard key={s.slug} series={s} />
+                {fallback.slice(0, 12).map((s, i) => (
+                  <SeriesCard key={s.slug} series={s} priority={i === 0} />
                 ))}
               </div>
             </div>

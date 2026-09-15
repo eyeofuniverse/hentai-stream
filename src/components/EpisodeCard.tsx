@@ -5,6 +5,7 @@ import { SmartImg } from "@/components/SmartImg";
 
 export function EpisodeCard({
   ep,
+  eager,
 }: {
   ep: {
     number: number;
@@ -15,6 +16,9 @@ export function EpisodeCard({
     thumbUrl?: string | null;
     series: { slug: string; title: string; coverUrl: string | null };
   };
+  /** LCP image — load eagerly with high fetch priority. Pass for the first
+   *  card in whatever row renders first on the page. */
+  eager?: boolean;
 }) {
   // R2 copy of the episode's own thumbnail (scraped, or Bunny's own once
   // hosted — see episodeThumb), else the series cover, else SmartImg's
@@ -42,6 +46,7 @@ export function EpisodeCard({
           sizes={THUMB_SIZES}
           width={360}
           height={203}
+          eager={eager}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
 
