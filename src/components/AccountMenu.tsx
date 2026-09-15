@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import type { createClient } from "@/lib/supabase/client";
 
 type Me = {
   handle: string;
@@ -32,13 +32,29 @@ export function AccountMenu() {
 
     // keep the header in sync with sign-in / sign-out (this tab and others) —
     // the layout doesn't remount on navigation, so without this the button
-    // stays "Sign in" after logging in
-    const supabase = (supabaseRef.current ??= createClient());
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") setMe(null);
-      else void refresh();
+    // stays "Sign in" after logging in.
+    //
+    // Dynamically imported: this component renders in the header on every
+    // page, so a static import of the Supabase client (a real chunk, ~190KB)
+    // forced it into the critical bundle for every anonymous page view too —
+    // flagged directly by PageSpeed as unused JS on pages with no session to
+    // sync. The listener still attaches on mount either way, just via an
+    // async chunk fetch instead of being baked into the initial bundle.
+    let unsubscribed = false;
+    let unsubscribe: (() => void) | undefined;
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      if (unsubscribed) return;
+      const supabase = (supabaseRef.current ??= createClient());
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") setMe(null);
+        else void refresh();
+      });
+      unsubscribe = () => data.subscription.unsubscribe();
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      unsubscribed = true;
+      unsubscribe?.();
+    };
   }, [refresh]);
 
   useEffect(() => setOpen(false), [me]);
@@ -93,7 +109,11 @@ export function AccountMenu() {
             </Link>
             <button
               onClick={async () => {
-                await (supabaseRef.current ??= createClient()).auth.signOut();
+                if (!supabaseRef.current) {
+                  const { createClient } = await import("@/lib/supabase/client");
+                  supabaseRef.current = createClient();
+                }
+                await supabaseRef.current.auth.signOut();
                 setMe(null);
                 setOpen(false);
                 router.refresh();
