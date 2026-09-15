@@ -51,6 +51,7 @@ export function WatchPlayer({
   const [started, setStarted] = useState(false); // user clicked play
   const [adDone, setAdDone] = useState(false); // pre-roll finished/skipped/none-to-show
   const [ready, setReady] = useState(false);
+  const [showUnmute, setShowUnmute] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [dead, setDead] = useState(false);
   const [ratio, setRatio] = useState<number | null>(null);
@@ -100,6 +101,7 @@ export function WatchPlayer({
 
   useEffect(() => {
     setReady(false);
+    setShowUnmute(false);
   }, [idx]);
   useEffect(() => {
     if (ready || !showPlayer) return;
@@ -122,9 +124,17 @@ export function WatchPlayer({
     setStarted(true);
   }, []);
 
-  /* ── <video>: HLS attach (our own Bunny copy or an HLS mirror) ── */
+  /* ── <video>: HLS attach (our own Bunny copy or an HLS mirror) — starts
+        as soon as the user clicks play, not once the pre-roll ad finishes.
+        The <video> element itself is mounted (hidden) the whole time the ad
+        is showing (see the render below) specifically so this can buffer
+        the real episode in the background — video stays paused throughout,
+        so playback position never advances during the ad; only the actual
+        .play() call below is gated on the ad being done. Without this, nothing
+        about the real video even began loading until the ad ended, which is
+        why it used to visibly stall right when playback should start. ── */
   useEffect(() => {
-    if (!showPlayer || !cur || cur.type !== "hls") return;
+    if (!started || !cur || cur.type !== "hls") return;
     const video = videoRef.current;
     if (!video) return;
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -150,11 +160,12 @@ export function WatchPlayer({
       killed = true;
       hls?.destroy();
     };
-  }, [showPlayer, cur, failover]);
+  }, [started, cur, failover]);
 
-  /* ── <video>: Plyr skin ── */
+  /* ── <video>: Plyr skin — also as soon as started, so there's no flash of
+        native controls the moment the ad ends and the video is revealed ── */
   useEffect(() => {
-    if (!showPlayer || !isVideo) return;
+    if (!started || !isVideo) return;
     const video = videoRef.current;
     if (!video) return;
     let killed = false;
@@ -171,11 +182,25 @@ export function WatchPlayer({
       plyrRef.current?.destroy();
       plyrRef.current = null;
     };
-  }, [showPlayer, isVideo, cur?.key]);
+  }, [started, isVideo, cur?.key]);
 
+  // actually START playback — gated on the ad being done (unlike the attach
+  // effects above, which run the moment the user clicks play). By now the
+  // video has had the whole ad duration to buffer, so this plays instantly
+  // instead of visibly stalling to load. Try unmuted first since this is
+  // usually still within the browser's "recent user gesture" window (the
+  // skip-ad click, or the ad ending right after one); if that's blocked,
+  // fall back to muted autoplay + a tap-to-unmute prompt, same pattern as
+  // the pre-roll ad itself.
   useEffect(() => {
     if (!showPlayer || !isVideo) return;
-    videoRef.current?.play().catch(() => {});
+    const video = videoRef.current;
+    if (!video) return;
+    video.play().catch(() => {
+      video.muted = true;
+      setShowUnmute(true);
+      video.play().catch(() => {});
+    });
   }, [showPlayer, idx, isVideo]);
 
   const play = useCallback(() => {
@@ -263,7 +288,7 @@ export function WatchPlayer({
       className={`lh-plyr group ${frame}`}
       style={frameStyle}
     >
-      {!started ? (
+      {!started && (
         <button
           type="button"
           onClick={play}
@@ -292,9 +317,50 @@ export function WatchPlayer({
             </span>
           </span>
         </button>
-      ) : !adDone ? (
-        <PreRollAd onDone={handleAdDone} />
-      ) : isEmbed ? (
+      )}
+
+      {started && isVideo && (
+        <>
+          <video
+            ref={videoRef}
+            key={cur.key}
+            src={cur.type === "file" ? cur.src : undefined}
+            poster={poster ?? undefined}
+            controls
+            playsInline
+            preload="auto"
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture
+            onLoadedData={() => setReady(true)}
+            onCanPlay={() => setReady(true)}
+            onError={failover}
+            onEnded={() => {
+              window.dispatchEvent(new CustomEvent("lh:episode-ended"));
+              if (autoplayRef.current && nextHref) setCountdown(10);
+            }}
+            className={`absolute inset-0 h-full w-full bg-black ${adDone ? "" : "invisible"}`}
+          />
+          {/* Plyr shows its own themed loading spinner once revealed — an
+              overlay Spinner here would double up with it. */}
+          {adDone && showUnmute && (
+            <button
+              type="button"
+              onClick={() => {
+                const v = videoRef.current;
+                if (v) v.muted = false;
+                setShowUnmute(false);
+              }}
+              className="absolute bottom-3 left-3 z-30 rounded-lg bg-black/70 px-3 py-1.5 text-xs font-medium text-white/85 hover:bg-black/85"
+            >
+              🔇 Tap to unmute
+            </button>
+          )}
+        </>
+      )}
+
+      {started && !adDone && <PreRollAd onDone={handleAdDone} />}
+
+      {started && adDone && isEmbed && (
         <>
           <iframe
             key={cur.key}
@@ -307,31 +373,6 @@ export function WatchPlayer({
             className="absolute inset-0 h-full w-full border-0"
           />
           {!ready && <Spinner />}
-        </>
-      ) : (
-        <>
-          <video
-            ref={videoRef}
-            key={cur.key}
-            src={cur.type === "file" ? cur.src : undefined}
-            poster={poster ?? undefined}
-            controls
-            autoPlay
-            playsInline
-            preload="auto"
-            controlsList="nodownload noremoteplayback"
-            disablePictureInPicture
-            onLoadedData={() => setReady(true)}
-            onCanPlay={() => setReady(true)}
-            onError={failover}
-            onEnded={() => {
-              window.dispatchEvent(new CustomEvent("lh:episode-ended"));
-              if (autoplayRef.current && nextHref) setCountdown(10);
-            }}
-            className="absolute inset-0 h-full w-full bg-black"
-          />
-          {/* Plyr shows its own themed loading spinner for this branch —
-              our overlay Spinner here would double up with it. */}
         </>
       )}
 
