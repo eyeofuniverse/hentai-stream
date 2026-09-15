@@ -29,10 +29,27 @@ export class Http {
     return run;
   }
 
+  /** Retry-After can be seconds or an HTTP-date; APIs that omit it (some do)
+   *  fall back to a conservative flat wait rather than a short exponential
+   *  one — a 429 means we're already over the limit, so guessing low just
+   *  re-triggers it. Capped so one bad response can't stall a batch job for
+   *  an unreasonable amount of time. */
+  private retryDelayMs(res: Response): number {
+    const header = res.headers.get("retry-after");
+    if (header) {
+      const asSeconds = Number(header);
+      if (Number.isFinite(asSeconds)) return Math.min(90_000, Math.max(1000, asSeconds * 1000));
+      const asDate = Date.parse(header);
+      if (!Number.isNaN(asDate)) return Math.min(90_000, Math.max(1000, asDate - Date.now()));
+    }
+    return 15_000;
+  }
+
   private async raw(url: string, init?: RequestInit): Promise<Response> {
     return this.schedule(async () => {
       let lastErr: unknown;
       for (let i = 0; i < 4; i++) {
+        let rateLimitDelayMs: number | null = null;
         try {
           const res = await fetch(url, {
             ...init,
@@ -45,13 +62,28 @@ export class Http {
               ...(init?.headers ?? {}),
             },
           });
-          if (res.status === 429 || res.status >= 500) {
+          if (res.status === 429) {
+            rateLimitDelayMs = this.retryDelayMs(res);
+            throw new Error(`HTTP 429 (retry after ${Math.round(rateLimitDelayMs / 1000)}s)`);
+          }
+          if (res.status >= 500) {
             throw new Error(`HTTP ${res.status}`);
           }
           return res;
         } catch (e) {
           lastErr = e;
-          if (i < 3) await new Promise((r) => setTimeout(r, 2000 * 2 ** i));
+          if (i < 3) {
+            const wait = rateLimitDelayMs ?? 2000 * 2 ** i;
+            if (rateLimitDelayMs != null) {
+              // a 429 means the whole client is over the limit right now, not
+              // just this one request — push the shared pacing clock forward
+              // so every other request still queued behind this one backs
+              // off too, instead of each one re-triggering the same 429 in
+              // turn and cascading through the rest of a batch.
+              this.lastAt = Date.now() + wait - this.minGapMs;
+            }
+            await new Promise((r) => setTimeout(r, wait));
+          }
         }
       }
       throw lastErr;

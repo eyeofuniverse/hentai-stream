@@ -9,7 +9,7 @@
  *          nhentai (granular tags, characters, parody, artist — Cloudflare-gated).
  * Non-destructive: only fills empty fields, only adds tags/characters.
  */
-import { runEnrich } from "@/lib/enrich/run";
+import { runEnrich, realErrors } from "@/lib/enrich/run";
 import { recountTaxonomy } from "@/lib/metadata/importer";
 import { prisma } from "@/lib/db";
 
@@ -43,4 +43,4 @@ console.log("\n── done ──");
 console.log(JSON.stringify(summary, null, 2));
 
 await prisma.$disconnect();
-process.exit(summary.errors.length ? 1 : 0);
+process.exit(realErrors(summary.errors).length ? 1 : 0);

@@ -27,6 +27,13 @@ export interface EnrichOptions {
   log?: (msg: string) => void;
 }
 
+/** A 429 that exhausted its retries is an expected, recoverable condition
+ *  under a big batch (AniList's public rate limit is low) — it shouldn't
+ *  read as a real failure. Anything else in errors is a genuine signal. */
+export function realErrors(errors: string[]): string[] {
+  return errors.filter((e) => !/HTTP 429/.test(e));
+}
+
 export interface EnrichSummary {
   source: string;
   seriesSeen: number;
@@ -151,7 +158,7 @@ export async function runEnrich(opts: EnrichOptions): Promise<EnrichSummary> {
         where: { id: run.id },
         data: {
           finishedAt: new Date(),
-          ok: s.errors.length === 0,
+          ok: realErrors(s.errors).length === 0,
           seriesSeen: s.seriesSeen,
           seriesMatched: s.seriesMatched,
           fieldsFilled: s.fieldsFilled,
