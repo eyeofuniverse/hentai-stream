@@ -52,9 +52,9 @@ export function AgeGate() {
         aria-labelledby="lh-vg-title"
         aria-describedby="lh-vg-desc"
         role="dialog"
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-6 backdrop-blur-md"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-6"
       >
-        <div className="w-full max-w-md animate-rise rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
+        <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
           <div className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-2 text-white shadow-glow">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M8 5v14l11-7z" />
