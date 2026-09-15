@@ -300,6 +300,14 @@ export async function pollHosting(opts: { limit?: number; log?: (m: string) => v
         await publishIfLive(ep.id);
       } else if (status === "failed") {
         failed++;
+        // a failed transcode is never playable — delete it from Bunny right
+        // away instead of leaving it billed as storage forever (this is
+        // exactly the kind of video a later manual audit found sitting
+        // around; closing the gap here means that audit stays a one-off).
+        await deleteVideo(ep.bunnyGuid!).catch(() => {});
+        await db(() =>
+          prisma.episode.update({ where: { id: ep.id }, data: { bunnyGuid: null } }),
+        ).catch(() => {});
       }
     } catch (e) {
       log(`  poll ${ep.bunnyGuid}: ${(e as Error).message}`);
