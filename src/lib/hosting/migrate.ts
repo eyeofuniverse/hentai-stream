@@ -170,7 +170,12 @@ export async function runMigrate(opts: {
       continue;
     }
 
-    if (ep.bunnyGuid) await deleteVideo(ep.bunnyGuid).catch(() => {});
+    if (ep.bunnyGuid) {
+      await deleteVideo(ep.bunnyGuid).catch(() => {});
+      await db(() =>
+        prisma.episode.update({ where: { id: ep.id }, data: { bunnyGuid: null } }),
+      ).catch(() => {});
+    }
 
     let done = false;
     for (const src of srcs) {
@@ -181,9 +186,24 @@ export async function runMigrate(opts: {
       // Bunny forever: never saved to episode.bunnyGuid, so nothing here or
       // in a later retry ever knew to delete it. That's how the library
       // count drifted far above what the DB thinks is hosted.
+      //
+      // earlyGuid is written to the DB the moment createVideo() succeeds —
+      // before the (much longer, network-bound) fetchIntoVideo call — so a
+      // process kill mid-fetch (OOM, a cancelled Actions run, anything that
+      // skips this JS catch block entirely) still leaves a traceable record
+      // instead of a silent orphan. Cleared again in the catch below on any
+      // failure so a dead attempt never lingers as a stale DB reference.
       let video: Awaited<ReturnType<typeof createVideo>> | null = null;
+      let earlyGuid: string | null = null;
       try {
         video = await createVideo(`${ep.series.title} - E${ep.number}`);
+        earlyGuid = video.guid;
+        await db(() =>
+          prisma.episode.update({
+            where: { id: ep.id },
+            data: { bunnyGuid: video!.guid, bunnyStatus: "queued", bunnyError: null },
+          }),
+        );
         const ref = src.sourceSite ? SITE_REFERER[src.sourceSite] : undefined;
         const res = await fetchIntoVideo(
           video.guid,
@@ -229,6 +249,11 @@ export async function runMigrate(opts: {
         break;
       } catch (e) {
         if (video) await deleteVideo(video.guid).catch(() => {});
+        if (earlyGuid) {
+          await db(() =>
+            prisma.episode.update({ where: { id: ep.id }, data: { bunnyGuid: null } }),
+          ).catch(() => {});
+        }
         log(`  · ${ep.series.title} E${ep.number} via ${src.sourceSite}: ${(e as Error).message}`);
       }
     }

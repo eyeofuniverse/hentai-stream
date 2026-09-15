@@ -8,6 +8,8 @@ name: Catalogue maintenance
 #   covers    — anilist enrich, coverless series first (no gradient blocks)
 #   verify    — re-check playability, publish/unpublish
 #   migrate   — queue newly-playable episodes into Bunny
+#   reconcile — delete Bunny videos no episode references (orphans from a
+#               killed host job) and any still-failed video left behind
 #   recompute — weeklyViews / bayesianRating / trendingScore
 #
 # Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*
@@ -85,6 +87,10 @@ jobs:
       - name: Migrate playable episodes into Bunny
         continue-on-error: true
         run: npm run migrate -- --retry
+
+      - name: Reconcile — delete orphaned/failed Bunny videos
+        continue-on-error: true
+        run: npm run reconcile-bunny
 
       - name: Recompute derived metrics
         continue-on-error: true

@@ -164,6 +164,29 @@ export async function deleteVideo(guid: string): Promise<void> {
   await call("/videos/" + guid, { method: "DELETE", retries: 1 }).catch(() => {});
 }
 
+export interface BunnyVideoListItem {
+  guid: string;
+  status: number;
+  storageSize: number;
+}
+
+/** Every video in the library, paginated — used by the orphan-reconcile job,
+ *  not the request path (this walks the whole library, thousands of rows). */
+export async function listAllVideos(): Promise<BunnyVideoListItem[]> {
+  const perPage = 100;
+  let page = 1;
+  let all: BunnyVideoListItem[] = [];
+  while (true) {
+    const data = await call<{ items: BunnyVideoListItem[]; totalItems: number }>(
+      `/videos?page=${page}&itemsPerPage=${perPage}&orderBy=date`,
+    );
+    all = all.concat(data.items);
+    if (all.length >= data.totalItems || data.items.length === 0) break;
+    page++;
+  }
+  return all;
+}
+
 /* ─────────────────────────── playback URLs ─────────────────────────── */
 
 export const hlsUrl = (guid: string) => `https://${CDN_HOST}/${guid}/playlist.m3u8`;
