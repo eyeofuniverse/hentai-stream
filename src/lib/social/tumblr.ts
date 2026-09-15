@@ -97,5 +97,10 @@ export async function postToTumblr({
   }
 
   const result = await res.json();
-  return { id: String(result.response?.id ?? result.id ?? "") };
+  // Tumblr post ids are 64-bit and exceed Number.MAX_SAFE_INTEGER — by the
+  // time `res.json()` has parsed the numeric `id` field into a JS number the
+  // precision is already gone (confirmed live: id 827814950116425700 vs the
+  // real 827814950116425728). `id_string` carries the same value as a JSON
+  // string, which JSON.parse never touches, so it's the only reliable one.
+  return { id: result.response?.id_string ?? String(result.response?.id ?? result.id ?? "") };
 }
