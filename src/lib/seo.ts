@@ -59,6 +59,33 @@ export function episodeSeo(ep: EpForSeo) {
   return { title, description, genres };
 }
 
+type SeriesForSynopsis = {
+  title: string;
+  type: string;
+  year: number | null;
+  isCensored: boolean;
+  studio?: { name: string } | null;
+  episodeCount: number;
+};
+
+/**
+ * A real synopsis is best, but a lot of scrape-only content (no AniList/MAL
+ * match — common for doujin/niche titles AniList simply doesn't list) never
+ * gets one from the enrichment pipeline. This is the fallback used anywhere
+ * a series needs descriptive text and has none: the public series page, and
+ * social auto-post captions (src/lib/social/post.ts) — kept in one place so
+ * a bland flat placeholder ("New series now streaming.") can't sneak into
+ * one call site while this richer, per-series one is used in another.
+ */
+export function defaultSeriesSynopsis(s: SeriesForSynopsis): string {
+  const article = /^[aeiou]/i.test(s.type) ? "an" : "a";
+  return (
+    `${s.title} is ${article} ${s.type.toLowerCase()} hentai${s.year ? ` from ${s.year}` : ""}` +
+    `${s.studio ? ` by ${s.studio.name}` : ""}, ${s.isCensored ? "subbed" : "uncensored"}. ` +
+    `Watch all ${s.episodeCount} episode${s.episodeCount === 1 ? "" : "s"} free in HD on ${SITE_NAME}.`
+  );
+}
+
 /** BreadcrumbList JSON-LD. */
 export function breadcrumbLd(crumbs: { name: string; path: string }[]) {
   return {

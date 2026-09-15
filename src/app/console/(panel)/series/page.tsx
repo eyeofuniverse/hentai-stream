@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
 import { cover } from "@/lib/cloudinary";
+import { defaultSeriesSynopsis } from "@/lib/seo";
 import { isBlueskyConfigured } from "@/lib/social/bluesky";
 import { isTumblrConnected } from "@/lib/social/tumblr";
 import { PromoteButton } from "@/components/console/PromoteButton";
@@ -80,6 +81,8 @@ export default async function AdminSeriesList({
           synopsis: true,
           type: true,
           year: true,
+          isCensored: true,
+          studio: { select: { name: true } },
           publish: true,
           totalEpisodes: true,
           metadataSource: true,
@@ -230,7 +233,17 @@ export default async function AdminSeriesList({
                 <PromoteButton
                   seriesId={s.id}
                   seriesTitle={s.title}
-                  seriesSynopsis={s.synopsis ?? "New series now streaming."}
+                  seriesSynopsis={
+                    s.synopsis ??
+                    defaultSeriesSynopsis({
+                      title: s.title,
+                      type: s.type,
+                      year: s.year,
+                      isCensored: s.isCensored,
+                      studio: s.studio,
+                      episodeCount: s._count.episodes,
+                    })
+                  }
                   seriesUrl={`${siteUrl}/hentai/${s.slug}`}
                   coverImageUrl={src}
                   defaultTags={s.tags.map((t) => t.name)}

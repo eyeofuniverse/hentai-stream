@@ -1,5 +1,6 @@
 import { prisma, db } from "@/lib/db";
 import { cover, thumb } from "@/lib/cloudinary";
+import { defaultSeriesSynopsis } from "@/lib/seo";
 import { postToBluesky } from "./bluesky";
 import { postToTumblr } from "./tumblr";
 
@@ -42,13 +43,34 @@ export async function buildSeriesPromoData(seriesId: string): Promise<PromoData 
   const series = await db(() =>
     prisma.series.findUnique({
       where: { id: seriesId },
-      select: { title: true, slug: true, synopsis: true, coverUrl: true, tags: { select: { name: true } } },
+      select: {
+        title: true,
+        slug: true,
+        synopsis: true,
+        coverUrl: true,
+        type: true,
+        year: true,
+        isCensored: true,
+        studio: { select: { name: true } },
+        tags: { select: { name: true } },
+        _count: { select: { episodes: true } },
+      },
     }),
   );
   if (!series) return null;
   return {
     title: `New series: ${series.title}`,
-    caption: (series.synopsis ?? "New series now streaming.").trim(),
+    caption: (
+      series.synopsis ??
+      defaultSeriesSynopsis({
+        title: series.title,
+        type: series.type,
+        year: series.year,
+        isCensored: series.isCensored,
+        studio: series.studio,
+        episodeCount: series._count.episodes,
+      })
+    ).trim(),
     url: `${SITE}/hentai/${series.slug}`,
     tags: series.tags.map((t) => t.name),
     coverImageUrl: cover(series.coverUrl),
@@ -65,7 +87,18 @@ export async function buildEpisodePromoData(episodeId: string): Promise<PromoDat
         synopsis: true,
         thumbUrl: true,
         series: {
-          select: { title: true, slug: true, synopsis: true, coverUrl: true, tags: { select: { name: true } } },
+          select: {
+            title: true,
+            slug: true,
+            synopsis: true,
+            coverUrl: true,
+            type: true,
+            year: true,
+            isCensored: true,
+            studio: { select: { name: true } },
+            tags: { select: { name: true } },
+            _count: { select: { episodes: true } },
+          },
         },
       },
     }),
@@ -74,7 +107,18 @@ export async function buildEpisodePromoData(episodeId: string): Promise<PromoDat
   const epNum = fmtEpNum(ep.number);
   return {
     title: `${ep.series.title} — Episode ${epNum}${ep.title ? `: ${ep.title}` : ""}`,
-    caption: (ep.synopsis ?? ep.series.synopsis ?? "New episode now streaming.").trim(),
+    caption: (
+      ep.synopsis ??
+      ep.series.synopsis ??
+      defaultSeriesSynopsis({
+        title: ep.series.title,
+        type: ep.series.type,
+        year: ep.series.year,
+        isCensored: ep.series.isCensored,
+        studio: ep.series.studio,
+        episodeCount: ep.series._count.episodes,
+      })
+    ).trim(),
     url: `${SITE}/hentai/${ep.series.slug}/${ep.number}`,
     tags: ep.series.tags.map((t) => t.name),
     coverImageUrl: thumb(ep.thumbUrl) ?? cover(ep.series.coverUrl),
