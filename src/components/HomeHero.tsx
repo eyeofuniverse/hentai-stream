@@ -215,18 +215,25 @@ export function HomeHero({
           </div>
         </div>
 
-        {/* progress dots (mobile / tablet) */}
+        {/* progress dots (mobile / tablet) — each button is a full 24x24
+            touch target (Lighthouse-flagged: the visible pill alone was
+            6x6-24x6px with no clearance from its neighbours); the small
+            pill is just an inner span so the visual size is unchanged */}
         {items.length > 1 && (
-          <div className="absolute bottom-4 right-4 flex gap-1.5 xl:hidden">
+          <div className="absolute bottom-4 right-4 flex xl:hidden">
             {items.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setI(idx)}
                 aria-label={`Slide ${idx + 1}`}
-                className={`h-1.5 rounded-full transition-all ${
-                  idx === i ? "w-6 bg-accent" : "w-1.5 bg-white/35 hover:bg-white/60"
-                }`}
-              />
+                className="grid h-6 w-6 shrink-0 place-items-center"
+              >
+                <span
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === i ? "w-6 bg-accent" : "w-1.5 bg-white/35 hover:bg-white/60"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         )}
