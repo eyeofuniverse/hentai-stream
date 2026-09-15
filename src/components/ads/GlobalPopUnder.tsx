@@ -31,12 +31,24 @@ export function GlobalPopUnder() {
 
   useEffect(() => {
     if (pathname.startsWith("/console")) return;
-    fetch("/api/ads/active?slot=global-popunder&device=all")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((ad) => {
-        if (ad?.type === "network" && ad.networkCode) inject(ad.networkCode);
-      })
-      .catch(() => {});
+    // A popunder doesn't need to be armed the instant the page mounts — it
+    // fires on exit/click intent regardless, not on a load timer. Deferring
+    // the fetch + script injection to an idle moment keeps this off the
+    // critical rendering path instead of competing with real content for
+    // main-thread time right when Lighthouse (and real users) are measuring
+    // Total Blocking Time.
+    const load = () => {
+      fetch("/api/ads/active?slot=global-popunder&device=all")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((ad) => {
+          if (ad?.type === "network" && ad.networkCode) inject(ad.networkCode);
+        })
+        .catch(() => {});
+    };
+    const ric = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2000));
+    const cic = window.cancelIdleCallback ?? clearTimeout;
+    const id = ric(load, { timeout: 4000 });
+    return () => cic(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

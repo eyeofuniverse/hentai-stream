@@ -33,13 +33,6 @@ export default async function EmbedPage({
 
   return (
     <div className="fixed inset-0 z-[9998] grid place-items-center bg-black">
-      {/* an embedded player isn't the place for an age wall — the host page
-          gates it; drop our overlay for this route */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: "document.documentElement.setAttribute('data-vok','1')",
-        }}
-      />
       <div className="w-full">
         <WatchPlayer servers={servers} poster={poster} nextHref={null} bare />
       </div>

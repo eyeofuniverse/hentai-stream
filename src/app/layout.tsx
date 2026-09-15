@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
 import "./globals.css";
-import { AgeGate } from "@/components/AgeGate";
 import { Analytics } from "@/components/Analytics";
 import { PageTracker } from "@/components/PageTracker";
 import { GlobalPopUnder } from "@/components/ads/GlobalPopUnder";
@@ -71,29 +70,20 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${sora.variable}`}
     >
+      <head>
+        {/* covers/thumbnails are the LCP element on most pages — save the
+            connection-setup round trip (DNS + TCP + TLS) for the moment the
+            browser makes its first actual request to this origin */}
+        <link rel="preconnect" href={`https://${process.env.NEXT_PUBLIC_R2_PUBLIC_HOST}`} crossOrigin="" />
+        <link rel="dns-prefetch" href={`https://${process.env.NEXT_PUBLIC_R2_PUBLIC_HOST}`} />
+      </head>
       <body
         suppressHydrationWarning
         className="min-h-screen bg-bg font-sans text-[#ececf1] antialiased"
       >
-        {/* before first paint: if the visitor already confirmed their age, mark
-            <html> so the gate CSS hides it — no flash, no swallowed taps.
-            A data-attribute, not a class: <html> already has a React-owned
-            className (the font variables), and mutating that same attribute
-            imperatively before hydration is exactly what was triggering a
-            React hydration error (#418) in production — React expects the
-            DOM to match its rendered className and forces a full client
-            remount when it doesn't, which wiped this flag right back off.
-            An attribute React's JSX never declares has nothing to mismatch. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{if(/(?:^|;\\s*)lh_vok=1(?:;|$)/.test(document.cookie))document.documentElement.setAttribute('data-vok','1')}catch(e){}",
-          }}
-        />
         <SiteHeader />
         <div className="min-h-[60vh]">{children}</div>
         <SiteFooter />
-        <AgeGate />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

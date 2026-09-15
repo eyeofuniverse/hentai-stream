@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import Script from "next/script";
 
 /**
  * GA4 measurement id. It is NOT a secret — it ships in the page source of every
@@ -21,5 +21,18 @@ export function Analytics() {
   // no events for any /console/* route
   if (!GA_ID || pathname?.startsWith("/console")) return null;
 
-  return <GoogleAnalytics gaId={GA_ID} />;
+  // "lazyOnload" (loaded when the browser is idle, after everything else)
+  // instead of @next/third-parties' fixed "afterInteractive" — gtag.js is
+  // ~167KB with a real chunk of that unused, and its execution was showing
+  // up as a meaningful share of Total Blocking Time. Analytics firing a
+  // couple seconds later doesn't cost us anything real; competing with
+  // actual page content for the main thread does.
+  return (
+    <>
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
+      <Script id="ga-init" strategy="lazyOnload">
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`}
+      </Script>
+    </>
+  );
 }
