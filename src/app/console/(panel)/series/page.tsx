@@ -2,6 +2,9 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma, db } from "@/lib/db";
 import { cover } from "@/lib/cloudinary";
+import { isBlueskyConfigured } from "@/lib/social/bluesky";
+import { isTumblrConnected } from "@/lib/social/tumblr";
+import { PromoteButton } from "@/components/console/PromoteButton";
 import {
   PageHeader,
   LinkButton,
@@ -59,7 +62,10 @@ export default async function AdminSeriesList({
       : {}),
   };
 
-  const [rows, total, counts] = await db(() =>
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lusthentai.com";
+  const blueskyAvailable = isBlueskyConfigured();
+
+  const [rows, total, counts, tumblrAvailable] = await db(() =>
     Promise.all([
       prisma.series.findMany({
         where,
@@ -71,19 +77,23 @@ export default async function AdminSeriesList({
           title: true,
           slug: true,
           coverUrl: true,
+          synopsis: true,
           type: true,
           year: true,
           publish: true,
           totalEpisodes: true,
           metadataSource: true,
           contentWarnings: true,
+          socialPostedAt: true,
           updatedAt: true,
+          tags: { select: { name: true } },
           _count: { select: { episodes: true } },
           episodes: { where: { sources: { some: {} } }, select: { id: true } },
         },
       }),
       prisma.series.count({ where }),
       prisma.series.groupBy({ by: ["publish"], _count: true }),
+      isTumblrConnected(),
     ]),
   );
 
@@ -172,10 +182,13 @@ export default async function AdminSeriesList({
               const withVideo = s.episodes.length;
               const flagged = s.contentWarnings.includes("possible-minor");
               return (
-                <Link
+                <div
                   key={s.id}
+                  className="flex items-center gap-1 px-3 py-2.5 transition-colors hover:bg-white/[0.03]"
+                >
+                <Link
                   href={`/console/series/${s.id}`}
-                  className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.03]"
+                  className="flex min-w-0 flex-1 items-center gap-3"
                 >
                   {src ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -214,6 +227,18 @@ export default async function AdminSeriesList({
                     {timeAgo(s.updatedAt)}
                   </span>
                 </Link>
+                <PromoteButton
+                  seriesId={s.id}
+                  seriesTitle={s.title}
+                  seriesSynopsis={s.synopsis ?? "New series now streaming."}
+                  seriesUrl={`${siteUrl}/hentai/${s.slug}`}
+                  coverImageUrl={src}
+                  defaultTags={s.tags.map((t) => t.name)}
+                  blueskyAvailable={blueskyAvailable}
+                  tumblrAvailable={tumblrAvailable}
+                  posted={!!s.socialPostedAt}
+                />
+                </div>
               );
             })}
           </div>

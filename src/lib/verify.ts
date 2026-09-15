@@ -1,6 +1,7 @@
 import { prisma, db } from "@/lib/db";
 import type { SourceStatus } from "@prisma/client";
 import { pingIndexNow } from "@/lib/indexnow";
+import { autoPromoteOnPublish } from "@/lib/social/post";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
@@ -135,6 +136,7 @@ export async function publishIfLive(episodeId: string): Promise<{
     // a brand-new series also means its series page is new/changed
     if (seriesPublished) urls.push(`/hentai/${ep.series.slug}`);
     await pingIndexNow(urls);
+    autoPromoteOnPublish({ seriesId: ep.seriesId, episodeId, episodePublished, seriesPublished });
   }
 
   return { episodePublished, seriesPublished };

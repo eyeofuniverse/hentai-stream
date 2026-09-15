@@ -10,6 +10,7 @@ import { canonicalTag, isFeaturedSlug } from "@/lib/metadata/tag-canonical";
 import { slugify, flagsMinor } from "@/lib/metadata/tags";
 import { malEnabled, malSearch, normalize, isHentai } from "@/lib/metadata/mal";
 import { importSeries, emptyImportStats } from "@/lib/metadata/importer";
+import { autoPromoteOnPublish } from "@/lib/social/post";
 
 /* ───────────────────────────── title matching ───────────────────────────── */
 
@@ -562,6 +563,10 @@ export async function ingestEpisode(opts: {
         });
         seriesPublished = true;
       }
+    }
+
+    if (episodePublished || seriesPublished) {
+      autoPromoteOnPublish({ seriesId: opts.seriesId, episodeId: ep.id, episodePublished, seriesPublished });
     }
 
     return { episodeId: ep.id, sourcesAdded, episodePublished, seriesPublished };

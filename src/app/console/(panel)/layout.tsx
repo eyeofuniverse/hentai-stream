@@ -103,7 +103,13 @@ export default async function PanelLayout({
         { href: "/console/search", label: "Search", icon: "search" },
       ],
     },
-    { label: "Marketing", items: [{ href: "/console/ads", label: "Ads", icon: "ads" }] },
+    {
+      label: "Marketing",
+      items: [
+        { href: "/console/ads", label: "Ads", icon: "ads" },
+        { href: "/console/social", label: "Social", icon: "social" },
+      ],
+    },
     { label: "System", items: [{ href: "/console/metadata", label: "Metadata", icon: "metadata" }] },
   ];
 

@@ -312,6 +312,10 @@ model Series {
   autoPublishedAt DateTime?
   reviewedAt      DateTime?
 
+  /// set once this series has been announced on Bluesky/Tumblr (auto or
+  /// manual) — guards against re-posting on a later republish/revive cycle
+  socialPostedAt DateTime?
+
   airDay        Weekday?
   nextEpisodeAt DateTime?
 
@@ -395,6 +399,10 @@ model Episode {
   /// grabbed from a torrent — held from auto-publish until a moderator approves
   /// it in the review queue (wrong episode / language / quality happens)
   needsReview Boolean @default(false)
+
+  /// set once this episode has been announced on Bluesky/Tumblr (auto or
+  /// manual) — guards against re-posting on a later republish/revive cycle
+  socialPostedAt DateTime?
 
   createdById String?  @db.Uuid
   createdBy   Profile? @relation("EpisodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -650,6 +658,17 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// OAuth tokens for social auto-posting (Tumblr's OAuth2 access+refresh pair;
+/// Bluesky needs no stored token — it authenticates fresh each post via an
+/// app password in env vars).
+model SocialToken {
+  platform     String    @id
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  updatedAt    DateTime  @default(now()) @updatedAt
 }
 
 model AdSlot {

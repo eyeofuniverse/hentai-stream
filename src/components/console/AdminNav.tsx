@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   LogOut,
+  Share2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -51,6 +52,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   tags: Tag,
   search: Search,
   ads: Megaphone,
+  social: Share2,
   metadata: DatabaseZap,
   analytics: BarChart2,
 };
