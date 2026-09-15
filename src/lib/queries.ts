@@ -334,14 +334,6 @@ async function homeSectionsInner() {
   // un-enriched scrape (no coverUrl) renders as a gradient block and looks broken
   const pubArt = { ...pub, coverUrl: { not: null } };
 
-  // hero shows only the most recent release year we actually have
-  const latestYearRow = await prisma.series.findFirst({
-    where: { ...pub, year: { not: null } },
-    orderBy: { year: "desc" },
-    select: { year: true },
-  });
-  const heroYear = latestYearRow?.year ?? null;
-
   // curated genre rails for the homepage (variety over raw size)
   const RAIL_SLUGS = [
     "harem",
@@ -353,7 +345,7 @@ async function homeSectionsInner() {
   ];
 
   const [
-    hero,
+    { hero, heroYear },
     trending,
     recentEpisodes,
     newSeries,
@@ -363,7 +355,19 @@ async function homeSectionsInner() {
     featuredTags,
     railTags,
   ] = await Promise.all([
-    getHero(pub, heroYear),
+    // hero shows only the most recent release year we actually have — this
+    // lookup used to run before the Promise.all, serializing one extra
+    // round-trip in front of the other 8 independent queries for no reason;
+    // now it (and the getHero() call that depends on it) run alongside them.
+    (async () => {
+      const latestYearRow = await prisma.series.findFirst({
+        where: { ...pub, year: { not: null } },
+        orderBy: { year: "desc" },
+        select: { year: true },
+      });
+      const heroYear = latestYearRow?.year ?? null;
+      return { hero: await getHero(pub, heroYear), heroYear };
+    })(),
     prisma.series.findMany({
       where: pubArt,
       orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],

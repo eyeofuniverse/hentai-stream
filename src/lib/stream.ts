@@ -4,7 +4,7 @@ import { createHmac, timingSafeEqual } from "crypto";
  * Source URLs are NEVER sent to the browser. The client gets an opaque
  * `/api/stream?e=<ep>&s=<key>&t=<hmac>` link; the route verifies the token,
  * confirms it belongs to a published episode, and 302-redirects to the real
- * target (the Bunny player embed, or a mirror file). Nothing identifiable —
+ * target (our Bunny HLS playlist, or a mirror file). Nothing identifiable —
  * no CDN host, no third-party domain — ever reaches the page.
  */
 const SECRET =
@@ -13,8 +13,6 @@ const SECRET =
   process.env.DIRECT_URL ||
   process.env.DATABASE_URL ||
   "insecure-dev-secret-set-STREAM_SECRET";
-
-const LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID ?? "";
 
 export function signStream(episodeId: string, key: string): string {
   return createHmac("sha256", SECRET)
@@ -37,7 +35,7 @@ export type Server = {
   key: string;
   quality: string | null; // "1080p" | null
   kind: string; // SUB | DUB | RAW
-  type: "bunny" | "hls" | "file" | "iframe";
+  type: "hls" | "file" | "iframe";
   /** tokenised /api/stream URL — resolves server-side, never a real URL */
   src: string;
 };
@@ -55,9 +53,10 @@ const qLabel = (q: string | null) =>
   q && q !== "UNKNOWN" ? q.replace(/^Q/, "") + "p" : null;
 
 /**
- * Ordered playback list. The Bunny copy (our own player, designed in the Bunny
- * dashboard) is first; tokenised mirrors follow for silent auto-failover. The
- * client shows none of this — it just plays, falling through on error.
+ * Ordered playback list. The Bunny copy (our own hosted HLS, played in our
+ * own Plyr player — not Bunny's iframe embed) is first; tokenised mirrors
+ * follow for silent auto-failover. The client shows none of this — it just
+ * plays, falling through on error.
  */
 export function buildServers(
   episodeId: string,
@@ -71,7 +70,7 @@ export function buildServers(
       key: "bunny",
       quality: "1080p",
       kind: "SUB",
-      type: "bunny",
+      type: "hls",
       src: streamPath(episodeId, "bunny"),
     });
   }
@@ -92,15 +91,3 @@ export function buildServers(
   return out;
 }
 
-/* ── server-side only: resolve a key to its real target ── */
-
-/** Bunny Stream player embed — skinned in the Bunny dashboard (colours, logo,
- *  no download button, watermark, …).
- *
- *  autoplay is OFF: the browser blocks cross-origin iframe autoplay anyway, so
- *  requesting it just makes Bunny show its own play button on top of a paused
- *  video (the "click twice to play" bug). One poster, one play button, one tap.
- *  preload is OFF so an unwatched page view costs no video bandwidth. */
-export function bunnyEmbed(guid: string): string {
-  return `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${guid}?autoplay=false&preload=false&responsive=true`;
-}

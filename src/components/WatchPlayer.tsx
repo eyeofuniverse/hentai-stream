@@ -15,17 +15,14 @@ function Spinner() {
   );
 }
 
-const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
-
 /**
  * The episode player.
  *
- * Bunny-hosted episodes ARE the Bunny Stream player — all UI, controls,
- * fullscreen, resume, speed etc. are configured in the Bunny dashboard, not
- * here. We only add what the player can't know about: advancing to the next
- * episode, silent failover to a mirror, and sizing the frame to the video.
- *
- * Mirror sources use a bare locked-down <video>.
+ * Our own Bunny-hosted copy and any HLS mirror both play through the same
+ * <video> + hls.js + Plyr setup below (skinned to one consistent look).
+ * Only sources that are inherently a third-party player page (type
+ * "iframe" — a site that never gave us a direct/embeddable file) fall back
+ * to a real <iframe>.
  */
 export function WatchPlayer({
   servers,
@@ -48,7 +45,6 @@ export function WatchPlayer({
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const plyrRef = useRef<import("plyr").default | null>(null);
 
   const [idx, setIdx] = useState(0);
@@ -60,7 +56,6 @@ export function WatchPlayer({
   const [ratio, setRatio] = useState<number | null>(null);
 
   const cur = servers[idx];
-  const isBunny = cur?.type === "bunny";
   const isEmbed = cur?.type === "iframe";
   const isVideo = !!cur && (cur.type === "file" || cur.type === "hls");
   // gates the REAL player (iframe or video) — the pre-roll, if any, sits
@@ -127,49 +122,7 @@ export function WatchPlayer({
     setStarted(true);
   }, []);
 
-  /* ── Bunny: player.js postMessage bridge — only for "ended" → next episode.
-        Origin-checked, so it works through the /api/stream redirect. ── */
-  useEffect(() => {
-    if (!isBunny || !showPlayer) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const send = (method: string, value?: unknown) =>
-      iframe.contentWindow?.postMessage(
-        JSON.stringify({ context: "player.js", version: "0.0.11", method, value }),
-        BUNNY_ORIGIN,
-      );
-
-    const onMsg = (e: MessageEvent) => {
-      if (e.origin !== BUNNY_ORIGIN) return;
-      let d: { context?: string; event?: string };
-      try {
-        d = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
-      } catch {
-        return;
-      }
-      if (!d || d.context !== "player.js") return;
-      if (d.event === "ready") {
-        setReady(true);
-        send("addEventListener", "ended");
-      } else if (d.event === "ended") {
-        window.dispatchEvent(new CustomEvent("lh:episode-ended"));
-        if (autoplayRef.current && nextRef.current) setCountdown(10);
-      }
-    };
-
-    window.addEventListener("message", onMsg);
-    send("addEventListener", "ready");
-    const ping = setInterval(() => send("addEventListener", "ready"), 1000);
-    const stop = setTimeout(() => clearInterval(ping), 8000);
-    return () => {
-      window.removeEventListener("message", onMsg);
-      clearInterval(ping);
-      clearTimeout(stop);
-    };
-  }, [isBunny, showPlayer, idx]);
-
-  /* ── mirror <video>: HLS attach ── */
+  /* ── <video>: HLS attach (our own Bunny copy or an HLS mirror) ── */
   useEffect(() => {
     if (!showPlayer || !cur || cur.type !== "hls") return;
     const video = videoRef.current;
@@ -199,7 +152,7 @@ export function WatchPlayer({
     };
   }, [showPlayer, cur, failover]);
 
-  /* ── mirror <video>: skin native controls to match the Bunny player ── */
+  /* ── <video>: Plyr skin ── */
   useEffect(() => {
     if (!showPlayer || !isVideo) return;
     const video = videoRef.current;
@@ -234,7 +187,7 @@ export function WatchPlayer({
     setAdDone(true);
   }, []);
 
-  // keyboard: only the bits the Bunny player can't cover from the parent
+  // keyboard: n/p/f — Plyr's own shortcuts are disabled above to avoid double-handling
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -341,10 +294,9 @@ export function WatchPlayer({
         </button>
       ) : !adDone ? (
         <PreRollAd onDone={handleAdDone} />
-      ) : isBunny || isEmbed ? (
+      ) : isEmbed ? (
         <>
           <iframe
-            ref={isBunny ? iframeRef : undefined}
             key={cur.key}
             src={cur.src}
             title={title ? `${title} — player` : "Video player"}

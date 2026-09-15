@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, db } from "@/lib/db";
-import { verifyStream, bunnyEmbed } from "@/lib/stream";
+import { verifyStream } from "@/lib/stream";
+import { hlsUrl } from "@/lib/hosting/bunny";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
         select: { bunnyGuid: true },
       }),
     ).catch(() => null);
-    if (ep?.bunnyGuid) realUrl = bunnyEmbed(ep.bunnyGuid);
+    if (ep?.bunnyGuid) realUrl = hlsUrl(ep.bunnyGuid);
   } else {
     const src = await db(() =>
       prisma.videoSource.findFirst({
@@ -60,7 +61,11 @@ export async function GET(req: Request) {
     status: 302,
     headers: {
       "Cache-Control": "private, no-store, max-age=0",
-      "Referrer-Policy": "no-referrer",
+      // Bunny's pull zone enforces a Referer whitelist (403s anything else,
+      // confirmed directly) — "no-referrer" would strip it on the redirected
+      // request and break every hosted episode. Third-party mirrors don't
+      // referer-check and we'd rather not leak our domain to them anyway.
+      "Referrer-Policy": s === "bunny" ? "strict-origin-when-cross-origin" : "no-referrer",
       "X-Robots-Tag": "noindex",
     },
   });
