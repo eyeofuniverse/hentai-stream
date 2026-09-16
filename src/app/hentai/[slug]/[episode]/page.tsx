@@ -409,6 +409,15 @@ export default async function WatchPage({
             <div className="space-y-4 [contain:layout]">
               <UpNext />
 
+              {/* the "sticky" slot wasn't actually sticky — it sat in normal
+                  flow near the bottom of the rail, so it scrolled away like
+                  everything else despite its name and its own revenue hint
+                  in lib/ads.ts promising session-long viewability. Pinning
+                  it here, right under UpNext, is what actually delivers that. */}
+              <div className="sticky top-20">
+                <AdSlot slotKey="watch-rail-sticky" label={false} />
+              </div>
+
               <AdSlot slotKey="watch-rail-top" label={false} />
 
               <EpisodeList
@@ -424,8 +433,6 @@ export default async function WatchPage({
               >
                 View series page
               </Link>
-
-              <AdSlot slotKey="watch-rail-sticky" label={false} />
 
               <RailSeriesList
                 title="Trending now"
