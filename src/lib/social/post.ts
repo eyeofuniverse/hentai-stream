@@ -179,7 +179,25 @@ export async function runPromote(opts: {
  * episode announcement for the same moment. `socialPostedAt` is set before
  * the network calls run so the two independent publish paths (ingest +
  * verify) firing back-to-back for the same content can't double-post.
+ *
+ * BUG FIXED: both current callers are one-shot CLI scripts
+ * (scripts/verify.mts, scripts/scrape.mts) that call process.exit()
+ * immediately after their main loop finishes. "Unawaited" only protects a
+ * long-lived server from being blocked — in a script, process.exit() kills
+ * every pending promise outright, so every auto-post was being silently
+ * dropped: autoPublishedAt got set fine (an awaited write in the main
+ * flow), socialPostedAt never did (the fire-and-forget branch lost the
+ * race against exit). Every in-flight call is now tracked here so a script
+ * can await flushPendingPromotes() before it exits, without making the
+ * publish path itself wait on any of this.
  */
+const pending = new Set<Promise<void>>();
+
+function track(p: Promise<void>): void {
+  pending.add(p);
+  void p.finally(() => pending.delete(p));
+}
+
 export function autoPromoteOnPublish(opts: {
   seriesId: string;
   episodeId: string;
@@ -187,10 +205,16 @@ export function autoPromoteOnPublish(opts: {
   seriesPublished: boolean;
 }): void {
   if (opts.seriesPublished) {
-    void autoPromoteSeries(opts.seriesId);
+    track(autoPromoteSeries(opts.seriesId));
   } else if (opts.episodePublished) {
-    void autoPromoteEpisode(opts.episodeId);
+    track(autoPromoteEpisode(opts.episodeId));
   }
+}
+
+/** Batch scripts that call process.exit() right after their main loop must
+ *  await this first, or every pending auto-post gets silently killed. */
+export async function flushPendingPromotes(): Promise<void> {
+  await Promise.allSettled([...pending]);
 }
 
 async function autoPromoteSeries(seriesId: string): Promise<void> {

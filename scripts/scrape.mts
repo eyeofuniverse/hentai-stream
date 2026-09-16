@@ -18,6 +18,7 @@
 import { runScrape } from "@/lib/scraper/run";
 import { recountTaxonomy } from "@/lib/metadata/importer";
 import { prisma } from "@/lib/db";
+import { flushPendingPromotes } from "@/lib/social/post";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -52,6 +53,11 @@ if (!flag("dry-run")) {
 
 console.log("\n── done ──");
 console.log(JSON.stringify(summary, null, 2));
+
+// see scripts/verify.mts — autoPromoteOnPublish is fire-and-forget by
+// design; this waits for any still-in-flight social posts so process.exit()
+// below doesn't kill them before Bluesky/Tumblr ever get the request.
+await flushPendingPromotes();
 
 await prisma.$disconnect();
 process.exit(summary.errors.length ? 1 : 0);

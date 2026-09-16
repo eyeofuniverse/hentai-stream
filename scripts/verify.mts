@@ -12,6 +12,7 @@
  */
 import { runVerify } from "@/lib/verify";
 import { prisma } from "@/lib/db";
+import { flushPendingPromotes } from "@/lib/social/post";
 
 const args = process.argv.slice(2);
 const flag = (n: string) => {
@@ -28,6 +29,11 @@ const summary = await runVerify({
 
 console.log("\n── done ──");
 console.log(JSON.stringify(summary, null, 2));
+
+// autoPromoteOnPublish (called deep inside runVerify) is fire-and-forget by
+// design — this waits for any still-in-flight social posts so process.exit()
+// below doesn't kill them before Bluesky/Tumblr ever get the request.
+await flushPendingPromotes();
 
 await prisma.$disconnect();
 process.exit(0);
