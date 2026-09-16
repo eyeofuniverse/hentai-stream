@@ -9,7 +9,7 @@ import { SmartImg } from "@/components/SmartImg";
 import { SeriesGrid } from "@/components/SeriesGrid";
 import { Pagination } from "@/components/Pagination";
 import { CatalogSidebar } from "@/components/CatalogSidebar";
-import { SITE_NAME, breadcrumbLd } from "@/lib/seo";
+import { SITE, SITE_NAME, breadcrumbLd, socialMeta } from "@/lib/seo";
 
 export const revalidate = 21600;
 export const dynamicParams = true;
@@ -52,15 +52,17 @@ export async function generateMetadata({
   if (!character) return { title: "Not found", robots: { index: false } };
 
   const base = `${character.name} Hentai — Every Series & Episode`;
+  const title = page > 1 ? `${base} — Page ${page}` : base;
+  const description =
+    character.description ||
+    `Every hentai series and episode featuring ${character.name} — watch free in HD on ${SITE_NAME}.`;
+  const canonical = page > 1 ? `/character/${slug}?page=${page}` : `/character/${slug}`;
   return {
-    title: page > 1 ? `${base} — Page ${page}` : base,
-    description:
-      character.description ||
-      `Every hentai series and episode featuring ${character.name} — watch free in HD on ${SITE_NAME}.`,
-    alternates: {
-      canonical: page > 1 ? `/character/${slug}?page=${page}` : `/character/${slug}`,
-    },
+    title,
+    description,
+    alternates: { canonical },
     robots: { index: character.seriesCount > 0 && page <= 5, follow: true },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 
@@ -97,10 +99,29 @@ export default async function CharacterPage({
     { name: "Browse", path: "/browse" },
     { name: character.name, path: `/character/${slug}` },
   ]);
+  const listLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${character.name} Hentai`,
+    description: blurb,
+    url: `${SITE}/character/${slug}`,
+    isFamilyFriendly: false,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: total,
+      itemListElement: items.slice(0, 20).map((s, i) => ({
+        "@type": "ListItem",
+        position: (page - 1) * 30 + i + 1,
+        url: `${SITE}/hentai/${s.slug}`,
+        name: s.title,
+      })),
+    },
+  };
 
   return (
     <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(listLd) }} />
 
       <nav className="mb-4 text-xs text-white/50" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-white">Home</Link>

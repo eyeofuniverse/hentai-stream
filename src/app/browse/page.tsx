@@ -6,7 +6,7 @@ import { SeriesGrid } from "@/components/SeriesGrid";
 import { Pagination } from "@/components/Pagination";
 import { FilterBar } from "@/components/FilterBar";
 import { CatalogSidebar } from "@/components/CatalogSidebar";
-import { SITE_NAME, breadcrumbLd } from "@/lib/seo";
+import { SITE_NAME, breadcrumbLd, socialMeta } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -54,14 +54,15 @@ export async function generateMetadata({
   const otherFilters = ["type", "status", "sort", "studio"].some((k) => one(sp, k));
   const indexable = !otherFilters && page <= 3;
 
+  const description = `Browse ${
+    unc ? "fully uncensored " : ""
+  }hentai series, OVAs and movies on ${SITE_NAME} — filter by genre, year, type and status. Free HD streaming, updated daily.`;
   return {
     title,
-    description: `Browse ${
-      unc ? "fully uncensored " : ""
-    }hentai series, OVAs and movies on ${SITE_NAME} — filter by genre, year, type and status. Free HD streaming, updated daily.`,
+    description,
     alternates: { canonical },
     robots: { index: indexable, follow: true },
-    openGraph: { title, url: canonical },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 

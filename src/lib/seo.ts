@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 // strip any trailing slash so `${SITE}${path}` concatenation never double-slashes
 export const SITE = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
@@ -84,6 +86,45 @@ export function defaultSeriesSynopsis(s: SeriesForSynopsis): string {
     `${s.studio ? ` by ${s.studio.name}` : ""}, ${s.isCensored ? "subbed" : "uncensored"}. ` +
     `Watch all ${s.episodeCount} episode${s.episodeCount === 1 ? "" : "s"} free in HD on ${SITE_NAME}.`
   );
+}
+
+/**
+ * openGraph + twitter for one page, always complete. Next.js does NOT deep-
+ * merge these objects down the layout tree — a route that defines its own
+ * `openGraph` at all replaces the root layout's entirely, silently dropping
+ * `images`/`siteName`/`type` if it only sets `title`/`url` (found across
+ * most of the site: browse/*, calendar, tags, search all did exactly this,
+ * and studio/character pages didn't set either key, so every one of those
+ * thousands of pages shared one generic social-card preview). Call this
+ * everywhere a page defines its own metadata instead of hand-rolling either
+ * object, unless the route has its own dynamic opengraph-image.tsx (series/
+ * episode pages) — in that case omit `image` so Next's file-convention image
+ * isn't overridden.
+ */
+export function socialMeta(opts: {
+  title: string;
+  description: string;
+  path: string;
+  type?: "website" | "video.tv_show" | "video.episode";
+  image?: string | false;
+}): Pick<Metadata, "openGraph" | "twitter"> {
+  const { title, description, path, type = "website", image = "/opengraph-image" } = opts;
+  return {
+    openGraph: {
+      title,
+      description,
+      url: path,
+      siteName: SITE_NAME,
+      type,
+      ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: title }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
+  };
 }
 
 /** BreadcrumbList JSON-LD. */

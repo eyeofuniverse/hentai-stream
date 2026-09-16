@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { BrowseView } from "@/components/BrowseView";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, socialMeta } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -33,12 +33,13 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/new${qs}`;
 
+  const description = `The newest hentai series and episodes just added to ${SITE_NAME} — sorted by most recently added. Free HD streaming, updated daily.`;
   return {
     title,
-    description: `The newest hentai series and episodes just added to ${SITE_NAME} — sorted by most recently added. Free HD streaming, updated daily.`,
+    description,
     alternates: { canonical },
     robots: { index: !otherFilters && page <= 3, follow: true },
-    openGraph: { title, url: canonical },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 

@@ -21,7 +21,7 @@ const sora = Sora({
 });
 
 const DESC =
-  "Watch hentai online free in HD on LustHentai — 1,200+ subbed and uncensored series, OVAs and movies, with a fast ad-light player and no sign-up. New episodes added daily. 18+ only.";
+  "Watch hentai online free in HD on LustHentai — 1,500+ subbed and uncensored series, OVAs and movies, with a fast ad-light player and no sign-up. New episodes added daily. 18+ only.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { BrowseView } from "@/components/BrowseView";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, socialMeta } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -33,12 +33,13 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/trending${qs}`;
 
+  const description = `What's trending on ${SITE_NAME} right now — the hentai series getting the most attention today. Free HD streaming.`;
   return {
     title,
-    description: `What's trending on ${SITE_NAME} right now — the hentai series getting the most attention today. Free HD streaming.`,
+    description,
     alternates: { canonical },
     robots: { index: !otherFilters && page <= 3, follow: true },
-    openGraph: { title, url: canonical },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 

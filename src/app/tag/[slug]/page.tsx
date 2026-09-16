@@ -8,7 +8,7 @@ import { SeriesGrid } from "@/components/SeriesGrid";
 import { Pagination } from "@/components/Pagination";
 import { CatalogSidebar } from "@/components/CatalogSidebar";
 import { gradientFor } from "@/lib/gradient";
-import { SITE, SITE_NAME, breadcrumbLd } from "@/lib/seo";
+import { SITE, SITE_NAME, breadcrumbLd, socialMeta } from "@/lib/seo";
 
 export const revalidate = 21600;
 export const dynamicParams = true;
@@ -55,13 +55,13 @@ export async function generateMetadata({
   const description =
     tag.seoDescription || tagDescription(tag.name, tag.seriesCount, tag.description);
 
+  const canonical = page > 1 ? `/tag/${slug}?page=${page}` : `/tag/${slug}`;
   return {
     title,
     description,
-    alternates: { canonical: page > 1 ? `/tag/${slug}?page=${page}` : `/tag/${slug}` },
+    alternates: { canonical },
     robots: { index: tag.seriesCount > 0 && page <= 5, follow: true },
-    openGraph: { title, description, url: `/tag/${slug}` },
-    twitter: { card: "summary", title, description },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 
@@ -143,6 +143,9 @@ export default async function TagPage({
           {tag.name} Hentai
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-white/60">{blurb}</p>
+        {tag.bodyMd && (
+          <p className="mt-2 max-w-2xl text-sm text-white/50">{tag.bodyMd}</p>
+        )}
         <p className="mt-3 text-xs text-white/50">
           {total.toLocaleString()} series{pages > 1 ? ` · page ${page} of ${pages}` : ""}
         </p>

@@ -6,16 +6,19 @@ import { thumb, episodeThumb } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
 import { SmartImg } from "@/components/SmartImg";
 import { CalendarTabs } from "@/components/CalendarTabs";
-import { SITE, SITE_NAME, breadcrumbLd } from "@/lib/seo";
+import { SITE, SITE_NAME, breadcrumbLd, socialMeta } from "@/lib/seo";
 
 export const revalidate = 7200;
 
+const CALENDAR_TITLE = "Hentai Release Calendar — New Episodes by Date";
+const CALENDAR_DESC =
+  "The hentai release calendar — every subbed and uncensored episode by air date. See what dropped this month and jump back through past releases on LustHentai.";
+
 export const metadata: Metadata = {
-  title: "Hentai Release Calendar — New Episodes by Date",
-  description:
-    "The hentai release calendar — every subbed and uncensored episode by air date. See what dropped this month and jump back through past releases on LustHentai.",
+  title: CALENDAR_TITLE,
+  description: CALENDAR_DESC,
   alternates: { canonical: "/calendar" },
-  openGraph: { title: "Hentai Release Calendar", url: "/calendar" },
+  ...socialMeta({ title: CALENDAR_TITLE, description: CALENDAR_DESC, path: "/calendar" }),
 };
 
 const MONTHS = [

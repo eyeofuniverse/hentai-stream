@@ -7,7 +7,7 @@ import { browseSeries, sidebarData } from "@/lib/queries";
 import { SeriesGrid } from "@/components/SeriesGrid";
 import { Pagination } from "@/components/Pagination";
 import { CatalogSidebar } from "@/components/CatalogSidebar";
-import { SITE_NAME, breadcrumbLd } from "@/lib/seo";
+import { SITE, SITE_NAME, breadcrumbLd, socialMeta } from "@/lib/seo";
 
 export const revalidate = 21600;
 export const dynamicParams = true;
@@ -42,16 +42,18 @@ export async function generateMetadata({
   if (!studio) return { title: "Not found", robots: { index: false } };
 
   const base = studio.seoTitle || `${studio.name} Hentai — All Series & OVAs`;
+  const title = page > 1 ? `${base} — Page ${page}` : base;
+  const description =
+    studio.seoDescription ||
+    studio.description ||
+    `Every hentai series and OVA animated by ${studio.name} — watch free in HD on ${SITE_NAME}.`;
+  const canonical = page > 1 ? `/studio/${slug}?page=${page}` : `/studio/${slug}`;
   return {
-    title: page > 1 ? `${base} — Page ${page}` : base,
-    description:
-      studio.seoDescription ||
-      studio.description ||
-      `Every hentai series and OVA animated by ${studio.name} — watch free in HD on ${SITE_NAME}.`,
-    alternates: {
-      canonical: page > 1 ? `/studio/${slug}?page=${page}` : `/studio/${slug}`,
-    },
+    title,
+    description,
+    alternates: { canonical },
     robots: { index: studio.seriesCount > 0 && page <= 5, follow: true },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 
@@ -88,10 +90,29 @@ export default async function StudioPage({
     { name: "Browse", path: "/browse" },
     { name: studio.name, path: `/studio/${slug}` },
   ]);
+  const listLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${studio.name} Hentai`,
+    description: blurb,
+    url: `${SITE}/studio/${slug}`,
+    isFamilyFriendly: false,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: total,
+      itemListElement: items.slice(0, 20).map((s, i) => ({
+        "@type": "ListItem",
+        position: (page - 1) * 30 + i + 1,
+        url: `${SITE}/hentai/${s.slug}`,
+        name: s.title,
+      })),
+    },
+  };
 
   return (
     <main className="mx-auto max-w-content px-4 py-8 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(listLd) }} />
 
       <nav className="mb-4 text-xs text-white/50" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-white">Home</Link>
@@ -107,6 +128,9 @@ export default async function StudioPage({
           {studio.name} Hentai
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-white/60">{blurb}</p>
+        {studio.bodyMd && (
+          <p className="mt-2 max-w-2xl text-sm text-white/50">{studio.bodyMd}</p>
+        )}
         <p className="mt-3 text-xs text-white/50">
           {total.toLocaleString()} series{pages > 1 ? ` · page ${page} of ${pages}` : ""}
         </p>

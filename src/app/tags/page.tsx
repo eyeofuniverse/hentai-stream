@@ -2,14 +2,19 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma, db } from "@/lib/db";
 import { gradientFor } from "@/lib/gradient";
+import { socialMeta } from "@/lib/seo";
 
 export const revalidate = 21600;
+
+const TAGS_TITLE = "Hentai Genres & Tags — Browse by Category";
+const TAGS_DESC =
+  "Every hentai genre, theme and kink on LustHentai — vanilla, NTR, incest, big breasts, ahegao, tentacles and more. Pick a tag to browse.";
+
 export const metadata: Metadata = {
-  title: "Hentai Genres & Tags — Browse by Category",
-  description:
-    "Every hentai genre, theme and kink on LustHentai — vanilla, NTR, incest, big breasts, ahegao, tentacles and more. Pick a tag to browse.",
+  title: TAGS_TITLE,
+  description: TAGS_DESC,
   alternates: { canonical: "/tags" },
-  openGraph: { title: "Hentai Genres & Tags", url: "/tags" },
+  ...socialMeta({ title: TAGS_TITLE, description: TAGS_DESC, path: "/tags" }),
 };
 
 function getTags() {

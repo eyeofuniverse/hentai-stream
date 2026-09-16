@@ -6,7 +6,7 @@ import { searchResults, recordSearch, popularSearches } from "@/lib/search";
 import { browseSeries } from "@/lib/queries";
 import { SearchBar } from "@/components/SearchBar";
 import { SeriesCard } from "@/components/SeriesCard";
-import { SITE } from "@/lib/seo";
+import { SITE, socialMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +25,14 @@ export async function generateMetadata({
     ? `${series.length} hentai series matching “${term}” — stream subbed & uncensored on LustHentai.`
     : `No results for “${term}” yet. Browse the full hentai catalogue on LustHentai.`;
 
+  const canonical = `/search?q=${encodeURIComponent(term)}`;
   return {
     title,
     description,
-    alternates: { canonical: `/search?q=${encodeURIComponent(term)}` },
+    alternates: { canonical },
     // index only genuinely useful result pages; keep thin/empty ones out
     robots: { index: series.length >= 3, follow: true },
-    openGraph: { title, description, url: `/search?q=${encodeURIComponent(term)}` },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 

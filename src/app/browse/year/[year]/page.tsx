@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BrowseView } from "@/components/BrowseView";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, socialMeta } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -49,12 +49,13 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/year/${year}${qs}`;
 
+  const description = `Every hentai series and OVA from ${year} on ${SITE_NAME} — free HD streaming, subbed and uncensored.`;
   return {
     title,
-    description: `Every hentai series and OVA from ${year} on ${SITE_NAME} — free HD streaming, subbed and uncensored.`,
+    description,
     alternates: { canonical },
     robots: { index: !otherFilters && page <= 3, follow: true },
-    openGraph: { title, url: canonical },
+    ...socialMeta({ title, description, path: canonical }),
   };
 }
 
