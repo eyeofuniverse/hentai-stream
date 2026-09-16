@@ -55,6 +55,9 @@ export function WatchPlayer({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [dead, setDead] = useState(false);
   const [ratio, setRatio] = useState<number | null>(null);
+  const [seekFlash, setSeekFlash] = useState<{ dir: "back" | "fwd"; key: number } | null>(null);
+  const lastTapRef = useRef<{ time: number; side: "left" | "right" } | null>(null);
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cur = servers[idx];
   const isEmbed = cur?.type === "iframe";
@@ -163,18 +166,34 @@ export function WatchPlayer({
   }, [started, cur, failover]);
 
   /* ── <video>: Plyr skin — also as soon as started, so there's no flash of
-        native controls the moment the ad ends and the video is revealed ── */
+        native controls the moment the ad ends and the video is revealed.
+        Plyr's full default control set (play, progress, time, mute+volume
+        slider, captions, settings, pip, airplay, fullscreen) is a desktop
+        toolbar — on a ~360-400px phone it crams so many fixed-width buttons
+        into the bar that the progress/seek scrubber (the one thing that
+        needs to flex-grow) gets squeezed to a sliver, while the volume
+        slider — a fixed, wider element — visually dominates instead. Below
+        the `sm` breakpoint only, trim to what actually fits: drop the
+        separate volume slider (keep the mute toggle), captions (unused —
+        this content is hardsubbed, no real text tracks) and settings/pip/
+        airplay, so the seek bar gets the room it needs. Desktop is
+        untouched — same full control set as before. ── */
   useEffect(() => {
     if (!started || !isVideo) return;
     const video = videoRef.current;
     if (!video) return;
     let killed = false;
+    const isMobile =
+      typeof window !== "undefined" && window.matchMedia("(max-width: 639.98px)").matches;
     import("plyr").then(({ default: Plyr }) => {
       if (killed || !videoRef.current) return;
       plyrRef.current = new Plyr(videoRef.current, {
         // our own keydown handler (n/p/f) already covers this; avoid double-handling
         keyboard: { focused: false, global: false },
         tooltips: { controls: false, seek: true },
+        ...(isMobile
+          ? { controls: ["play-large", "play", "progress", "current-time", "mute", "fullscreen"] }
+          : {}),
       });
     });
     return () => {
@@ -183,6 +202,35 @@ export function WatchPlayer({
       plyrRef.current = null;
     };
   }, [started, isVideo, cur?.key]);
+
+  // double-tap left/right half of the video to seek -10s/+10s — a standard
+  // mobile gesture Plyr doesn't provide out of the box. Desktop-only via
+  // hover isn't relevant here; this is gated to mobile viewports purely by
+  // CSS (`sm:hidden` on the zones below), same as the trimmed control set.
+  const handleZoneTap = useCallback((side: "left" | "right") => {
+    const now = Date.now();
+    const last = lastTapRef.current;
+    if (last && last.side === side && now - last.time < 350) {
+      // confirmed double-tap — cancel the pending single-tap (toggle-play) action
+      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+      lastTapRef.current = null;
+      const video = videoRef.current;
+      if (video) {
+        const dur = Number.isFinite(video.duration) ? video.duration : Infinity;
+        video.currentTime = Math.max(0, Math.min(dur, video.currentTime + (side === "left" ? -10 : 10)));
+      }
+      setSeekFlash({ dir: side === "left" ? "back" : "fwd", key: now });
+    } else {
+      lastTapRef.current = { time: now, side };
+      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+      // give it a moment in case a second tap is coming; otherwise treat it
+      // as a plain tap — same as tapping the video itself would do
+      singleTapTimer.current = setTimeout(() => {
+        lastTapRef.current = null;
+        plyrRef.current?.togglePlay();
+      }, 300);
+    }
+  }, []);
 
   // actually START playback — gated on the ad being done (unlike the attach
   // effects above, which run the moment the user clicks play). By now the
@@ -202,6 +250,12 @@ export function WatchPlayer({
       video.play().catch(() => {});
     });
   }, [showPlayer, idx, isVideo]);
+
+  useEffect(() => {
+    if (!seekFlash) return;
+    const t = setTimeout(() => setSeekFlash(null), 550);
+    return () => clearTimeout(t);
+  }, [seekFlash]);
 
   const play = useCallback(() => {
     setStarted(true);
@@ -342,6 +396,51 @@ export function WatchPlayer({
           />
           {/* Plyr shows its own themed loading spinner once revealed — an
               overlay Spinner here would double up with it. */}
+
+          {/* Mobile-only (sm:hidden) double-tap-to-seek gesture, since Plyr
+              has no built-in equivalent. Stops short of the bottom control
+              bar so the real controls stay reachable. A single tap mimics
+              Plyr's own tap-to-toggle-play so nothing feels dead if it
+              doesn't land as a double-tap. */}
+          {adDone && (
+            <div className="absolute inset-x-0 top-0 bottom-14 z-20 flex sm:hidden">
+              <button
+                type="button"
+                aria-label="Tap twice to rewind 10 seconds"
+                onClick={() => handleZoneTap("left")}
+                className="relative h-full flex-1"
+              >
+                {seekFlash?.dir === "back" && (
+                  <span
+                    key={seekFlash.key}
+                    className="absolute inset-0 grid animate-fadein place-items-center"
+                  >
+                    <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white">
+                      ⏪ 10s
+                    </span>
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                aria-label="Tap twice to fast-forward 10 seconds"
+                onClick={() => handleZoneTap("right")}
+                className="relative h-full flex-1"
+              >
+                {seekFlash?.dir === "fwd" && (
+                  <span
+                    key={seekFlash.key}
+                    className="absolute inset-0 grid animate-fadein place-items-center"
+                  >
+                    <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white">
+                      10s ⏩
+                    </span>
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
           {adDone && showUnmute && (
             <button
               type="button"
