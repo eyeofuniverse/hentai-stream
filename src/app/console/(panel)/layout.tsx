@@ -107,6 +107,7 @@ export default async function PanelLayout({
       label: "Marketing",
       items: [
         { href: "/console/ads", label: "Ads", icon: "ads" },
+        { href: "/console/revenue", label: "Revenue", icon: "revenue" },
         { href: "/console/social", label: "Social", icon: "social" },
       ],
     },
