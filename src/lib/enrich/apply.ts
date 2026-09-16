@@ -57,7 +57,16 @@ export async function applyEnrichment(
   const data: Record<string, unknown> = {};
   const col = EXTERNAL_COL[source];
   if (col && r.externalId != null) {
-    data[col] = col === "hanimeSlug" ? String(r.externalId) : Number(r.externalId);
+    const extVal = col === "hanimeSlug" ? String(r.externalId) : Number(r.externalId);
+    // a fuzzy title match can occasionally pair two different catalog rows to
+    // the same external id; writing it unconditionally throws a unique-constraint
+    // error that aborts this row's WHOLE update (fields/tags included) and, since
+    // the same mismatch re-matches identically next run, would repeat forever —
+    // skip only the id itself, so the rest of this series' enrichment still applies
+    const clash = await db(() =>
+      prisma.series.findFirst({ where: { [col]: extVal, NOT: { id: seriesId } }, select: { id: true } }),
+    );
+    if (!clash) data[col] = extVal;
   }
 
   // series columns — only when the row isn't hand-managed and the field is empty
