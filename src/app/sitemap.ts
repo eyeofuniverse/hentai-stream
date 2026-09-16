@@ -62,9 +62,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let studios: { slug: string; updatedAt: Date }[] = [];
   let characters: { slug: string; updatedAt: Date }[] = [];
   let years: number[] = [];
+  let seasons: { animeSeason: string | null; seasonYear: number | null; _count: number }[] = [];
 
   try {
-    [series, tags, studios, characters, years] = await Promise.all([
+    [series, tags, studios, characters, years, seasons] = await Promise.all([
       prisma.series.findMany({
         where: { publish: "PUBLISHED" },
         orderBy: { updatedAt: "desc" },
@@ -111,6 +112,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           distinct: ["year"],
         })
         .then((rows) => rows.map((r) => r.year as number)),
+      prisma.series.groupBy({
+        by: ["animeSeason", "seasonYear"],
+        where: { publish: "PUBLISHED", animeSeason: { not: null }, seasonYear: { not: null } },
+        _count: true,
+      }),
     ]);
   } catch {
     // DB unreachable — still return the static routes
@@ -124,6 +130,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ["/browse/trending", 0.7, "daily"],
       ["/browse/uncensored", 0.6, "weekly"],
       ["/tags", 0.7, "weekly"],
+      ["/season", 0.5, "weekly"],
+      ["/az", 0.5, "weekly"],
+      ["/sitemap-index", 0.3, "weekly"],
       ["/calendar", 0.5, "daily"],
       ["/dmca", 0.2, "yearly"],
       ["/2257", 0.2, "yearly"],
@@ -210,6 +219,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.4,
   }));
 
+  const seasonRoutes: MetadataRoute.Sitemap = seasons
+    .filter((s) => s.animeSeason && s.seasonYear && s._count > 0)
+    .map((s) => ({
+      url: `${SITE}/season/${s.animeSeason!.toLowerCase()}-${s.seasonYear}`,
+      changeFrequency: "weekly",
+      priority: 0.4,
+    }));
+
   return [
     ...staticRoutes,
     ...seriesRoutes,
@@ -217,5 +234,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...studioRoutes,
     ...characterRoutes,
     ...yearRoutes,
+    ...seasonRoutes,
   ];
 }

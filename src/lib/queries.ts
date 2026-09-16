@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma, db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
-import type { SeriesStatus, SeriesType } from "@prisma/client";
+import type { AnimeSeason, SeriesStatus, SeriesType } from "@prisma/client";
 
 const PAGE = 30;
 
@@ -12,6 +12,8 @@ export type BrowseParams = {
   type?: string;
   status?: string;
   year?: string;
+  season?: string;
+  seasonYear?: string;
   /** "false" = uncensored only, "true" = censored only */
   censored?: string;
   sort?: "new" | "updated" | "popular" | "trending" | "rating" | "az";
@@ -46,6 +48,8 @@ async function browseSeriesInner(params: BrowseParams) {
       ? { status: params.status.toUpperCase() as SeriesStatus }
       : {}),
     ...(params.year ? { year: Number(params.year) || undefined } : {}),
+    ...(params.season ? { animeSeason: params.season.toUpperCase() as AnimeSeason } : {}),
+    ...(params.seasonYear ? { seasonYear: Number(params.seasonYear) || undefined } : {}),
     ...(params.censored === "false"
       ? { isCensored: false }
       : params.censored === "true"

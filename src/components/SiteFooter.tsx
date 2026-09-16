@@ -14,6 +14,9 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/browse/uncensored", label: "Uncensored" },
       { href: "/calendar", label: "Release calendar" },
       { href: "/tags", label: "Genres & tags" },
+      { href: "/season", label: "By season" },
+      { href: "/az", label: "A-Z list" },
+      { href: "/sitemap-index", label: "Sitemap" },
     ],
   },
   {
