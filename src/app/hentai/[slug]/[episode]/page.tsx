@@ -406,45 +406,47 @@ export default async function WatchPage({
 
           {/* ─────────── right rail (lg+) ─────────── */}
           <aside className="mt-10 hidden min-w-0 self-start lg:mt-0 lg:block">
-            <div className="space-y-4 [contain:layout]">
+            <div className="space-y-4">
               <UpNext />
 
-              {/* the "sticky" slot wasn't actually sticky — it sat in normal
-                  flow near the bottom of the rail, so it scrolled away like
-                  everything else despite its name and its own revenue hint
-                  in lib/ads.ts promising session-long viewability. Pinning
-                  it here, right under UpNext, is what actually delivers that. */}
-              <div className="sticky top-20">
+              {/* Everything below is ONE sticky+scrolling unit, not a lone
+                  sticky ad next to normal-flow siblings — that first attempt
+                  let EpisodeList/RailSeriesList (tall, independent) scroll
+                  up into the same screen region the pinned ad occupied,
+                  causing a real visual overlap. A single sticky container
+                  with its own capped height + scroll can't drift apart from
+                  its own children like that. */}
+              <div className="space-y-4 [contain:layout] lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:overflow-x-hidden">
                 <AdSlot slotKey="watch-rail-sticky" label={false} />
+
+                <AdSlot slotKey="watch-rail-top" label={false} />
+
+                <EpisodeList
+                  slug={slug}
+                  episodes={eps}
+                  current={ep.number}
+                  maxHeight="40vh"
+                />
+
+                <Link
+                  href={`/hentai/${slug}`}
+                  className="block rounded-2xl border border-line bg-surface/50 px-4 py-3 text-center text-sm font-medium text-white/70 transition hover:border-accent/30 hover:text-white"
+                >
+                  View series page
+                </Link>
+
+                <RailSeriesList
+                  title="Trending now"
+                  href="/browse/trending"
+                  items={mini.popular}
+                />
+
+                <RailSeriesList
+                  title={`New on ${SITE_NAME}`}
+                  href="/browse/new"
+                  items={mini.fresh}
+                />
               </div>
-
-              <AdSlot slotKey="watch-rail-top" label={false} />
-
-              <EpisodeList
-                slug={slug}
-                episodes={eps}
-                current={ep.number}
-                maxHeight="70vh"
-              />
-
-              <Link
-                href={`/hentai/${slug}`}
-                className="block rounded-2xl border border-line bg-surface/50 px-4 py-3 text-center text-sm font-medium text-white/70 transition hover:border-accent/30 hover:text-white"
-              >
-                View series page
-              </Link>
-
-              <RailSeriesList
-                title="Trending now"
-                href="/browse/trending"
-                items={mini.popular}
-              />
-
-              <RailSeriesList
-                title={`New on ${SITE_NAME}`}
-                href="/browse/new"
-                items={mini.fresh}
-              />
             </div>
           </aside>
         </div>

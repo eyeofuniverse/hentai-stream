@@ -183,10 +183,8 @@ export default async function SeasonPage({
           <Pagination page={page} pages={pages} makeHref={makeHref} />
         </div>
 
-        <div className="hidden w-72 shrink-0 space-y-6 lg:block">
-          <div className="sticky top-20">
-            <AdSlot slotKey="catalog-sidebar" label={false} />
-          </div>
+        <div className="hidden w-72 shrink-0 space-y-6 lg:block lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:overflow-x-hidden">
+          <AdSlot slotKey="catalog-sidebar" label={false} />
           <CatalogSidebar data={sidebar} bare />
         </div>
       </div>
