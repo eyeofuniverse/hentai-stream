@@ -182,8 +182,10 @@ export default async function TagPage({
         </div>
 
         <div className="hidden w-72 shrink-0 space-y-6 lg:block">
+          <div className="sticky top-20">
+            <AdSlot slotKey="catalog-sidebar" label={false} />
+          </div>
           <CatalogSidebar data={sidebar} bare />
-          <AdSlot slotKey="catalog-sidebar" label={false} />
         </div>
       </div>
 
