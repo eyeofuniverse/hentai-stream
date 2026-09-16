@@ -7,6 +7,51 @@ import type { Server } from "@/lib/stream";
 import { gradientFor } from "@/lib/gradient";
 import { PreRollAd } from "@/components/ads/PreRollAd";
 
+/** Glow + icon + running total for the double-tap seek gesture. Always
+ *  mounted (never conditionally rendered) so opacity/scale are real CSS
+ *  transitions in both directions, instead of the old version which just
+ *  popped in via a keyframe and vanished the instant its timer fired. */
+function SeekIndicator({
+  side,
+  active,
+  amount,
+}: {
+  side: "left" | "right";
+  active: boolean;
+  amount: number;
+}) {
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 grid place-items-center overflow-hidden transition-opacity duration-300 ease-out ${
+        active ? "opacity-100" : "opacity-0"
+      }`}
+    >
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "radial-gradient(circle, rgba(255,255,255,0.12), transparent 65%)",
+        }}
+      />
+      <div
+        className={`relative flex flex-col items-center gap-1.5 rounded-2xl bg-black/55 px-5 py-4 backdrop-blur-sm transition-transform duration-300 ease-out ${
+          active ? "scale-100" : "scale-75"
+        }`}
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" className="text-white">
+          <path
+            d={
+              side === "left"
+                ? "M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"
+                : "M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"
+            }
+          />
+        </svg>
+        <span className="text-xs font-bold tabular-nums text-white">{amount}s</span>
+      </div>
+    </div>
+  );
+}
+
 function Spinner() {
   return (
     <span className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-black/30">
@@ -55,9 +100,14 @@ export function WatchPlayer({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [dead, setDead] = useState(false);
   const [ratio, setRatio] = useState<number | null>(null);
-  const [seekFlash, setSeekFlash] = useState<{ dir: "back" | "fwd"; key: number } | null>(null);
+  const [seekFlash, setSeekFlash] = useState<{
+    side: "left" | "right";
+    amount: number;
+    key: number;
+  } | null>(null);
   const lastTapRef = useRef<{ time: number; side: "left" | "right" } | null>(null);
-  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeSeekRef = useRef<{ side: "left" | "right"; amount: number; key: number } | null>(null);
+  const clearFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cur = servers[idx];
   const isEmbed = cur?.type === "iframe";
@@ -204,33 +254,59 @@ export function WatchPlayer({
   }, [started, isVideo, cur?.key]);
 
   // double-tap left/right half of the video to seek -10s/+10s — a standard
-  // mobile gesture Plyr doesn't provide out of the box. Desktop-only via
-  // hover isn't relevant here; this is gated to mobile viewports purely by
-  // CSS (`sm:hidden` on the zones below), same as the trimmed control set.
-  const handleZoneTap = useCallback((side: "left" | "right") => {
-    const now = Date.now();
-    const last = lastTapRef.current;
-    if (last && last.side === side && now - last.time < 350) {
-      // confirmed double-tap — cancel the pending single-tap (toggle-play) action
-      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
-      lastTapRef.current = null;
-      const video = videoRef.current;
-      if (video) {
-        const dur = Number.isFinite(video.duration) ? video.duration : Infinity;
-        video.currentTime = Math.max(0, Math.min(dur, video.currentTime + (side === "left" ? -10 : 10)));
-      }
-      setSeekFlash({ dir: side === "left" ? "back" : "fwd", key: now });
-    } else {
-      lastTapRef.current = { time: now, side };
-      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
-      // give it a moment in case a second tap is coming; otherwise treat it
-      // as a plain tap — same as tapping the video itself would do
-      singleTapTimer.current = setTimeout(() => {
-        lastTapRef.current = null;
-        plyrRef.current?.togglePlay();
-      }, 300);
-    }
+  // mobile gesture Plyr doesn't provide out of the box. Gated to mobile
+  // purely by CSS (`sm:hidden` on the zones below), same as the trimmed
+  // control set. A lone single tap does nothing here on purpose — an
+  // earlier version forwarded it to togglePlay() after a delay, which
+  // amounted to an invisible, unlabeled pause button with no feedback and
+  // a ~300ms lag; Plyr's own visible play/pause control already covers
+  // that, so this only ever reacts to a genuine double-tap.
+  const seekBy = useCallback((delta: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const dur = Number.isFinite(video.duration) ? video.duration : Infinity;
+    video.currentTime = Math.max(0, Math.min(dur, video.currentTime + delta));
   }, []);
+
+  const armFlashClear = useCallback(() => {
+    if (clearFlashTimer.current) clearTimeout(clearFlashTimer.current);
+    clearFlashTimer.current = setTimeout(() => {
+      activeSeekRef.current = null;
+      setSeekFlash(null);
+    }, 700);
+  }, []);
+
+  const handleZoneTap = useCallback(
+    (side: "left" | "right") => {
+      const now = Date.now();
+
+      // already mid-sequence on this side — YouTube-style accumulation:
+      // every further tap adds another 10s instead of requiring a fresh
+      // double-tap each time
+      if (activeSeekRef.current?.side === side) {
+        seekBy(side === "left" ? -10 : 10);
+        const next = { side, amount: activeSeekRef.current.amount + 10, key: activeSeekRef.current.key };
+        activeSeekRef.current = next;
+        setSeekFlash(next);
+        armFlashClear();
+        return;
+      }
+
+      const last = lastTapRef.current;
+      if (last && last.side === side && now - last.time < 350) {
+        // the double-tap that starts a new sequence
+        lastTapRef.current = null;
+        seekBy(side === "left" ? -10 : 10);
+        const next = { side, amount: 10, key: now };
+        activeSeekRef.current = next;
+        setSeekFlash(next);
+        armFlashClear();
+      } else {
+        lastTapRef.current = { time: now, side };
+      }
+    },
+    [seekBy, armFlashClear],
+  );
 
   // actually START playback — gated on the ad being done (unlike the attach
   // effects above, which run the moment the user clicks play). By now the
@@ -250,12 +326,6 @@ export function WatchPlayer({
       video.play().catch(() => {});
     });
   }, [showPlayer, idx, isVideo]);
-
-  useEffect(() => {
-    if (!seekFlash) return;
-    const t = setTimeout(() => setSeekFlash(null), 550);
-    return () => clearTimeout(t);
-  }, [seekFlash]);
 
   const play = useCallback(() => {
     setStarted(true);
@@ -399,44 +469,33 @@ export function WatchPlayer({
 
           {/* Mobile-only (sm:hidden) double-tap-to-seek gesture, since Plyr
               has no built-in equivalent. Stops short of the bottom control
-              bar so the real controls stay reachable. A single tap mimics
-              Plyr's own tap-to-toggle-play so nothing feels dead if it
-              doesn't land as a double-tap. */}
+              bar so the real controls stay reachable. A lone single tap
+              does nothing — no pause side effect, see handleZoneTap. */}
           {adDone && (
             <div className="absolute inset-x-0 top-0 bottom-14 z-20 flex sm:hidden">
               <button
                 type="button"
-                aria-label="Tap twice to rewind 10 seconds"
+                aria-label="Double-tap to rewind 10 seconds"
                 onClick={() => handleZoneTap("left")}
                 className="relative h-full flex-1"
               >
-                {seekFlash?.dir === "back" && (
-                  <span
-                    key={seekFlash.key}
-                    className="absolute inset-0 grid animate-fadein place-items-center"
-                  >
-                    <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white">
-                      ⏪ 10s
-                    </span>
-                  </span>
-                )}
+                <SeekIndicator
+                  side="left"
+                  active={seekFlash?.side === "left"}
+                  amount={seekFlash?.side === "left" ? seekFlash.amount : 0}
+                />
               </button>
               <button
                 type="button"
-                aria-label="Tap twice to fast-forward 10 seconds"
+                aria-label="Double-tap to fast-forward 10 seconds"
                 onClick={() => handleZoneTap("right")}
                 className="relative h-full flex-1"
               >
-                {seekFlash?.dir === "fwd" && (
-                  <span
-                    key={seekFlash.key}
-                    className="absolute inset-0 grid animate-fadein place-items-center"
-                  >
-                    <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white">
-                      10s ⏩
-                    </span>
-                  </span>
-                )}
+                <SeekIndicator
+                  side="right"
+                  active={seekFlash?.side === "right"}
+                  amount={seekFlash?.side === "right" ? seekFlash.amount : 0}
+                />
               </button>
             </div>
           )}
