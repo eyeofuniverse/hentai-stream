@@ -90,6 +90,10 @@ export type StatsRow = {
   clicks: number;
   revenue: number;
   cpm: number;
+  /** Already a percentage (e.g. 0.86 means 0.86%), NOT a 0-1 fraction —
+   *  confirmed against real clicks/impressions math. Display as-is with a
+   *  "%" suffix; multiplying by 100 again produces nonsense (a zone with
+   *  5/492 clicks showed as "101.63%" before this was caught). */
   ctr: number;
   group_by: Record<string, Record<string, string | number>>;
 };

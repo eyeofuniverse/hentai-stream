@@ -127,7 +127,7 @@ export default async function RevenuePage() {
                 <Td>{date}</Td>
                 <Td className="text-right tabular-nums">{d.impressions.toLocaleString()}</Td>
                 <Td className="text-right tabular-nums">{d.clicks.toLocaleString()}</Td>
-                <Td className="text-right tabular-nums">{(d.ctr * 100).toFixed(2)}%</Td>
+                <Td className="text-right tabular-nums">{d.ctr.toFixed(2)}%</Td>
                 <Td className="text-right tabular-nums">{fmtMoney(d.cpm)}</Td>
                 <Td>
                   <div className="flex items-center gap-2">
