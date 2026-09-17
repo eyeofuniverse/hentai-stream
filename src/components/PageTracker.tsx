@@ -2,10 +2,12 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { isAutomated } from "@/lib/isAutomated";
 
 type Open = { path: string; enteredAt: number; referrer: string | null };
 
 function send(path: string, enteredAt: number, referrer: string | null) {
+  if (isAutomated()) return;
   const duration = Math.round((Date.now() - enteredAt) / 1000);
   const body = JSON.stringify({ path, referrer, enteredAt, duration });
   if (typeof navigator !== "undefined" && navigator.sendBeacon) {

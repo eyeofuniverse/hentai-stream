@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { isAutomated } from "@/lib/isAutomated";
 
 declare global {
   interface Window {
@@ -18,6 +19,7 @@ export function ViewPing({
   episodeNumber?: number;
 }) {
   useEffect(() => {
+    if (isAutomated()) return;
     const key = `v_${episodeId}`;
     try {
       const last = Number(sessionStorage.getItem(key) ?? 0);

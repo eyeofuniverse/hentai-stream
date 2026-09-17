@@ -30,8 +30,12 @@ export function Analytics() {
   return (
     <>
       <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
+      {/* gtag hits go straight from the browser to Google — nothing on our
+          backend gates them, so the webdriver check has to live here. Real
+          visitors never trip it (no headless browser has a human behind it);
+          see src/lib/isAutomated.ts for the reasoning. */}
       <Script id="ga-init" strategy="lazyOnload">
-        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`}
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}if(!navigator.webdriver){gtag('js',new Date());gtag('config','${GA_ID}');}`}
       </Script>
     </>
   );
