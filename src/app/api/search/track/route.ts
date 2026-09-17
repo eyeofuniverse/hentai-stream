@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma, db } from "@/lib/db";
 import { recordSearch } from "@/lib/search";
-import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { rateLimit, clientIp, isSameOrigin } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
 /** Called (via sendBeacon) when a searcher clicks a suggestion — the strongest
  *  signal of what they wanted. `slug` = series picked, `tagSlug` = genre picked. */
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) return NextResponse.json({ ok: true });
+
   const ip = clientIp(req);
   // 30 tracked picks per IP per minute — a real searcher never approaches this;
   // stops a script from scripting arbitrary (q, slug) pairs into the popular-

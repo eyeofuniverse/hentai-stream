@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { rateLimit, clientIp, isSameOrigin } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) return NextResponse.json({ ok: true });
+
   const { episodeId } = await req.json().catch(() => ({}));
   if (typeof episodeId !== "string" || episodeId.length > 64)
     return NextResponse.json({ ok: false });

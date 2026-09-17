@@ -57,3 +57,44 @@ export function clientIp(req: Request): string {
   if (xff) return xff.split(",")[0]!.trim();
   return req.headers.get("x-real-ip") || "0.0.0.0";
 }
+
+/**
+ * True if this request's Origin (or, failing that, Referer) header names the
+ * same host the request itself came in on. Browsers set Origin/Referer
+ * automatically on a fetch() and page JS cannot override them, so a same-site
+ * page load always passes this — but a script POSTing straight at the API
+ * from anywhere else fails it, unless it fakes the header outright (which a
+ * casual analytics-flooding script generally doesn't bother to).
+ *
+ * Deliberately compares against the request's own `Host` header rather than
+ * a hardcoded domain, so it works unchanged across lusthentai.com,
+ * hentai-stream.vercel.app, preview deployments, and local dev.
+ *
+ * Confirmed live before this existed: `curl -X POST /api/track` with an
+ * arbitrary `path` was accepted and landed in `pageVisit` with no same-site
+ * signal at all — anyone could inflate view/visitor counts without ever
+ * loading a real page. Gate write-and-count endpoints (track, view, search
+ * trending) on this; it's not a security boundary (a targeted attacker can
+ * still fake the header), just a bar that stops casual/scripted inflation.
+ */
+export function isSameOrigin(req: Request): boolean {
+  const host = req.headers.get("host");
+  if (!host) return false;
+  const origin = req.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  }
+  const referer = req.headers.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { rateLimit, clientIp, isSameOrigin } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,8 @@ function cleanReferrer(ref: string | null): string | null {
  *  Never blocks or errors visibly to the client — a dropped beacon just means
  *  one missing row, not a broken page. */
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) return NextResponse.json({ ok: true });
+
   const ip = clientIp(req);
   // 120 page views per IP per minute — well above any real browsing cadence
   if (!rateLimit(`track:${ip}`, 120, 60_000)) {
