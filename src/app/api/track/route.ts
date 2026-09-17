@@ -34,6 +34,13 @@ export async function POST(req: Request) {
   try {
     let path = "/";
     let bodyReferrer: string | null = null;
+    // <PageTracker> now reports a page AFTER leaving it (on the next
+    // navigation, or on visibilitychange/pagehide for the last page of a
+    // session), once it actually knows how long the visitor was on it —
+    // enteredAt is that page's own arrival timestamp, so visitedAt reflects
+    // when the view started rather than when the beacon happened to fire.
+    let enteredAt: number | null = null;
+    let durationSec: number | null = null;
     try {
       const body = await req.json();
       if (typeof body.path === "string") path = body.path.slice(0, 512);
@@ -42,6 +49,13 @@ export async function POST(req: Request) {
       // with an internal URL.
       if (typeof body.referrer === "string" && body.referrer) {
         bodyReferrer = body.referrer.slice(0, 512);
+      }
+      if (typeof body.enteredAt === "number" && Number.isFinite(body.enteredAt)) {
+        enteredAt = body.enteredAt;
+      }
+      if (typeof body.duration === "number" && Number.isFinite(body.duration)) {
+        // clamp — a suspended/backgrounded tab can report an enormous gap
+        durationSec = Math.max(0, Math.min(body.duration, 6 * 60 * 60));
       }
     } catch {
       return NextResponse.json({ ok: true });
@@ -60,9 +74,18 @@ export async function POST(req: Request) {
     // internal.
     const referrer = cleanReferrer(bodyReferrer);
     const deviceType = parseDeviceType(ua);
+    const visitedAt = enteredAt ? new Date(enteredAt) : undefined;
 
     await prisma.pageVisit.create({
-      data: { ip, path, userAgent: ua.slice(0, 512), referrer, deviceType },
+      data: {
+        ip,
+        path,
+        userAgent: ua.slice(0, 512),
+        referrer,
+        deviceType,
+        durationSec,
+        ...(visitedAt && !isNaN(visitedAt.getTime()) ? { visitedAt } : {}),
+      },
     });
 
     return NextResponse.json({ ok: true });

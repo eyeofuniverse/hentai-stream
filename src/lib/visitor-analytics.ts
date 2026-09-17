@@ -168,6 +168,9 @@ export type VisitorGroup = {
   visitCount: number;
   firstSeen: string;
   lastSeen: string;
+  /** avg seconds/page for this visitor, over pages that reported a duration
+   *  — null if none of their page views have finished reporting one yet. */
+  avgDurationSec: number | null;
 };
 
 export type DailyTraffic = { date: string; visits: number };
@@ -180,6 +183,9 @@ export type RecentVisit = {
   countryCode: string | null;
   path: string;
   visitedAt: string;
+  /** seconds spent on this page — null if the beacon reporting it (sent on
+   *  leaving the page) never made it out, or it's mid-visit right now. */
+  durationSec: number | null;
 };
 
 export type VisitorData = {
@@ -187,6 +193,8 @@ export type VisitorData = {
   uniqueVisitors: number;
   onlineNow: number;
   avgPagesPerVisitor: number;
+  /** avg seconds/page across every page view that has reported a duration. */
+  avgDurationSec: number | null;
   topCountry: string | null;
   topCountries: CountryStat[];
   visitors: VisitorGroup[];
@@ -267,7 +275,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
         where: { visitedAt: { gte: since } },
         orderBy: { visitedAt: "desc" },
         take: VISITOR_ROW_CAP,
-        select: { id: true, ip: true, path: true, visitedAt: true },
+        select: { id: true, ip: true, path: true, visitedAt: true, durationSec: true },
       }),
       prisma.pageVisit.count({ where: { visitedAt: { gte: since } } }),
     ]),
@@ -292,6 +300,12 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
   // build visitor groups
   const visitorMap = new Map<string, VisitorGroup>();
   const onlineIps = new Set<string>();
+  // durationSec is only known once a page view has actually finished (see
+  // PageTracker) — accumulate sum/count per visitor separately so the
+  // average only counts pages that have reported one, not every page view.
+  const durationAcc = new Map<string, { sum: number; count: number }>();
+  let globalDurationSum = 0;
+  let globalDurationCount = 0;
   for (const v of visits) {
     const geo = geoMap.get(v.ip);
     const vDate = toDate(v.visitedAt as Date | string);
@@ -307,6 +321,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
         visitCount: 1,
         firstSeen: visitedAt,
         lastSeen: visitedAt,
+        avgDurationSec: null,
       });
     } else {
       if (!existing.paths.includes(v.path)) existing.paths.push(v.path);
@@ -314,9 +329,23 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
       if (visitedAt < existing.firstSeen) existing.firstSeen = visitedAt;
       if (visitedAt > existing.lastSeen) existing.lastSeen = visitedAt;
     }
+    if (v.durationSec != null) {
+      const acc = durationAcc.get(v.ip) ?? { sum: 0, count: 0 };
+      acc.sum += v.durationSec;
+      acc.count++;
+      durationAcc.set(v.ip, acc);
+      globalDurationSum += v.durationSec;
+      globalDurationCount++;
+    }
     if (vDate >= fiveMinutesAgo) onlineIps.add(v.ip);
   }
   const onlineNow = onlineIps.size;
+
+  for (const [ip, group] of visitorMap) {
+    const acc = durationAcc.get(ip);
+    group.avgDurationSec = acc ? Math.round(acc.sum / acc.count) : null;
+  }
+  const avgDurationSec = globalDurationCount > 0 ? Math.round(globalDurationSum / globalDurationCount) : null;
 
   // daily traffic — fill every day in range, including zero-visit days
   const dayMap = new Map<string, number>();
@@ -365,6 +394,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
       countryCode: geo?.countryCode ?? null,
       path: v.path,
       visitedAt: toDate(v.visitedAt as Date | string).toISOString(),
+      durationSec: v.durationSec,
     };
   });
 
@@ -373,6 +403,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
     uniqueVisitors: visitorMap.size,
     onlineNow,
     avgPagesPerVisitor,
+    avgDurationSec,
     topCountry,
     topCountries,
     visitors: [...visitorMap.values()].sort((a, b) => b.lastSeen.localeCompare(a.lastSeen)),

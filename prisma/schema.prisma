@@ -920,6 +920,10 @@ model PageVisit {
   referrer   String?
   deviceType String?
   visitedAt  DateTime @default(now())
+  /// seconds spent on this specific page — null for rows from before this
+  /// was tracked, or if the beacon reporting it never made it out (tab
+  /// killed, browser crash) before the page unloaded
+  durationSec Int?
 
   @@index([visitedAt])
   @@index([ip])

@@ -40,6 +40,20 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function fmtDuration(sec: number | null): string {
+  if (sec == null) return "—";
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
 // ── sub-components ──────────────────────────────────────────────────────
 
 function StatCard({
@@ -115,7 +129,7 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10">
-            {["IP Address", "Location", "Pages Visited", "Visits", "Last Seen"].map((h) => (
+            {["IP Address", "Location", "Pages Visited", "Visits", "Avg Time/Page", "Last Seen"].map((h) => (
               <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-white/45">
                 {h}
               </th>
@@ -149,7 +163,10 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
                 </div>
               </td>
               <td className="px-3 py-2.5 text-center font-semibold text-white/85">{v.visitCount}</td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45">{timeAgo(v.lastSeen, now)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/85">{fmtDuration(v.avgDurationSec)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45" title={new Date(v.lastSeen).toLocaleString()}>
+                {fmtTime(v.lastSeen)} · {timeAgo(v.lastSeen, now)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -165,7 +182,7 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10">
-            {["Time", "IP Address", "Country", "Page"].map((h) => (
+            {["Time", "IP Address", "Country", "Page", "Time Spent"].map((h) => (
               <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-white/45">
                 {h}
               </th>
@@ -175,13 +192,19 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
         <tbody>
           {visits.map((v) => (
             <tr key={v.id} className="border-b border-white/[0.06] transition-opacity hover:opacity-80">
-              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45">{timeAgo(v.visitedAt, now)}</td>
+              <td
+                className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45"
+                title={new Date(v.visitedAt).toLocaleString()}
+              >
+                {fmtTime(v.visitedAt)} · {timeAgo(v.visitedAt, now)}
+              </td>
               <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-white/85">{v.ip}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-white/85">
                 <span className="mr-1">{flag(v.countryCode)}</span>
                 {v.country ?? <span className="text-white/35">Unknown</span>}
               </td>
               <td className="max-w-xs truncate px-3 py-2.5 font-mono text-xs text-white/45">{v.path}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/85">{fmtDuration(v.durationSec)}</td>
             </tr>
           ))}
         </tbody>
@@ -333,7 +356,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
       </div>
 
       {/* stat cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <StatCard icon={<Activity size={16} />} label="Total Visits" value={data.totalVisits.toLocaleString()} sub={`last ${activeDays}d`} />
         <StatCard icon={<Users size={16} />} label="Unique Visitors" value={data.uniqueVisitors.toLocaleString()} />
         <StatCard
@@ -344,6 +367,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
           tone={data.onlineNow > 0 ? "#22c55e" : undefined}
         />
         <StatCard icon={<TrendingUp size={16} />} label="Pages / Visitor" value={data.avgPagesPerVisitor} />
+        <StatCard icon={<Zap size={16} />} label="Avg Time / Page" value={fmtDuration(data.avgDurationSec)} />
       </div>
 
       {/* daily traffic */}
