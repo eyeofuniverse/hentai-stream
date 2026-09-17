@@ -35,13 +35,25 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
   return true;
 }
 
-/** Best-effort client IP from the platform's proxy headers. */
+/**
+ * Best-effort client IP from the platform's proxy headers.
+ *
+ * `cf-connecting-ip` goes first: this site sits behind Cloudflare, and that
+ * header is the one Cloudflare's own edge sets from the real TCP connection
+ * — the client can't forge it. `x-forwarded-for` was checked first before,
+ * which is wrong for this setup: by the time a request reaches Vercel it's
+ * arriving FROM Cloudflare's edge, so a hop can end up appending Cloudflare's
+ * own IP rather than preserving the original visitor's. Confirmed live —
+ * nearly every IP logged in `pageVisit` traced back to a published Cloudflare
+ * edge range (104.23.x.x, 172.68-71.x.x, 162.158.x.x, 141.101.x.x), not real
+ * visitors — which had been silently corrupting geo stats, unique-visitor
+ * counts, AND rate limiting (including the console login attempt limiter)
+ * this whole time.
+ */
 export function clientIp(req: Request): string {
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim();
-  return (
-    req.headers.get("x-real-ip") ||
-    req.headers.get("cf-connecting-ip") ||
-    "0.0.0.0"
-  );
+  return req.headers.get("x-real-ip") || "0.0.0.0";
 }
