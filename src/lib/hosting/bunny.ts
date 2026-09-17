@@ -4,9 +4,12 @@
  * Referer header for locked origins), and it transcodes + serves HLS from the
  * b-cdn.net pull zone. Playback is our own player pointed at the HLS URL.
  */
+import { createHmac } from "node:crypto";
+
 const LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID ?? "";
 const API_KEY = process.env.BUNNY_STREAM_API_KEY ?? "";
 const CDN_HOST = process.env.NEXT_PUBLIC_BUNNY_CDN_HOST ?? "";
+const SECURITY_KEY = process.env.BUNNY_STREAM_SECURITY_KEY ?? "";
 const API = `https://video.bunnycdn.com/library/${LIBRARY_ID}`;
 
 export function bunnyEnabled(): boolean {
@@ -189,6 +192,67 @@ export async function listAllVideos(): Promise<BunnyVideoListItem[]> {
 
 /* ─────────────────────────── playback URLs ─────────────────────────── */
 
-export const hlsUrl = (guid: string) => `https://${CDN_HOST}/${guid}/playlist.m3u8`;
-export const thumbUrl = (guid: string) => `https://${CDN_HOST}/${guid}/thumbnail.jpg`;
-export const previewUrl = (guid: string) => `https://${CDN_HOST}/${guid}/preview.webp`;
+/**
+ * Bunny CDN Token Authentication V2 (HMAC-SHA256), ported from Bunny's own
+ * reference implementation (github.com/BunnyWay/BunnyCDN.TokenAuthentication,
+ * nodejs/token.js) — the only source that has the exact byte order, since
+ * Bunny's docs describe it ambiguously and there's a legacy MD5/raw-SHA256
+ * scheme that looks similar but isn't compatible.
+ *
+ * No IP lock, no country rules — those aren't part of our threat model here
+ * and every extra feature is another way to get the signature wrong.
+ */
+function base64Url(buf: Buffer): string {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Single-file token: `?token=...&expires=...` on the exact path given. */
+function signBunnyFile(filePath: string, ttlSeconds: number): string {
+  const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const hmac = createHmac("sha256", SECURITY_KEY);
+  hmac.update(filePath);
+  hmac.update(String(expires));
+  const token = "HS256-" + base64Url(hmac.digest());
+  return `https://${CDN_HOST}${filePath}?token=${token}&expires=${expires}`;
+}
+
+/**
+ * Directory token: authorizes every file under `dirPath`, not just `filePath`.
+ * HLS needs this — the player resolves segment/rendition URLs relative to the
+ * playlist itself, so a token scoped to just playlist.m3u8 would leave every
+ * .ts segment and quality variant unauthenticated.
+ */
+function signBunnyDirectory(filePath: string, dirPath: string, ttlSeconds: number): string {
+  const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const signingData = `token_path=${dirPath}`;
+  const hmac = createHmac("sha256", SECURITY_KEY);
+  hmac.update(dirPath);
+  hmac.update(String(expires));
+  hmac.update(signingData);
+  const token = "HS256-" + base64Url(hmac.digest());
+  const urlData = `token_path=${encodeURIComponent(dirPath)}`;
+  return `https://${CDN_HOST}/bcdn_token=${token}&${urlData}&expires=${expires}${filePath}`;
+}
+
+// Playlist tokens are minted fresh per /api/stream request (never cached), so
+// a short TTL is fine and limits how long a captured URL stays useful.
+const HLS_TTL = 6 * 60 * 60; // 6h
+// Thumbnails/previews get baked into ISR HTML, sitemaps and OG images, whose
+// longest revalidate window in this app is 12h (hentai/[slug] pages) — give
+// enough margin that a low-traffic page's stale cache never 403s.
+const IMAGE_TTL = 48 * 60 * 60; // 48h
+
+export const hlsUrl = (guid: string) =>
+  SECURITY_KEY
+    ? signBunnyDirectory(`/${guid}/playlist.m3u8`, `/${guid}/`, HLS_TTL)
+    : `https://${CDN_HOST}/${guid}/playlist.m3u8`;
+
+export const thumbUrl = (guid: string) =>
+  SECURITY_KEY
+    ? signBunnyFile(`/${guid}/thumbnail.jpg`, IMAGE_TTL)
+    : `https://${CDN_HOST}/${guid}/thumbnail.jpg`;
+
+export const previewUrl = (guid: string) =>
+  SECURITY_KEY
+    ? signBunnyFile(`/${guid}/preview.webp`, IMAGE_TTL)
+    : `https://${CDN_HOST}/${guid}/preview.webp`;
