@@ -43,6 +43,10 @@ export async function POST(req: Request) {
     // when the view started rather than when the beacon happened to fire.
     let enteredAt: number | null = null;
     let durationSec: number | null = null;
+    // Client-generated id, stable for one logical page visit across
+    // background/foreground cycles — lets a resumed tab extend the existing
+    // row instead of inserting a new one every time it's backgrounded.
+    let visitId: string | null = null;
     try {
       const body = await req.json();
       if (typeof body.path === "string") path = body.path.slice(0, 512);
@@ -58,6 +62,9 @@ export async function POST(req: Request) {
       if (typeof body.duration === "number" && Number.isFinite(body.duration)) {
         // clamp — a suspended/backgrounded tab can report an enormous gap
         durationSec = Math.max(0, Math.min(body.duration, 6 * 60 * 60));
+      }
+      if (typeof body.visitId === "string" && body.visitId.length > 0) {
+        visitId = body.visitId.slice(0, 64);
       }
     } catch {
       return NextResponse.json({ ok: true });
@@ -78,17 +85,29 @@ export async function POST(req: Request) {
     const deviceType = parseDeviceType(ua);
     const visitedAt = enteredAt ? new Date(enteredAt) : undefined;
 
-    await prisma.pageVisit.create({
-      data: {
-        ip,
-        path,
-        userAgent: ua.slice(0, 512),
-        referrer,
-        deviceType,
-        durationSec,
-        ...(visitedAt && !isNaN(visitedAt.getTime()) ? { visitedAt } : {}),
-      },
-    });
+    const data = {
+      ip,
+      path,
+      userAgent: ua.slice(0, 512),
+      referrer,
+      deviceType,
+      durationSec,
+      ...(visitedAt && !isNaN(visitedAt.getTime()) ? { visitedAt } : {}),
+    };
+
+    if (visitId) {
+      // Repeat beacons for the same visit (tab backgrounded, then resumed)
+      // only ever extend this one row's duration — everything else about the
+      // visit (ip/path/referrer/visitedAt) was fixed by whichever call
+      // created it.
+      await prisma.pageVisit.upsert({
+        where: { id: visitId },
+        create: { id: visitId, ...data },
+        update: { durationSec },
+      });
+    } else {
+      await prisma.pageVisit.create({ data });
+    }
 
     return NextResponse.json({ ok: true });
   } catch {

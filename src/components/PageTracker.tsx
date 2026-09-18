@@ -4,12 +4,36 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { isAutomated } from "@/lib/isAutomated";
 
-type Open = { path: string; enteredAt: number; referrer: string | null };
+type Open = {
+  path: string;
+  /** stable per logical page visit — lets the server upsert instead of
+   *  inserting a new row every time this same visit's dwell segment flushes */
+  visitId: string;
+  referrer: string | null;
+  /** when this page visit started — fixed, doesn't move on background/resume */
+  enteredAt: number;
+  /** resets each time the tab regains visibility — start of the current
+   *  active (foreground) segment */
+  segmentStart: number;
+  /** active seconds already flushed for this visit, from earlier segments */
+  accumulatedSec: number;
+};
 
-function send(path: string, enteredAt: number, referrer: string | null) {
+function newVisitId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function send(open: Open, extraSec: number) {
   if (isAutomated()) return;
-  const duration = Math.round((Date.now() - enteredAt) / 1000);
-  const body = JSON.stringify({ path, referrer, enteredAt, duration });
+  const duration = Math.max(0, Math.round(open.accumulatedSec + extraSec));
+  const body = JSON.stringify({
+    visitId: open.visitId,
+    path: open.path,
+    referrer: open.referrer,
+    enteredAt: open.enteredAt,
+    duration,
+  });
   if (typeof navigator !== "undefined" && navigator.sendBeacon) {
     navigator.sendBeacon("/api/track", new Blob([body], { type: "application/json" }));
   } else {
@@ -25,26 +49,30 @@ function send(path: string, enteredAt: number, referrer: string | null) {
 /**
  * Reports a page view to /api/track once the visitor LEAVES it — on the next
  * route change, or on tab-hide/close for the last page of a session — rather
- * than on arrival, so every row carries how long they actually spent on it
- * (previously never tracked at all). visibilitychange (not beforeunload,
- * unreliable on mobile Safari) is the standard reliable "the user is
- * leaving" signal; pagehide is a second catch for cases that skip straight
- * to unload without a visibility transition.
+ * than on arrival, so every row carries how long they actually spent on it.
+ * visibilitychange (not beforeunload, unreliable on mobile Safari) is the
+ * standard reliable "the user is leaving" signal; pagehide is a second catch
+ * for cases that skip straight to unload without a visibility transition.
+ *
+ * Backgrounding a tab and returning to it is NOT a new visit — the segment
+ * stays open (same visitId) across hide/show cycles, just pausing its timer,
+ * so alt-tabbing back and forth doesn't fragment one real visit into several
+ * rows. Each hide still flushes a beacon as a safety net in case the tab
+ * never comes back, but the server upserts by visitId instead of inserting,
+ * so a resumed tab only ever extends that one row's duration.
  */
 export function PageTracker() {
   const pathname = usePathname();
   const openRef = useRef<Open | null>(null);
-  const pathRef = useRef<string | null>(null);
-  const isFirstPage = useRef(true);
   // Real external referrer, captured once — every later soft navigation's
   // document.referrer would just be this site's own previous page.
   const entryReferrer = useRef<string | null>(
     typeof document !== "undefined" ? document.referrer || null : null,
   );
+  const isFirstPage = useRef(true);
 
   useEffect(() => {
     if (!pathname) return;
-    pathRef.current = pathname;
     if (pathname.startsWith("/console")) {
       openRef.current = null;
       return;
@@ -52,45 +80,45 @@ export function PageTracker() {
 
     const prev = openRef.current;
     if (prev && prev.path !== pathname) {
-      send(prev.path, prev.enteredAt, prev.referrer);
+      send(prev, (Date.now() - prev.segmentStart) / 1000);
     }
-    openRef.current = {
-      path: pathname,
-      enteredAt: Date.now(),
-      referrer: isFirstPage.current ? entryReferrer.current : null,
-    };
-    isFirstPage.current = false;
+    if (!prev || prev.path !== pathname) {
+      const now = Date.now();
+      openRef.current = {
+        path: pathname,
+        visitId: newVisitId(),
+        enteredAt: now,
+        segmentStart: now,
+        accumulatedSec: 0,
+        referrer: isFirstPage.current ? entryReferrer.current : null,
+      };
+      isFirstPage.current = false;
+    }
   }, [pathname]);
 
   useEffect(() => {
-    const flush = () => {
+    const closeOut = () => {
       const open = openRef.current;
       if (!open) return;
-      send(open.path, open.enteredAt, open.referrer);
+      send(open, (Date.now() - open.segmentStart) / 1000);
       openRef.current = null;
     };
     const onVisibility = () => {
+      const open = openRef.current;
+      if (!open) return;
       if (document.visibilityState === "hidden") {
-        flush();
-      } else if (
-        document.visibilityState === "visible" &&
-        !openRef.current &&
-        pathRef.current &&
-        !pathRef.current.startsWith("/console")
-      ) {
-        // Resumed a backgrounded tab on the same page (visiblity->hidden
-        // already flushed and closed it out) — open a fresh dwell segment
-        // rather than leaving this page permanently untracked. Undercounts
-        // cumulative time across background/foreground cycles slightly, but
-        // never silently drops the page's remaining time entirely.
-        openRef.current = { path: pathRef.current, enteredAt: Date.now(), referrer: null };
+        const extraSec = (Date.now() - open.segmentStart) / 1000;
+        send(open, extraSec);
+        open.accumulatedSec += extraSec; // segment stays open — same visitId
+      } else if (document.visibilityState === "visible") {
+        open.segmentStart = Date.now(); // resume the clock, no new row
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", flush);
+    window.addEventListener("pagehide", closeOut);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("pagehide", closeOut);
     };
   }, []);
 
