@@ -107,6 +107,18 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
 
     ad.impressionPixels.forEach(ping);
 
+    // Hard ceiling so a stalled creative (buffers forever without ever firing
+    // `error` or `ended` — a real, observed failure mode with some ad
+    // networks) can't strand the viewer on the ad screen indefinitely. Sized
+    // to the ad's own declared length when we have one, plus slack for normal
+    // buffering; a generous flat cap otherwise. Counts as a failure, same as
+    // a real error, so the ad network still sees it wasn't a real view.
+    const maxWaitMs = (ad.durationSec ? ad.durationSec + 10 : 25) * 1000;
+    const stallTimer = setTimeout(() => {
+      ad.errorPixels.forEach((u) => ping(u.replace("[ERRORCODE]", "402")));
+      finish();
+    }, maxWaitMs);
+
     const onTimeUpdate = () => {
       const duration = video.duration || ad.durationSec || 0;
       if (!duration) return;
@@ -123,6 +135,7 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
     };
     video.addEventListener("timeupdate", onTimeUpdate);
     return () => {
+      clearTimeout(stallTimer);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeAttribute("src");
       video.load();

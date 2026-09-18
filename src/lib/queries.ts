@@ -57,7 +57,7 @@ async function browseSeriesInner(params: BrowseParams) {
         : {}),
   };
 
-  const orderBy: Prisma.SeriesOrderByWithRelationInput =
+  const primarySort: Prisma.SeriesOrderByWithRelationInput =
     params.sort === "popular"
       ? { viewCount: "desc" }
       : params.sort === "trending"
@@ -69,6 +69,11 @@ async function browseSeriesInner(params: BrowseParams) {
             : params.sort === "new"
               ? { createdAt: "desc" }
               : { updatedAt: "desc" };
+  // `id` tiebreaker: without one, rows tied on the primary sort key (bulk
+  // imports sharing a timestamp, zero-view titles, etc.) have no guaranteed
+  // order between separate skip/take queries — page 2+ could silently repeat
+  // or drop titles depending on how Postgres happens to order the tie.
+  const orderBy: Prisma.SeriesOrderByWithRelationInput[] = [primarySort, { id: "asc" }];
 
   const [items, total] = await db(() =>
     Promise.all([

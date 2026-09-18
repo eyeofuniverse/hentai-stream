@@ -156,12 +156,6 @@ export function WatchPlayer({
     setReady(false);
     setShowUnmute(false);
   }, [idx]);
-  useEffect(() => {
-    if (ready || !showPlayer) return;
-    const t = setTimeout(() => setReady(true), 9000);
-    return () => clearTimeout(t);
-  }, [ready, showPlayer, idx]);
-
   const failover = useCallback(() => {
     setIdx((i) => {
       if (i + 1 < servers.length) return i + 1;
@@ -169,6 +163,19 @@ export function WatchPlayer({
       return i;
     });
   }, [servers.length]);
+
+  useEffect(() => {
+    if (ready || !showPlayer) return;
+    // A cross-origin iframe mirror can't report load failure to us — there's
+    // no onError signal to hook, the way <video>/hls.js gives us for our own
+    // hosted copy. Still not ready after a generous wait is the only proxy
+    // we have, so treat it the same as a real error: auto-advance to the
+    // next server instead of just revealing a possibly-dead frame. (Direct
+    // video/HLS sources have their own real error → failover() elsewhere;
+    // this only applies to the iframe fallback path.)
+    const t = setTimeout(() => (isEmbed ? failover() : setReady(true)), 9000);
+    return () => clearTimeout(t);
+  }, [ready, showPlayer, idx, isEmbed, failover]);
 
   const pickServer = useCallback((i: number) => {
     setDead(false);
@@ -238,8 +245,11 @@ export function WatchPlayer({
     import("plyr").then(({ default: Plyr }) => {
       if (killed || !videoRef.current) return;
       plyrRef.current = new Plyr(videoRef.current, {
-        // our own keydown handler (n/p/f) already covers this; avoid double-handling
-        keyboard: { focused: false, global: false },
+        // focused (not global): Plyr's own space/arrow/volume/mute shortcuts
+        // work once the player has focus, without hijacking keys typed
+        // elsewhere on the page (search, comments). Our own keydown handler
+        // below only adds n/p/f, which Plyr doesn't have — no overlap.
+        keyboard: { focused: true, global: false },
         tooltips: { controls: false, seek: true },
         ...(isMobile
           ? { controls: ["play-large", "play", "progress", "current-time", "mute", "fullscreen"] }
@@ -336,7 +346,7 @@ export function WatchPlayer({
     setAdDone(true);
   }, []);
 
-  // keyboard: n/p/f — Plyr's own shortcuts are disabled above to avoid double-handling
+  // keyboard: n/p/f — on top of Plyr's own focused shortcuts enabled above
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
