@@ -147,9 +147,9 @@ export default async function UsersPage({
             {rows.map((u) => (
               <div
                 key={u.id}
-                className="flex flex-wrap items-center gap-3 px-3 py-3 transition-colors hover:bg-white/[0.03] sm:flex-nowrap"
+                className="flex flex-col gap-3 px-3 py-3 transition-colors hover:bg-white/[0.03] sm:flex-row sm:items-center"
               >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3 sm:flex-1">
                   {u.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -161,15 +161,24 @@ export default async function UsersPage({
                   ) : (
                     <div className="h-9 w-9 shrink-0 rounded-full bg-white/10" />
                   )}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-white/85">
                       {u.displayName || u.handle}
                     </div>
                     <div className="truncate text-xs text-white/40">@{u.handle}</div>
+                    {/* compact stand-in for the role/activity/joined columns, mobile only */}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-white/45 sm:hidden">
+                      <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>
+                      <span>
+                        {u._count.comments} comments · {u._count.ratings} ratings
+                      </span>
+                      {u.strikes > 0 && <span className="text-rose-400/80">{u.strikes} strikes</span>}
+                      <span>joined {timeAgo(u.createdAt)}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="w-28">
+                <div className="hidden w-28 sm:block">
                   {canChangeRoles ? (
                     <form action={changeRole.bind(null, u.id)} className="flex items-center gap-1">
                       <select
@@ -192,7 +201,7 @@ export default async function UsersPage({
                   )}
                 </div>
 
-                <div className="w-28 text-xs text-white/50">
+                <div className="hidden w-28 text-xs text-white/50 sm:block">
                   {u._count.comments} comments
                   <br />
                   {u._count.ratings} ratings
@@ -204,12 +213,32 @@ export default async function UsersPage({
                   )}
                 </div>
 
-                <div className="w-20 text-xs text-white/35">{timeAgo(u.createdAt)}</div>
+                <div className="hidden w-20 text-xs text-white/35 sm:block">{timeAgo(u.createdAt)}</div>
 
-                <div className="flex w-full items-center justify-end gap-1.5 sm:w-56">
+                {/* role editor, mobile only — desktop gets the inline column above */}
+                {canChangeRoles && (
+                  <form action={changeRole.bind(null, u.id)} className="flex items-center gap-1.5 sm:hidden">
+                    <select
+                      name="role"
+                      defaultValue={u.role}
+                      className="flex-1 rounded-md border border-white/12 bg-white/[0.03] px-2 py-1.5 text-xs text-white/80 outline-none focus:border-accent/60"
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r} className="bg-surface">
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton variant="secondary" size="sm" pendingText="…">
+                      Change role
+                    </SubmitButton>
+                  </form>
+                )}
+
+                <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-56 sm:flex-nowrap sm:justify-end">
                   {u.banned ? (
                     <>
-                      <div className="min-w-0 text-right text-xs">
+                      <div className="min-w-0 flex-1 text-xs sm:flex-none sm:text-right">
                         <Badge tone="red">Banned</Badge>
                         {u.bannedUntil && (
                           <div className="mt-0.5 text-white/35">until {u.bannedUntil.toLocaleDateString()}</div>

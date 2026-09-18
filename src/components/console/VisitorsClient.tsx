@@ -122,8 +122,25 @@ function TrafficChart({ data, days }: { data: DailyTraffic[]; days: number }) {
   );
 }
 
+// Rendering every row straight into the DOM (the data layer already caps at
+// up to 10,000/20,000 for accurate aggregates) was producing 29,000+ real
+// elements and a 130,000px-tall page — confirmed live, not theoretical.
+// These tables are for a quick recent-activity scan, not a full export, so
+// capping what actually renders is the fix, not paginating through 10k rows.
+const DISPLAY_ROW_CAP = 150;
+
+function TruncatedNote({ shown, total }: { shown: number; total: number }) {
+  if (total <= shown) return null;
+  return (
+    <p className="px-3 py-2 text-xs text-white/35">
+      Showing the most recent {shown.toLocaleString()} of {total.toLocaleString()}.
+    </p>
+  );
+}
+
 function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number }) {
   if (visitors.length === 0) return <EmptyState title="No visitors yet." />;
+  const shown = visitors.slice(0, DISPLAY_ROW_CAP);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -137,7 +154,7 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
           </tr>
         </thead>
         <tbody>
-          {visitors.map((v) => (
+          {shown.map((v) => (
             <tr key={v.ip} className="border-b border-white/[0.06] transition-opacity hover:opacity-80">
               <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-white/85">{v.ip}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-white/85">
@@ -171,12 +188,14 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
           ))}
         </tbody>
       </table>
+      <TruncatedNote shown={shown.length} total={visitors.length} />
     </div>
   );
 }
 
 function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) {
   if (visits.length === 0) return <EmptyState title="No activity yet." />;
+  const shown = visits.slice(0, DISPLAY_ROW_CAP);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -190,7 +209,7 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
           </tr>
         </thead>
         <tbody>
-          {visits.map((v) => (
+          {shown.map((v) => (
             <tr key={v.id} className="border-b border-white/[0.06] transition-opacity hover:opacity-80">
               <td
                 className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45"
@@ -209,6 +228,7 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
           ))}
         </tbody>
       </table>
+      <TruncatedNote shown={shown.length} total={visits.length} />
     </div>
   );
 }

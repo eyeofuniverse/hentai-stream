@@ -191,10 +191,10 @@ export default async function EditSeriesPage({
               return (
                 <details
                   key={ep.id}
-                  className="group rounded-xl border border-white/10 bg-surface"
+                  className="group min-w-0 rounded-xl border border-white/10 bg-surface"
                   open={ep.sources.length > 0}
                 >
-                  <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+                  <summary className="flex w-full cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
                     <span className="shrink-0 font-semibold text-white/80">
                       EP {ep.number}
                       {ep.part > 1 && <span className="text-white/40">·{ep.part}</span>}
@@ -238,7 +238,7 @@ export default async function EditSeriesPage({
                         {ep.sources.map((src) => (
                           <div
                             key={src.id}
-                            className="flex flex-wrap items-center gap-2 rounded-lg bg-bg px-2.5 py-1.5 text-xs"
+                            className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-bg px-2.5 py-1.5 text-xs"
                           >
                             <span className="font-semibold text-white/80">
                               {src.host === "OTHER" ? src.hostName || "OTHER" : src.host}

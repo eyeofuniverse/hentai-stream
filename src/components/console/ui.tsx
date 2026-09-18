@@ -53,7 +53,7 @@ export function Card({
 }) {
   return (
     <As
-      className={`rounded-xl border border-white/10 bg-surface ${className}`}
+      className={`min-w-0 rounded-xl border border-white/10 bg-surface ${className}`}
     >
       {children}
     </As>

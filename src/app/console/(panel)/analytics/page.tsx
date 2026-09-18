@@ -50,14 +50,14 @@ export default async function AnalyticsPage({
         }
       />
 
-      <div className="mb-6 flex w-fit gap-1 rounded-xl border border-white/10 bg-surface p-1">
+      <div className="mb-6 flex w-full gap-1 overflow-x-auto rounded-xl border border-white/10 bg-surface p-1 sm:w-fit">
         {TABS.map(({ key, label, icon: Icon }) => {
           const active = activeTab === key;
           return (
             <Link
               key={key}
               href={`/console/analytics?tab=${key}`}
-              className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-all"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-all"
               style={{
                 background: active ? "rgba(255,61,127,0.12)" : "transparent",
                 color: active ? "#ff3d7f" : "rgba(255,255,255,0.55)",
