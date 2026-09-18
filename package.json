@@ -17,6 +17,7 @@
     "recompute": "tsx --env-file=.env scripts/recompute.mts",
     "cleanup": "tsx --env-file=.env scripts/cleanup.mts",
     "backup-db": "tsx --env-file=.env scripts/backup-db.mts",
+    "repair-thumbs": "tsx --env-file=.env scripts/repair-thumbs.mts",
     "indexnow": "tsx --env-file=.env scripts/indexnow-recent.mts",
     "backfill:censored": "tsx --env-file=.env scripts/backfill-censored.mts",
     "recover:images": "tsx --env-file=.env scripts/recover-images-r2.mts",

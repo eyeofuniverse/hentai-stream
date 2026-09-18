@@ -13,6 +13,9 @@ name: Catalogue maintenance
 #   recompute — weeklyViews / bayesianRating / trendingScore
 #   cleanup   — prune PageVisit/AdminLoginAttempt/IpGeoCache past retention,
 #               junk SearchTermStat rows
+#   repair-thumbs — re-copy a small batch of dead episode thumbnails from
+#               Bunny each night (bounded batch — see the script's own
+#               comment for why this can't just be one big sweep)
 #
 # Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*
 
@@ -101,6 +104,10 @@ jobs:
       - name: Retention cleanup — prune old PageVisit/AdminLoginAttempt/IpGeoCache/junk search terms
         continue-on-error: true
         run: npm run cleanup
+
+      - name: Repair a small batch of dead episode thumbnails
+        continue-on-error: true
+        run: npm run repair-thumbs
 
       - name: Ping IndexNow with what changed
         continue-on-error: true
