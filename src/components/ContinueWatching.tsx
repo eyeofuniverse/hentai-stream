@@ -9,6 +9,7 @@ type Item = {
   number: number;
   title: string | null;
   thumb: string | null;
+  fallback: string | null;
   resume: boolean;
 };
 
@@ -40,13 +41,18 @@ export function ContinueWatching() {
             className="group w-[180px] shrink-0 snap-start sm:w-[220px]"
           >
             <div className="relative aspect-video overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/5">
-              {it.thumb && (
+              {(it.thumb || it.fallback) && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={it.thumb}
+                  src={it.thumb ?? it.fallback ?? undefined}
                   alt=""
                   loading="lazy"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (it.fallback && img.src !== it.fallback) img.src = it.fallback;
+                    else img.style.display = "none";
+                  }}
                 />
               )}
               <span className="absolute inset-0 grid place-items-center bg-black/25 opacity-0 transition group-hover:opacity-100">
