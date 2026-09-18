@@ -11,6 +11,8 @@ name: Catalogue maintenance
 #   reconcile — delete Bunny videos no episode references (orphans from a
 #               killed host job) and any still-failed video left behind
 #   recompute — weeklyViews / bayesianRating / trendingScore
+#   cleanup   — prune PageVisit/AdminLoginAttempt/IpGeoCache past retention,
+#               junk SearchTermStat rows
 #
 # Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*
 
@@ -95,6 +97,10 @@ jobs:
       - name: Recompute derived metrics
         continue-on-error: true
         run: npm run recompute
+
+      - name: Retention cleanup — prune old PageVisit/AdminLoginAttempt/IpGeoCache/junk search terms
+        continue-on-error: true
+        run: npm run cleanup
 
       - name: Ping IndexNow with what changed
         continue-on-error: true

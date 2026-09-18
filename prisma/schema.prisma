@@ -366,6 +366,7 @@ model Series {
   @@index([publish, trendingScore])
   @@index([publish, bayesianRating])
   @@index([publish, createdAt])
+  @@index([publish, viewCount])
   @@index([status, animeSeason, seasonYear])
   @@index([studioId])
   @@index([year])
@@ -761,6 +762,7 @@ model AdminLoginAttempt {
 
   @@index([email, createdAt])
   @@index([ip, createdAt])
+  @@index([createdAt])
 }
 
 model AuditLog {
@@ -775,6 +777,7 @@ model AuditLog {
 
   @@index([targetType, targetId])
   @@index([actorId, createdAt])
+  @@index([createdAt])
 }
 
 model PageMeta {
@@ -909,9 +912,8 @@ model SearchTermStat {
   @@index([lastSearchedAt])
 }
 
-/// One row per page load, written by the public /api/track beacon. Pruned
-/// implicitly by only ever querying a recent window — nothing deletes these,
-/// so a periodic cleanup job is worth adding once volume gets large.
+/// One row per page load, written by the public /api/track beacon. Pruned by
+/// scripts/cleanup.mts (run nightly via maintenance.yml) past PAGE_VISIT_RETENTION_DAYS.
 model PageVisit {
   id         String   @id @default(cuid())
   ip         String
@@ -938,4 +940,6 @@ model IpGeoCache {
   countryCode String?
   city        String?
   cachedAt    DateTime @default(now()) @updatedAt
+
+  @@index([cachedAt])
 }
