@@ -70,6 +70,56 @@ async function seriesSearch(
   ).catch(() => [] as RawSeries[]);
 }
 
+/** Series that don't match by title/synopsis at all, but carry a tag/genre
+ *  matching the term (e.g. searching "MILF" should surface series tagged
+ *  MILF even when the word never appears in the title). */
+async function seriesByTagSearch(
+  term: string,
+  limit: number,
+  withCounts: boolean,
+): Promise<SeriesHit[]> {
+  const q = term.slice(0, 120);
+  const infix = `%${q}%`;
+  const episodesCol = withCounts
+    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED')`
+    : Prisma.sql`0`;
+  return db(() =>
+    prisma.$queryRaw<RawSeries[]>(Prisma.sql`
+      SELECT s.id, s.slug, s.title, s."titleEnglish", s."coverUrl", s.year,
+             s.type::text AS type, s.status::text AS status, s.synopsis,
+             ${episodesCol} AS episodes
+      FROM "Series" s
+      WHERE s.publish = 'PUBLISHED'
+        AND EXISTS (
+          SELECT 1 FROM "_SeriesTags" st
+          JOIN "Tag" t ON t.id = st."B"
+          WHERE st."A" = s.id
+            AND (t.name ILIKE ${infix} OR t.slug ILIKE ${infix} OR ${q} = ANY(t.synonyms))
+        )
+      ORDER BY s."viewCount" DESC
+      LIMIT ${limit}
+    `),
+  ).catch(() => [] as RawSeries[]);
+}
+
+/** Title hits first (more precise intent), then tag-only hits filling the
+ *  rest of the limit — deduped so a series matching both isn't repeated. */
+function mergeSeriesHits(
+  titleHits: SeriesHit[],
+  tagHits: SeriesHit[],
+  limit: number,
+): SeriesHit[] {
+  const merged = [...titleHits];
+  const seen = new Set(titleHits.map((s) => s.id));
+  for (const s of tagHits) {
+    if (merged.length >= limit) break;
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    merged.push(s);
+  }
+  return merged;
+}
+
 async function tagSearch(term: string, limit: number): Promise<TagHit[]> {
   const rows = await db(() =>
     prisma.tag.findMany({
@@ -93,22 +143,26 @@ async function tagSearch(term: string, limit: number): Promise<TagHit[]> {
 export async function searchSuggest(q: string) {
   const term = q.trim();
   if (term.length < 2) return { series: [] as SeriesHit[], tags: [] as TagHit[] };
-  const [series, tags] = await Promise.all([
-    seriesSearch(term, 7, false),
+  const LIMIT = 7;
+  const [titleHits, tagHits, tags] = await Promise.all([
+    seriesSearch(term, LIMIT, false),
+    seriesByTagSearch(term, LIMIT, false),
     tagSearch(term, 4),
   ]);
-  return { series, tags };
+  return { series: mergeSeriesHits(titleHits, tagHits, LIMIT), tags };
 }
 
 /** Full results for the /search page. */
 export async function searchResults(q: string) {
   const term = q.trim();
   if (term.length < 2) return { series: [] as SeriesHit[], tags: [] as TagHit[] };
-  const [series, tags] = await Promise.all([
-    seriesSearch(term, 48, true),
+  const LIMIT = 48;
+  const [titleHits, tagHits, tags] = await Promise.all([
+    seriesSearch(term, LIMIT, true),
+    seriesByTagSearch(term, LIMIT, true),
     tagSearch(term, 12),
   ]);
-  return { series, tags };
+  return { series: mergeSeriesHits(titleHits, tagHits, LIMIT), tags };
 }
 
 /**
