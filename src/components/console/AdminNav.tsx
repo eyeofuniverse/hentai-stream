@@ -21,6 +21,7 @@ import {
   LogOut,
   Share2,
   Wallet,
+  Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -49,6 +50,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   review: ShieldCheck,
   reports: Flag,
   comments: MessageSquare,
+  users: Users,
   unmatched: Puzzle,
   tags: Tag,
   search: Search,

@@ -12,6 +12,7 @@ import { Prisma } from "@prisma/client";
 import type {
   AnimeSeason,
   PublishStatus,
+  Role,
   SourceMaterial,
   SourceStatus,
   Weekday,
@@ -474,4 +475,48 @@ export async function deleteSource(id: string) {
   });
   revalidatePath("/console");
   await bust(await seriesIdForEpisode(src.episodeId));
+}
+
+/* ─────────────────────────── user management ─────────────────────────── */
+
+// AuditLog.actorId is a @db.Uuid FK to Profile — it can't hold an AdminUser's
+// cuid, so staff actions are logged actorless (this is a solo-operator site;
+// "who on staff" is never ambiguous, only "what happened, when" is worth
+// keeping a record of).
+async function logUserAction(profileId: string, action: string, diff: object) {
+  await prisma.auditLog
+    .create({ data: { action, targetType: "profile", targetId: profileId, diff } })
+    .catch(() => {});
+}
+
+export async function banUser(id: string, reason: string, days?: number) {
+  await requireAdmin();
+  const until = days && days > 0 ? new Date(Date.now() + days * 86_400_000) : null;
+  await prisma.profile.update({
+    where: { id },
+    data: { banned: true, bannedReason: reason.trim().slice(0, 300) || null, bannedUntil: until },
+  });
+  await logUserAction(id, "ban", { reason, until });
+  revalidatePath("/console/users");
+}
+
+export async function unbanUser(id: string) {
+  await requireAdmin();
+  await prisma.profile.update({
+    where: { id },
+    data: { banned: false, bannedReason: null, bannedUntil: null },
+  });
+  await logUserAction(id, "unban", {});
+  revalidatePath("/console/users");
+}
+
+/** Role changes grant real privileges (MODERATOR/ADMIN can moderate comments
+ *  and single-handedly auto-hide reported content — see api/report) — gated
+ *  above the default MOD level. */
+export async function setUserRole(id: string, role: Role) {
+  const me = await requireAdmin("ADMIN");
+  const before = await prisma.profile.findUnique({ where: { id }, select: { role: true } });
+  await prisma.profile.update({ where: { id }, data: { role } });
+  await logUserAction(id, "role-change", { from: before?.role, to: role, by: me.email });
+  revalidatePath("/console/users");
 }

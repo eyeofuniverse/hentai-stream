@@ -87,6 +87,7 @@ export default async function PanelLayout({
           badge: commentReports || undefined,
           tone: "red",
         },
+        { href: "/console/users", label: "Users", icon: "users" },
         {
           href: "/console/unmatched",
           label: "Unmatched",
