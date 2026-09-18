@@ -1,0 +1,54 @@
+name: DB backup
+
+# Nightly pg_dump → gzip → upload to R2 (db-backups/), pruned to the last 14.
+# Independent of Supabase's own plan-tier backup/PITR — a second copy we own
+# regardless of Supabase plan, since that was previously untested and unknown.
+#
+# Same IPv6-unreachable-from-CI problem as db-push.yml, same fix: derive an
+# IPv4 session-pooler URL from the transaction-pooler DATABASE_URL.
+#
+# Repo secrets: DATABASE_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+#               R2_SECRET_ACCESS_KEY, R2_BUCKET
+
+on:
+  schedule:
+    - cron: "5 3 * * *" # daily 03:05 UTC
+  workflow_dispatch: {}
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install postgresql-client (pg_dump)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Write .env
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -e
+          SESSION_URL="${DATABASE_URL/:6543/:5432}"
+          SESSION_URL="${SESSION_URL%%\?*}"
+          case "$SESSION_URL" in
+            *db.*.supabase.co:*|*:6543*)
+              echo "::error::Could not derive an IPv4 session-pooler URL from DATABASE_URL."
+              exit 1 ;;
+          esac
+          {
+            echo "PG_DUMP_URL=${SESSION_URL}"
+            echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
+            echo "R2_BUCKET=${{ secrets.R2_BUCKET }}"
+          } > .env
+      - run: npm run backup-db

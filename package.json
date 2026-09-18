@@ -16,6 +16,7 @@
     "unmatched:drain": "tsx --env-file=.env scripts/unmatched-drain.mts",
     "recompute": "tsx --env-file=.env scripts/recompute.mts",
     "cleanup": "tsx --env-file=.env scripts/cleanup.mts",
+    "backup-db": "tsx --env-file=.env scripts/backup-db.mts",
     "indexnow": "tsx --env-file=.env scripts/indexnow-recent.mts",
     "backfill:censored": "tsx --env-file=.env scripts/backfill-censored.mts",
     "recover:images": "tsx --env-file=.env scripts/recover-images-r2.mts",
