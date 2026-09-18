@@ -47,9 +47,16 @@ const rawPath = `/tmp/lusthentai-${stamp}.sql`;
 const gzPath = `${rawPath}.gz`;
 const key = `db-backups/lusthentai-${stamp}.sql.gz`;
 
-console.log(`pg_dump → ${rawPath}`);
+// Debian/Ubuntu keep versioned postgresql-client binaries side by side under
+// /usr/lib/postgresql/<ver>/bin/ rather than swapping the default `pg_dump`
+// on PATH — confirmed live: installing postgresql-client-17 alongside the
+// runner's stock v16 left `pg_dump` still resolving to v16, which then
+// refuses to dump a v17 server ("aborting because of server version
+// mismatch"). PG_DUMP_BIN lets CI point at the right one explicitly.
+const pgDumpBin = process.env.PG_DUMP_BIN || "pg_dump";
+console.log(`${pgDumpBin} → ${rawPath}`);
 await execFileAsync(
-  "pg_dump",
+  pgDumpBin,
   ["--no-owner", "--no-privileges", "--format=plain", "--file", rawPath, dumpUrl],
   { maxBuffer: 1024 * 1024 * 1024 },
 );

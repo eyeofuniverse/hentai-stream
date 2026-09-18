@@ -54,6 +54,7 @@ jobs:
           esac
           {
             echo "PG_DUMP_URL=${SESSION_URL}"
+            echo "PG_DUMP_BIN=/usr/lib/postgresql/17/bin/pg_dump"
             echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
             echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
             echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
