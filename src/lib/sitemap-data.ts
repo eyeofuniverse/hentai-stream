@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 import { unstable_cache } from "next/cache";
 import { prisma, db } from "@/lib/db";
-import { thumb, cover, episodeThumb } from "@/lib/cloudinary";
-import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
+import { thumb, cover } from "@/lib/cloudinary";
 import { SITE, SITE_NAME, excerpt } from "@/lib/seo";
 
 /**
@@ -41,14 +40,13 @@ function esc(v: string | number): string {
     .replace(/'/g, "&apos;");
 }
 
-/** A thumbnail URL that's safe to put in XML — our own hosted art only, never a
- *  raw scraped URL (those carry spaces and break the whole sitemap). */
-function safeThumb(
-  coverUrl: string | null,
-  ep: { bunnyGuid: string | null; bunnyStatus: string | null; thumbUrl?: string | null },
-): string | null {
-  const bunnyFallback = ep.bunnyStatus === "ready" && ep.bunnyGuid ? bunnyThumbUrl(ep.bunnyGuid) : null;
-  const raw = episodeThumb(ep.thumbUrl, bunnyFallback) ?? thumb(coverUrl) ?? cover(coverUrl);
+/** A thumbnail URL that's safe to put in XML — our own R2-hosted art only: the
+ *  episode's own thumbnail, else the series cover. Never a raw scraped URL
+ *  (spaces break the whole sitemap) and never Bunny's CDN, which is
+ *  referer-protected so Googlebot can't fetch it. null = list the page
+ *  without a video entry rather than point Google at a thumbnail it can't load. */
+function safeThumb(coverUrl: string | null, ep: { thumbUrl?: string | null }): string | null {
+  const raw = thumb(ep.thumbUrl) ?? thumb(coverUrl) ?? cover(coverUrl);
   if (!raw) return null;
   try {
     const u = encodeURI(raw);
@@ -65,7 +63,7 @@ function safeThumb(
 
 const episodeCount = unstable_cache(
   () => db(() => prisma.episode.count({ where: PUBLISHED_EPISODE })),
-  ["sitemap-episode-count"],
+  ["sitemap-episode-count-v2"],
   { revalidate: 3600 },
 );
 
@@ -118,7 +116,7 @@ const pagesDynamic = unstable_cache(
         .map((s) => ({ url: `${SITE}/season/${s.animeSeason!.toLowerCase()}-${s.seasonYear}` })),
     ];
   },
-  ["sitemap-pages"],
+  ["sitemap-pages-v2"],
   { revalidate: CACHE_SECONDS },
 );
 
@@ -140,7 +138,7 @@ const seriesCached = unstable_cache(
     );
     return rows.map((s) => ({ url: `${SITE}/hentai/${s.slug}`, lastModified: s.updatedAt.toISOString() }));
   },
-  ["sitemap-series"],
+  ["sitemap-series-v2"],
   { revalidate: CACHE_SECONDS },
 );
 
@@ -163,8 +161,6 @@ const episodesCached = unstable_cache(
           airedAt: true,
           createdAt: true,
           updatedAt: true,
-          bunnyGuid: true,
-          bunnyStatus: true,
           thumbUrl: true,
           series: { select: { slug: true, title: true, synopsis: true, coverUrl: true, isCensored: true } },
         },
@@ -204,7 +200,7 @@ const episodesCached = unstable_cache(
       };
     });
   },
-  ["sitemap-episodes"],
+  ["sitemap-episodes-v2"],
   { revalidate: CACHE_SECONDS },
 );
 
@@ -224,7 +220,7 @@ export function renderUrlset(entries: MetadataRoute.Sitemap): string {
             `<video:thumbnail_loc>${esc(v.thumbnail_loc)}</video:thumbnail_loc>` +
             `<video:title>${esc(v.title)}</video:title>` +
             `<video:description>${esc(v.description)}</video:description>` +
-            (v.player_loc ? `<video:player_loc>${esc(v.player_loc)}</video:player_loc>` : "") +
+            (v.player_loc ? `<video:player_loc>${esc(encodeURI(v.player_loc))}</video:player_loc>` : "") +
             (v.duration ? `<video:duration>${esc(v.duration)}</video:duration>` : "") +
             (v.publication_date ? `<video:publication_date>${esc(new Date(v.publication_date).toISOString())}</video:publication_date>` : "") +
             (v.family_friendly ? `<video:family_friendly>${esc(v.family_friendly)}</video:family_friendly>` : "") +
@@ -232,7 +228,7 @@ export function renderUrlset(entries: MetadataRoute.Sitemap): string {
             "</video:video>",
         )
         .join("");
-      return `<url><loc>${esc(e.url)}</loc>${lastmod}${videos}</url>`;
+      return `<url><loc>${esc(encodeURI(e.url))}</loc>${lastmod}${videos}</url>`;
     })
     .join("\n");
   return (
