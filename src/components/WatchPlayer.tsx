@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "@/lib/stream";
 import { gradientFor } from "@/lib/gradient";
 import { PreRollAd } from "@/components/ads/PreRollAd";
+import { gaEvent } from "@/lib/ga";
 
 /** Glow + icon + running total for the double-tap seek gesture. Always
  *  mounted (never conditionally rendered) so opacity/scale are real CSS
@@ -76,12 +77,17 @@ export function WatchPlayer({
   nextHref,
   prevHref,
   bare,
+  seriesSlug,
+  episodeNumber,
 }: {
   servers: Server[];
   poster?: string | null;
   title?: string;
   nextHref?: string | null;
   prevHref?: string | null;
+  /** for the GA episode_play event — omit (e.g. /embed) to send none */
+  seriesSlug?: string;
+  episodeNumber?: number;
   /** chrome-less: the /embed route */
   bare?: boolean;
   /** reserved — VAST pre-roll is configured on the Bunny player itself */
@@ -108,6 +114,15 @@ export function WatchPlayer({
   const lastTapRef = useRef<{ time: number; side: "left" | "right" } | null>(null);
   const activeSeekRef = useRef<{ side: "left" | "right"; amount: number; key: number } | null>(null);
   const clearFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // GA4 "watch started": the viewer hit play (or picked a server) — once per
+  // episode page, not on every server switch/retry.
+  const playSent = useRef(false);
+  useEffect(() => {
+    if (!started || playSent.current || !seriesSlug) return;
+    playSent.current = true;
+    gaEvent("episode_play", { series_slug: seriesSlug, episode_number: episodeNumber });
+  }, [started, seriesSlug, episodeNumber]);
 
   const cur = servers[idx];
   const isEmbed = cur?.type === "iframe";

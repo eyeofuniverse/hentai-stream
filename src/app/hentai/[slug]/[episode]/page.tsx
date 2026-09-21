@@ -266,6 +266,8 @@ export default async function WatchPage({
               title={s.title}
               nextHref={nextHref}
               prevHref={prevHref}
+              seriesSlug={slug}
+              episodeNumber={ep.number}
             />
 
             <AdSlot slotKey="watch-under-player" className="mt-4" />

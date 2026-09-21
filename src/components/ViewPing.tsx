@@ -2,12 +2,7 @@
 
 import { useEffect } from "react";
 import { isAutomated } from "@/lib/isAutomated";
-
-declare global {
-  interface Window {
-    dataLayer?: unknown[];
-  }
-}
+import { gaEvent } from "@/lib/ga";
 
 export function ViewPing({
   episodeId,
@@ -31,20 +26,9 @@ export function ViewPing({
     const body = JSON.stringify({ episodeId });
     navigator.sendBeacon?.("/api/view", new Blob([body], { type: "application/json" }));
 
-    // GA4 custom event, pushed straight onto the dataLayer queue rather than
-    // through @next/third-parties' sendGAEvent — that helper only works once
-    // its own <GoogleAnalytics> component has mounted (it gates on internal
-    // module state Analytics.tsx no longer sets, now that gtag loads via a
-    // plain lazyOnload <Script> for a lighter main-thread cost). Pushing
-    // directly is also the standard gtag.js queue pattern: safe to call
-    // before gtag.js has actually loaded — it replays whatever's already in
-    // dataLayer once it initializes.
-    try {
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push(["event", "episode_view", { series_slug: seriesSlug, episode_number: episodeNumber }]);
-    } catch {
-      /* ignore */
-    }
+    // Page-open event (not playback — that's episode_play, fired by
+    // WatchPlayer when the viewer actually starts the video).
+    gaEvent("episode_view", { series_slug: seriesSlug, episode_number: episodeNumber });
   }, [episodeId, seriesSlug, episodeNumber]);
 
   return null;
