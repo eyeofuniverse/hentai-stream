@@ -16,12 +16,21 @@ const cardSelect = {
   _count: { select: { episodes: { where: { publish: "PUBLISHED" as const } } } },
 };
 
-/** Headline counts for the account page. */
+/** Headline counts for the account page — each matches exactly what its
+ *  linked page (/watchlist, /history) actually shows, so the numbers here
+ *  never disagree with what clicking through reveals. */
 export async function myStats(profileId: string) {
   const [watchlist, watched, ratings] = await Promise.all([
-    prisma.listEntry.count({ where: { profileId } }).catch(() => 0),
+    prisma.listEntry
+      .count({ where: { profileId, series: { publish: "PUBLISHED" } } })
+      .catch(() => 0),
+    // Not `completed: true` — that flag only fires for Bunny-hosted video
+    // watched to the literal last frame, so it stays ~0 for iframe-embedded
+    // episodes (no cross-origin "ended" event exists) and undercounts real
+    // playback of hosted video too. "Watched" = any episode with progress,
+    // same definition /history already uses.
     prisma.watchProgress
-      .count({ where: { profileId, completed: true } })
+      .count({ where: { profileId, episode: { publish: "PUBLISHED", series: { publish: "PUBLISHED" } } } })
       .catch(() => 0),
     prisma.rating.count({ where: { profileId } }).catch(() => 0),
   ]);
