@@ -57,10 +57,15 @@ export function flagsMinor(text: string): boolean {
   return MINOR_FLAG_TERMS.some((w) => hay.includes(w));
 }
 
+/** ASCII-only on purpose: Next hands dynamic route params to pages still
+ *  percent-encoded, so a slug containing e.g. "〇" (which \p{N} used to let
+ *  through) never matches its own DB row and the page 404s. Non-ASCII characters
+ *  act as separators; a title with no ASCII at all yields "" (callers already
+ *  fall back to a generated slug). */
 export function slugify(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
