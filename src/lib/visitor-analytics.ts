@@ -264,12 +264,17 @@ function toDate(val: Date | string): Date {
 }
 
 const VISITOR_ROW_CAP = 10000;
+// The "Activity" tab only ever shows the most recent handful of hits, so it
+// gets its own small, index-backed query (visitedAt DESC LIMIT 20) instead of
+// riding on the big VISITOR_ROW_CAP fetch below — that fetch is the one that
+// was actually straining the DB on every admin page load.
+const RECENT_VISITS_CAP = 20;
 
 export async function getVisitorData(days = 7): Promise<VisitorData> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-  const [visits, trueTotal] = await db(() =>
+  const [visits, trueTotal, recentRaw] = await db(() =>
     Promise.all([
       prisma.pageVisit.findMany({
         where: { visitedAt: { gte: since } },
@@ -278,6 +283,12 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
         select: { id: true, ip: true, path: true, visitedAt: true, durationSec: true },
       }),
       prisma.pageVisit.count({ where: { visitedAt: { gte: since } } }),
+      prisma.pageVisit.findMany({
+        where: { visitedAt: { gte: since } },
+        orderBy: { visitedAt: "desc" },
+        take: RECENT_VISITS_CAP,
+        select: { id: true, ip: true, path: true, visitedAt: true, durationSec: true },
+      }),
     ]),
   );
   const truncated = trueTotal > VISITOR_ROW_CAP;
@@ -294,6 +305,17 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
   const uncachedIps = uniqueIps.filter((ip) => !geoMap.has(ip));
   if (uncachedIps.length > 0) {
     const resolved = await resolveGeo(uncachedIps);
+    for (const [ip, geo] of resolved) geoMap.set(ip, { ip, ...geo, cachedAt: new Date() });
+  }
+
+  // recentRaw's IPs are almost always already in geoMap (same recency
+  // window, much smaller take) — this only resolves the rare edge case where
+  // it isn't, never re-fetches the ones it already has.
+  const recentUncachedIps = [...new Set(recentRaw.map((v) => v.ip))].filter(
+    (ip) => ip !== "unknown" && ip !== "0.0.0.0" && !geoMap.has(ip),
+  );
+  if (recentUncachedIps.length > 0) {
+    const resolved = await resolveGeo(recentUncachedIps);
     for (const [ip, geo] of resolved) geoMap.set(ip, { ip, ...geo, cachedAt: new Date() });
   }
 
@@ -385,7 +407,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
   const avgPagesPerVisitor =
     visitorMap.size > 0 ? Math.round((visits.length / visitorMap.size) * 10) / 10 : 0;
 
-  const recentVisits: RecentVisit[] = visits.slice(0, 100).map((v) => {
+  const recentVisits: RecentVisit[] = recentRaw.map((v) => {
     const geo = geoMap.get(v.ip);
     return {
       id: v.id,
