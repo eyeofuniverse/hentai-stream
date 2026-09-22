@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Globe, Monitor, Smartphone, Tablet, Link2, FileText, Clock,
-  TrendingUp, RefreshCw, ExternalLink, AlertTriangle,
+  TrendingUp, RefreshCw, ExternalLink, AlertTriangle, BarChart2,
 } from "lucide-react";
 import type { TrafficData, TrafficSource, TopReferrer, DeviceStat, HourStat, TopPage } from "@/lib/visitor-analytics";
-import { Card } from "@/components/console/ui";
+import { Card, DailyTrendChart } from "@/components/console/ui";
 
 const PERIODS = [
   { label: "24h", days: 1 },
@@ -196,6 +196,20 @@ function DevicesPanel({ devices }: { devices: DeviceStat[] }) {
   );
 }
 
+function DailyTrafficPanel({ data, days }: { data: TrafficData["dailyTraffic"]; days: number }) {
+  const peak = Math.max(...data.map((d) => d.visits), 0);
+  return (
+    <Card className="p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <BarChart2 size={14} className="text-accent" />
+        <h2 className="text-sm font-semibold text-white">Daily Traffic</h2>
+        <span className="ml-auto text-xs text-white/35">peak: {fmt(peak)} visits</span>
+      </div>
+      <DailyTrendChart data={data} days={days} />
+    </Card>
+  );
+}
+
 function PeakHoursPanel({ hours }: { hours: HourStat[] }) {
   const max = Math.max(...hours.map((h) => h.count), 1);
   const peakHour = hours.reduce((a, b) => (b.count > a.count ? b : a), hours[0]);
@@ -363,6 +377,12 @@ export function TrafficClient({ data: initial }: { data: TrafficData }) {
           color="#6366f1"
         />
       </div>
+
+      {days > 1 && (
+        <div className="mb-6">
+          <DailyTrafficPanel data={data.dailyTraffic} days={days} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SourcesPanel sources={data.sources} total={data.totalVisits} />

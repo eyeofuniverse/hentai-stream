@@ -231,6 +231,58 @@ export function EmptyState({
   );
 }
 
+/* ─────────────────────────────── charts ──────────────────────────────── */
+
+/** GA-style "visits per day" trend — a day-by-day bar chart, the thing you
+ *  actually want as the headline view of a date range, not just an
+ *  hour-of-day distribution. Thins itself down to ~14 bars for longer
+ *  ranges so a 90-day chart doesn't render 90 slivers. No hooks, so it's
+ *  safe to use from both server and client components. */
+export function DailyTrendChart({
+  data,
+  days,
+  color = "#ff3d7f",
+}: {
+  data: { date: string; visits: number }[];
+  days: number;
+  color?: string;
+}) {
+  const max = Math.max(...data.map((d) => d.visits), 1);
+  const show =
+    days <= 14 ? data : data.filter((_, i) => i % Math.ceil(days / 14) === 0 || i === data.length - 1);
+  const today = new Date().toISOString().slice(0, 10);
+  const fmtDate = (iso: string) =>
+    iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
+  return (
+    <div>
+      <div className="flex h-24 items-end gap-1">
+        {show.map((d) => {
+          const pct = (d.visits / max) * 100;
+          return (
+            <div key={d.date} className="group relative flex flex-1 flex-col items-center gap-1">
+              <div
+                className="w-full min-h-[3px] rounded-t-sm transition-all"
+                style={{
+                  height: `${Math.max(pct, 2)}%`,
+                  background: d.date === today ? color : `${color}59`,
+                }}
+              />
+              <div className="pointer-events-none absolute bottom-full z-10 mb-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                {fmtDate(d.date)}: {d.visits.toLocaleString()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-white/35">
+        <span>{fmtDate(data[0]?.date ?? "")}</span>
+        <span>{fmtDate(data[data.length - 1]?.date ?? "")}</span>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────── buttons ─────────────────────────────── */
 
 const BTN: Record<string, string> = {

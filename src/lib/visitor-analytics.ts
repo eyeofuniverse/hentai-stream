@@ -15,6 +15,9 @@ export type TrafficData = {
   topPages: TopPage[];
   devices: DeviceStat[];
   peakHours: HourStat[];
+  /** visits per calendar day (UTC) across the range — every day filled in,
+   *  including zero-visit ones, same as VisitorData.dailyTraffic. */
+  dailyTraffic: DailyTraffic[];
   days: number;
   /** true when the date range holds more rows than the query cap — every
    *  metric below is computed from only the most recent `totalVisits` of
@@ -154,7 +157,31 @@ export async function getTrafficAnalytics(days: number): Promise<TrafficData> {
 
   const peakHours: HourStat[] = hourBuckets.map((count, hour) => ({ hour, count }));
 
-  return { totalVisits: total, sources, topReferrers, topPages, devices, peakHours, days, truncated };
+  // day-by-day trend (UTC) — fill every day in range, including zero-visit
+  // ones, same approach as getVisitorData's dailyTraffic.
+  const dayMap = new Map<string, number>();
+  for (const v of visits) {
+    const day = new Date(v.visitedAt).toISOString().slice(0, 10);
+    dayMap.set(day, (dayMap.get(day) ?? 0) + 1);
+  }
+  const dailyTraffic: DailyTraffic[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const key = d.toISOString().slice(0, 10);
+    dailyTraffic.push({ date: key, visits: dayMap.get(key) ?? 0 });
+  }
+
+  return {
+    totalVisits: total,
+    sources,
+    topReferrers,
+    topPages,
+    devices,
+    peakHours,
+    dailyTraffic,
+    days,
+    truncated,
+  };
 }
 
 // All dates go out as ISO strings — plain data crossing the server/client

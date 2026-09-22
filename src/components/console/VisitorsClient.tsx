@@ -8,9 +8,8 @@ import type {
   RecentVisit,
   TopPage,
   CountryStat,
-  DailyTraffic,
 } from "@/lib/visitor-analytics";
-import { Card, EmptyState } from "@/components/console/ui";
+import { Card, EmptyState, DailyTrendChart } from "@/components/console/ui";
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -34,10 +33,6 @@ function timeAgo(iso: string, now: number) {
   const d = Math.floor(h / 24);
   if (d < 30) return `${d}d ago`;
   return `${Math.floor(d / 30)}mo ago`;
-}
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function fmtTime(iso: string) {
@@ -84,41 +79,6 @@ function StatCard({
         {sub && <p className="mt-0.5 text-xs text-white/35">{sub}</p>}
       </div>
     </Card>
-  );
-}
-
-function TrafficChart({ data, days }: { data: DailyTraffic[]; days: number }) {
-  const max = Math.max(...data.map((d) => d.visits), 1);
-  const show =
-    days <= 14 ? data : data.filter((_, i) => i % Math.ceil(days / 14) === 0 || i === data.length - 1);
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <div>
-      <div className="flex h-24 items-end gap-1">
-        {show.map((d) => {
-          const pct = (d.visits / max) * 100;
-          return (
-            <div key={d.date} className="group relative flex flex-1 flex-col items-center gap-1">
-              <div
-                className="w-full min-h-[3px] rounded-t-sm transition-all"
-                style={{
-                  height: `${Math.max(pct, 2)}%`,
-                  background: d.date === today ? "#ff3d7f" : "rgba(255,61,127,0.35)",
-                }}
-              />
-              <div className="pointer-events-none absolute bottom-full z-10 mb-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-                {fmtDate(d.date)}: {d.visits.toLocaleString()}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-1 flex justify-between text-xs text-white/35">
-        <span>{fmtDate(data[0]?.date ?? "")}</span>
-        <span>{fmtDate(data[data.length - 1]?.date ?? "")}</span>
-      </div>
-    </div>
   );
 }
 
@@ -400,7 +360,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
             peak: {Math.max(...data.dailyTraffic.map((d) => d.visits)).toLocaleString()} visits
           </span>
         </div>
-        <TrafficChart data={data.dailyTraffic} days={activeDays} />
+        <DailyTrendChart data={data.dailyTraffic} days={activeDays} />
       </Card>
 
       {/* main content */}
