@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const COLS: { title: string; links: { href: string; label: string }[] }[] = [
+type FooterLink = { href: string; label: string; external?: boolean; rel?: string };
+
+const COLS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Browse",
     links: [
@@ -29,6 +31,18 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/report-content", label: "Report content" },
     ],
   },
+  {
+    title: "Partner Sites",
+    links: [
+      { href: "https://lustpages.com", label: "LustPages", external: true },
+      {
+        href: "https://theporndude.com/",
+        label: "ThePornDude",
+        external: true,
+        rel: "nofollow noopener noreferrer",
+      },
+    ],
+  },
 ];
 
 export function SiteFooter() {
@@ -39,7 +53,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-20 border-t border-line bg-surface/30">
       <div className="mx-auto max-w-content px-4 py-12 lg:px-8">
-        <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-5">
           <div className="md:col-span-2">
             <Link
               href="/"
@@ -69,9 +83,20 @@ export function SiteFooter() {
               <ul className="mt-3 space-y-2 text-sm text-white/55">
                 {c.links.map((l) => (
                   <li key={l.href}>
-                    <Link href={l.href} className="hover:text-white">
-                      {l.label}
-                    </Link>
+                    {l.external ? (
+                      <a
+                        href={l.href}
+                        target="_blank"
+                        rel={l.rel ?? "noopener noreferrer"}
+                        className="hover:text-white"
+                      >
+                        {l.label}
+                      </a>
+                    ) : (
+                      <Link href={l.href} className="hover:text-white">
+                        {l.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -88,18 +113,6 @@ export function SiteFooter() {
           </p>
           <p className="mt-3 text-xs text-white/50">
             © {new Date().getFullYear()} LustHentai. All rights reserved.
-          </p>
-          <p className="mt-2 text-xs text-white/50">
-            Partner site:{" "}
-            <a
-              href="https://lustpages.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/70 hover:text-accent"
-            >
-              LustPages
-            </a>{" "}
-            — erotic stories
           </p>
         </div>
       </div>
