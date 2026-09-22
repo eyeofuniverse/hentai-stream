@@ -67,13 +67,14 @@ jobs:
           MODE="${{ github.event.inputs.mode || 'crawl' }}"
           REFETCH="${{ github.event.inputs.refetch }}"
 
-          # scheduled runs rotate the source site by weekday so every one gets a
-          # regular crawl, not only hentaigasm
+          # scheduled runs rotate the source site day by day so every one gets
+          # a regular full crawl, not just watchhentai/hentaigasm. crawl mode
+          # walks one whole site at a time (unlike topup/repair, which can
+          # fall back across a --site=a,b,c list in a single run), so this is
+          # still a day-by-day rotation — just now a 3-way one.
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            case "$(date -u +%u)" in
-              2|4|6|7) SITE=watchhentai ;;
-              *)       SITE=hentaigasm ;;
-            esac
+            SITES=(watchhentai hentaigasm miohentai)
+            SITE=${SITES[$(( ($(date -u +%u) - 1) % 3 ))]}
             MODE=crawl
           fi
 

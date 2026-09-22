@@ -7,8 +7,15 @@
  *   npm run scrape -- --site=watchhentai --mode=topup --limit=200
  *   npm run scrape -- --site=watchhentai --mode=repair --limit=150
  *
- * modes: crawl (whole site) | topup (our series with no video) |
+ *   # topup/repair only: try more than one site per series, in order —
+ *   # moves to the next site only if the previous one didn't finish the job
+ *   npm run scrape -- --site=watchhentai,hentaigasm,miohentai --mode=topup --limit=200
+ *
+ * modes: crawl (whole site, single site only) |
+ *        topup (our series with no video) |
  *        repair (re-fetch episodes whose only sources went DEAD)
+ * --site a,b,c : comma-separated fallback chain for topup/repair (crawl uses
+ *                only the first one)
  * --dry-run    : match + report, write nothing
  * --limit N    : stop after N episode records (crawl) / N target series (topup/repair)
  * --gap N      : ms between requests to the site (default 1500)
@@ -28,15 +35,20 @@ const flag = (name: string) => {
   return v ?? "true";
 };
 
-const site = flag("site");
+const siteArg = flag("site");
 const mode = (flag("mode") ?? "crawl") as "crawl" | "topup" | "repair";
-if (!site) {
+if (!siteArg) {
   console.error("--site is required (watchhentai | hentaigasm | miohentai | hentaila)");
   process.exit(1);
 }
+const siteList = siteArg
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const summary = await runScrape({
-  site,
+  site: siteList[0],
+  sites: siteList,
   mode,
   limit: flag("limit") ? Number(flag("limit")) : undefined,
   dryRun: !!flag("dry-run"),

@@ -62,24 +62,23 @@ jobs:
         continue-on-error: true
         run: npm run unmatched:drain -- --limit=150
 
+      # Try every working source in one run instead of rotating a single site
+      # by weekday — a series/episode only counts as "still needs it" (see
+      # runScrape's stillNeedsWork) after the previous site failed to supply
+      # it, so this doesn't waste requests on sites that already succeeded.
+      # hentaimama is deliberately left out here: its embeds are player-page
+      # iframes that are referer/X-Frame-blocked for both direct browser
+      # embedding and our own proxy fetch, so scraping it can't yield a
+      # playable source today — see src/lib/hosting/migrate.ts's dt_embed
+      # exclusion. Worth adding back once a delivery layer exists for that.
       - name: Topup — series still missing video
         if: ${{ github.event.inputs.skip_topup != 'true' }}
         continue-on-error: true
-        run: |
-          case "$(date -u +%u)" in
-            2|4|6) SITE=watchhentai ;;
-            *)     SITE=hentaigasm ;;
-          esac
-          npm run scrape -- --site=$SITE --mode=topup --limit=200
+        run: npm run scrape -- --site=watchhentai,hentaigasm,miohentai --mode=topup --limit=200
 
       - name: Repair — re-fetch DEAD source URLs
         continue-on-error: true
-        run: |
-          case "$(date -u +%u)" in
-            2|4|6) SITE=watchhentai ;;
-            *)     SITE=hentaigasm ;;
-          esac
-          npm run scrape -- --site=$SITE --mode=repair --limit=150
+        run: npm run scrape -- --site=watchhentai,hentaigasm,miohentai --mode=repair --limit=150
 
       - name: Covers + metadata — anilist (coverless first)
         continue-on-error: true

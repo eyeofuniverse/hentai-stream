@@ -7,10 +7,21 @@ import {
 } from "@/lib/ingest";
 import { Http } from "./http";
 import { getAdapter } from "./sites";
-import { normQuality, type EpisodeRef } from "./types";
+import { normQuality, type EpisodeRef, type SiteAdapter } from "./types";
 
 export interface ScrapeOptions {
+  /** primary site. For crawl this is the only site walked. For topup/repair
+   *  it's also the first site tried, unless `sites` is given. */
   site: string;
+  /**
+   * topup/repair only: try these sites in order for each target series,
+   * moving to the next one only if the series still needs work after the
+   * previous site's attempt (e.g. it had nothing, or only covered some of
+   * the missing episodes). Ignored for crawl — crawl always walks exactly
+   * one site (`site`). Defaults to `[site]` (today's single-site behaviour)
+   * when omitted.
+   */
+  sites?: string[];
   /**
    * crawl  — walk the whole source site, ingest everything new
    * topup  — for our series that are missing video, search the site by title
@@ -62,7 +73,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   const forceRefetch = !!opts.refetch || opts.mode === "repair";
 
   const s: ScrapeSummary = {
-    site: opts.site,
+    site: opts.sites?.length ? opts.sites.join(",") : opts.site,
     mode: opts.mode,
     titlesSeen: 0,
     refsSeen: 0,
@@ -81,7 +92,10 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
     ? null
     : await db(() =>
         prisma.scrapeRun.create({
-          data: { site: opts.site, mode: opts.mode },
+          data: {
+            site: opts.sites?.length ? opts.sites.join(",") : opts.site,
+            mode: opts.mode,
+          },
           select: { id: true },
         }),
       ).catch(() => null);
@@ -92,7 +106,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
   // series we've already attached scraped genres to this run
   const genresDone = new Set<string>();
 
-  const handle = async (ref: EpisodeRef) => {
+  const handle = async (ref: EpisodeRef, adapter: SiteAdapter, siteName: string) => {
     s.refsSeen++;
     if (!seenTitles.has(ref.seriesTitle)) {
       seenTitles.add(ref.seriesTitle);
@@ -117,7 +131,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
       s.unmatched++;
       if (!opts.dryRun)
         await recordUnmatched({
-          site: opts.site,
+          site: siteName,
           rawTitle: ref.seriesTitle,
           sampleUrl: ref.seriesUrl,
           year: ref.year,
@@ -144,7 +158,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
       const have = await db(() =>
         prisma.videoSource.count({
           where: {
-            sourceSite: opts.site,
+            sourceSite: siteName,
             episode: { seriesId, number: ref.number, part: ref.part ?? 1 },
           },
         }),
@@ -179,7 +193,7 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
         seriesId,
         number: ref.number,
         part: ref.part,
-        site: opts.site,
+        site: siteName,
         publishLive,
         thumbUrl: ref.thumbUrl,
         airedAt: ref.airedAt,
@@ -204,55 +218,83 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
     }
   };
 
+  // the where-clause that defines "still needs this mode's kind of work" —
+  // used both to pick the initial target list and, after each fallback
+  // site's attempt, to check whether a specific series still qualifies (so
+  // we only move on to the next site when the previous one didn't finish
+  // the job — not on every target regardless of outcome).
+  const targetWhere = (mode: "topup" | "repair") =>
+    mode === "repair"
+      ? {
+          // every source on the episode is unusable and at least one is
+          // DEAD (a rotated CDN link) — worth re-fetching a fresh URL
+          episodes: {
+            some: {
+              AND: [
+                { sources: { some: { status: "DEAD" as const } } },
+                { sources: { none: { status: "ACTIVE" as const } } },
+                { OR: [{ bunnyStatus: null }, { bunnyStatus: { not: "ready" } }] },
+              ],
+            },
+          },
+        }
+      : {
+          contentWarnings: { isEmpty: true },
+          OR: [
+            // never got any video
+            { publish: "DRAFT" as const, episodes: { none: { sources: { some: {} } } } },
+            // published but has episode(s) still missing a source (gap-fill)
+            { publish: "PUBLISHED" as const, episodes: { some: { sources: { none: {} } } } },
+          ],
+        };
+
+  const stillNeedsWork = (mode: "topup" | "repair", seriesId: string) =>
+    db(() =>
+      prisma.series.count({ where: { id: seriesId, ...targetWhere(mode) } }),
+    )
+      .then((n) => n > 0)
+      .catch(() => true); // unknown → assume still needed, try the next site
+
   try {
     if (opts.mode === "crawl") {
       for await (const ref of adapter.crawl(http, { limit: opts.limit, log })) {
-        await handle(ref);
+        await handle(ref, adapter, opts.site);
       }
     } else {
+      const mode = opts.mode; // "topup" | "repair" — narrowed, not "crawl"
+      const siteList = opts.sites?.length ? opts.sites : [opts.site];
       const targets = await db(() =>
         prisma.series.findMany({
-          where:
-            opts.mode === "repair"
-              ? {
-                  // every source on the episode is unusable and at least one is
-                  // DEAD (a rotated CDN link) — worth re-fetching a fresh URL
-                  episodes: {
-                    some: {
-                      AND: [
-                        { sources: { some: { status: "DEAD" } } },
-                        { sources: { none: { status: "ACTIVE" } } },
-                        {
-                          OR: [
-                            { bunnyStatus: null },
-                            { bunnyStatus: { not: "ready" } },
-                          ],
-                        },
-                      ],
-                    },
-                  },
-                }
-              : {
-                  contentWarnings: { isEmpty: true },
-                  OR: [
-                    // never got any video
-                    { publish: "DRAFT", episodes: { none: { sources: { some: {} } } } },
-                    // published but has episode(s) still missing a source (gap-fill)
-                    { publish: "PUBLISHED", episodes: { some: { sources: { none: {} } } } },
-                  ],
-                },
+          where: targetWhere(mode),
           orderBy: { bayesianRating: "desc" },
           take: opts.limit ?? 300,
-          select: { title: true, titleRomaji: true, titleEnglish: true },
+          select: { id: true, title: true, titleRomaji: true, titleEnglish: true },
         }),
       );
-      log(`${opts.mode}: ${targets.length} target series`);
+      log(`${mode}: ${targets.length} target series across ${siteList.length} site(s): ${siteList.join(", ")}`);
       for (const t of targets) {
         const q = t.titleEnglish || t.title || t.titleRomaji || "";
-        try {
-          for (const ref of await adapter.findRefsByTitle(http, q)) await handle(ref);
-        } catch (e) {
-          s.errors.push(`findRefsByTitle ${q}: ${(e as Error).message}`);
+        for (const siteName of siteList) {
+          let siteAdapter: SiteAdapter;
+          try {
+            siteAdapter = getAdapter(siteName);
+          } catch (e) {
+            s.errors.push((e as Error).message);
+            continue;
+          }
+          try {
+            const refs = await siteAdapter.findRefsByTitle(http, q);
+            for (const ref of refs) await handle(ref, siteAdapter, siteName);
+          } catch (e) {
+            s.errors.push(`findRefsByTitle ${siteName} ${q}: ${(e as Error).message}`);
+          }
+          // dry-run never writes, so the series can never stop "needing work" —
+          // just try every site once and move on.
+          if (opts.dryRun) continue;
+          if (siteList.length > 1 && !(await stillNeedsWork(mode, t.id))) {
+            log(`  ✓ ${q} — satisfied by ${siteName}, skipping remaining site(s)`);
+            break;
+          }
         }
       }
     }
