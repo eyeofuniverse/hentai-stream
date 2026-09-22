@@ -33,7 +33,7 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/uncensored${qs}`;
 
-  const description = `Every fully uncensored hentai series, OVA and movie on ${SITE_NAME} — free HD streaming, no blur, no mosaic censoring.`;
+  const description = `Every fully uncensored hentai series, OVA and movie on ${SITE_NAME} — free HD streaming, no blur, no mosaic censoring.${page > 1 ? ` — Page ${page}.` : ""}`;
   return {
     title,
     description,

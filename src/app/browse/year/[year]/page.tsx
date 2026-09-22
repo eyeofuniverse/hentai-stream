@@ -49,7 +49,7 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/year/${year}${qs}`;
 
-  const description = `Every hentai series and OVA from ${year} on ${SITE_NAME} — free HD streaming, subbed and uncensored.`;
+  const description = `Every hentai series and OVA from ${year} on ${SITE_NAME} — free HD streaming, subbed and uncensored.${page > 1 ? ` — Page ${page}.` : ""}`;
   return {
     title,
     description,

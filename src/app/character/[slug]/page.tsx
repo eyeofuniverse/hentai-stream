@@ -53,9 +53,10 @@ export async function generateMetadata({
 
   const base = `${character.name} Hentai — Every Series & Episode`;
   const title = page > 1 ? `${base} — Page ${page}` : base;
-  const description =
+  const baseDescription =
     character.description ||
     `Every hentai series and episode featuring ${character.name} — watch free in HD on ${SITE_NAME}.`;
+  const description = page > 1 ? `${baseDescription} — Page ${page}.` : baseDescription;
   const canonical = page > 1 ? `/character/${slug}?page=${page}` : `/character/${slug}`;
   return {
     title,

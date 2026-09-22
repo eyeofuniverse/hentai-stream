@@ -54,9 +54,10 @@ export async function generateMetadata({
   const otherFilters = ["type", "status", "sort", "studio"].some((k) => one(sp, k));
   const indexable = !otherFilters && page <= 3;
 
-  const description = `Browse ${
+  let description = `Browse ${
     unc ? "fully uncensored " : ""
-  }hentai series, OVAs and movies on ${SITE_NAME} — filter by genre, year, type and status. Free HD streaming, updated daily.`;
+  }hentai series, OVAs and movies${year ? ` from ${year}` : ""} on ${SITE_NAME} — filter by genre, year, type and status. Free HD streaming, updated daily.`;
+  if (page > 1) description += ` — Page ${page}.`;
   return {
     title,
     description,

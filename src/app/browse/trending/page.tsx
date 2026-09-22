@@ -33,7 +33,7 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/trending${qs}`;
 
-  const description = `What's trending on ${SITE_NAME} right now — the hentai series getting the most attention today. Free HD streaming.`;
+  const description = `What's trending on ${SITE_NAME} right now — the hentai series getting the most attention today. Free HD streaming.${page > 1 ? ` — Page ${page}.` : ""}`;
   return {
     title,
     description,

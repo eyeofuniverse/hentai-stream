@@ -52,8 +52,9 @@ export async function generateMetadata({
 
   const base = tag.seoTitle || `${tag.name} Hentai — Watch Online`;
   const title = page > 1 ? `${base} — Page ${page}` : base;
-  const description =
+  const baseDescription =
     tag.seoDescription || tagDescription(tag.name, tag.seriesCount, tag.description);
+  const description = page > 1 ? `${baseDescription} — Page ${page}.` : baseDescription;
 
   const canonical = page > 1 ? `/tag/${slug}?page=${page}` : `/tag/${slug}`;
   return {

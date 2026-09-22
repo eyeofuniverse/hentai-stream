@@ -33,7 +33,7 @@ export async function generateMetadata({
   const qs = page > 1 ? `?page=${page}` : "";
   const canonical = `/browse/new${qs}`;
 
-  const description = `The newest hentai series and episodes just added to ${SITE_NAME} — sorted by most recently added. Free HD streaming, updated daily.`;
+  const description = `The newest hentai series and episodes just added to ${SITE_NAME} — sorted by most recently added. Free HD streaming, updated daily.${page > 1 ? ` — Page ${page}.` : ""}`;
   return {
     title,
     description,

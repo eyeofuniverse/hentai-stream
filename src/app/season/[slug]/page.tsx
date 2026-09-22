@@ -59,7 +59,8 @@ export async function generateMetadata({
   const label = `${seasonLabel(parsed.season)} ${parsed.year}`;
   const base = `${label} Hentai — Every Series`;
   const title = page > 1 ? `${base} — Page ${page}` : base;
-  const description = `Every hentai series that aired in ${label} — subbed & uncensored, free HD streaming on ${SITE_NAME}. Updated daily.`;
+  const baseDescription = `Every hentai series that aired in ${label} — subbed & uncensored, free HD streaming on ${SITE_NAME}. Updated daily.`;
+  const description = page > 1 ? `${baseDescription} — Page ${page}.` : baseDescription;
   const canonical = page > 1 ? `/season/${slug}?page=${page}` : `/season/${slug}`;
 
   return {

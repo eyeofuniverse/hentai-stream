@@ -43,10 +43,11 @@ export async function generateMetadata({
 
   const base = studio.seoTitle || `${studio.name} Hentai — All Series & OVAs`;
   const title = page > 1 ? `${base} — Page ${page}` : base;
-  const description =
+  const baseDescription =
     studio.seoDescription ||
     studio.description ||
     `Every hentai series and OVA animated by ${studio.name} — watch free in HD on ${SITE_NAME}.`;
+  const description = page > 1 ? `${baseDescription} — Page ${page}.` : baseDescription;
   const canonical = page > 1 ? `/studio/${slug}?page=${page}` : `/studio/${slug}`;
   return {
     title,
