@@ -21,15 +21,17 @@ export function Analytics() {
   // no events for any /console/* route
   if (!GA_ID || pathname?.startsWith("/console")) return null;
 
-  // "lazyOnload" (loaded when the browser is idle, after everything else)
-  // instead of @next/third-parties' fixed "afterInteractive" — gtag.js is
-  // ~167KB with a real chunk of that unused, and its execution was showing
-  // up as a meaningful share of Total Blocking Time. Analytics firing a
-  // couple seconds later doesn't cost us anything real; competing with
-  // actual page content for the main thread does.
+  // "afterInteractive", not "lazyOnload": lazyOnload waits for true browser
+  // idle, which on this site means queuing behind ad-zone scripts, the
+  // popunder, and the video player — measured live taking 5-7s to even start.
+  // Median real page-view duration here is 7s and ~50% of visits are under
+  // that, so lazyOnload was silently dropping roughly half of all traffic
+  // from Analytics, not just delaying it. afterInteractive is the standard
+  // choice for GA (what Google's own Next.js integration uses) and loads
+  // in well under a second instead.
   return (
     <>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
       {/* gtag hits go straight from the browser to Google — nothing on our
           backend gates them, so the webdriver check has to live here. Real
           visitors never trip it (no headless browser has a human behind it);
@@ -37,7 +39,7 @@ export function Analytics() {
       {/* After config, flush events components queued while this script was
           still waiting to load (see src/lib/ga.ts) and mark GA ready so later
           events go straight through. */}
-      <Script id="ga-init" strategy="lazyOnload">
+      <Script id="ga-init" strategy="afterInteractive">
         {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}if(!navigator.webdriver){gtag('js',new Date());gtag('config','${GA_ID}');window.__gaReady=true;var p=window.__gaPending||[];window.__gaPending=[];for(var i=0;i<p.length;i++){gtag('event',p[i][0],p[i][1]);}}`}
       </Script>
     </>

@@ -17,10 +17,10 @@ declare global {
  *
  * 1. gtag.js only processes `arguments` objects — exactly what its own
  *    `gtag()` pushes — and ignores plain arrays like `["event", name, {…}]`.
- * 2. Events queued before `gtag('config')` are dropped. gtag.js loads lazily
- *    (see Analytics.tsx), so components that fire on mount run BEFORE the
- *    init script does — those events wait in `__gaPending` and the init
- *    script flushes them right after `config`.
+ * 2. Events queued before `gtag('config')` are dropped. gtag.js loads async
+ *    (see Analytics.tsx), so a component that fires on mount can still run
+ *    before the init script has — those events wait in `__gaPending` and
+ *    the init script flushes them right after `config`.
  *
  * Skips automation, same as Analytics.tsx: these hits go straight from the
  * browser to Google, so nothing on our backend can gate them.
