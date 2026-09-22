@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@/components/Analytics";
+import { YandexMetrica } from "@/components/YandexMetrica";
 import { PageTracker } from "@/components/PageTracker";
 import { GlobalPopUnder } from "@/components/ads/GlobalPopUnder";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -91,6 +92,7 @@ export default function RootLayout({
           }}
         />
         <Analytics />
+        <YandexMetrica />
         <PageTracker />
         <GlobalPopUnder />
       </body>
