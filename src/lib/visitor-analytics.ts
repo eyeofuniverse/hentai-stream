@@ -171,6 +171,11 @@ export type VisitorGroup = {
   /** avg seconds/page for this visitor, over pages that reported a duration
    *  — null if none of their page views have finished reporting one yet. */
   avgDurationSec: number | null;
+  /** total seconds spent across every page view in range that reported a
+   *  duration — null if none has yet. Same caveat as avgDurationSec: pages
+   *  still open (or whose leave beacon never landed) aren't counted, so this
+   *  is a floor on real time spent, not an exact figure. */
+  totalDurationSec: number | null;
 };
 
 export type DailyTraffic = { date: string; visits: number };
@@ -344,6 +349,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
         firstSeen: visitedAt,
         lastSeen: visitedAt,
         avgDurationSec: null,
+        totalDurationSec: null,
       });
     } else {
       if (!existing.paths.includes(v.path)) existing.paths.push(v.path);
@@ -366,6 +372,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
   for (const [ip, group] of visitorMap) {
     const acc = durationAcc.get(ip);
     group.avgDurationSec = acc ? Math.round(acc.sum / acc.count) : null;
+    group.totalDurationSec = acc ? acc.sum : null;
   }
   const avgDurationSec = globalDurationCount > 0 ? Math.round(globalDurationSum / globalDurationCount) : null;
 

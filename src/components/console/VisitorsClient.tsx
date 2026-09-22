@@ -146,7 +146,7 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10">
-            {["IP Address", "Location", "Pages Visited", "Visits", "Avg Time/Page", "Last Seen"].map((h) => (
+            {["IP Address", "Location", "Pages Visited", "Visits", "Avg Time/Page", "Total Time", "Last Seen"].map((h) => (
               <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-white/45">
                 {h}
               </th>
@@ -181,6 +181,7 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
               </td>
               <td className="px-3 py-2.5 text-center font-semibold text-white/85">{v.visitCount}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/85">{fmtDuration(v.avgDurationSec)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold text-white/85">{fmtDuration(v.totalDurationSec)}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45" title={new Date(v.lastSeen).toLocaleString()}>
                 {fmtTime(v.lastSeen)} · {timeAgo(v.lastSeen, now)}
               </td>
