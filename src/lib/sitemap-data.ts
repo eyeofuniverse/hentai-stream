@@ -79,6 +79,7 @@ const STATIC_PAGES = [
   "/browse",
   "/browse/new",
   "/browse/trending",
+  "/browse/top-rated",
   "/browse/uncensored",
   "/tags",
   "/season",

@@ -31,11 +31,12 @@ const GENRES: { label: string; slug: string }[] = [
   { label: "Teacher", slug: "teacher" },
   { label: "Gyaru", slug: "gyaru" },
   { label: "Paizuri", slug: "paizuri" },
+  { label: "3D", slug: "3d" },
 ];
 
 const MORE: { label: string; href: string }[] = [
-  { label: "Trending", href: "/browse?sort=popular" },
-  { label: "Top rated", href: "/browse?sort=rating" },
+  { label: "Trending", href: "/browse/trending" },
+  { label: "Top rated", href: "/browse/top-rated" },
   { label: "Ongoing", href: "/browse?status=ongoing" },
   { label: "Release calendar", href: "/calendar" },
   { label: "Uncensored", href: "/browse/uncensored" },

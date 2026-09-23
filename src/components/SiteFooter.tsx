@@ -11,7 +11,8 @@ const COLS: { title: string; links: FooterLink[] }[] = [
     links: [
       { href: "/browse", label: "All titles" },
       { href: "/browse/new", label: "Latest additions" },
-      { href: "/browse?sort=popular", label: "Most viewed" },
+      { href: "/browse/trending", label: "Trending" },
+      { href: "/browse/top-rated", label: "Top rated" },
       { href: "/browse?status=ongoing", label: "Ongoing" },
       { href: "/browse/uncensored", label: "Uncensored" },
       { href: "/calendar", label: "Release calendar" },

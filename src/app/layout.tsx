@@ -57,6 +57,9 @@ export const metadata: Metadata = {
   other: {
     // ExoClick site verification
     "6a97888e-site-verification": "a783017d136a5ea8d282872b8d96abb9",
+    // RTA (Restricted to Adults) self-label — rtalabel.org. Fixed literal
+    // value every compliant site uses verbatim, not a per-domain code.
+    rating: "RTA-5042-1996-1400-1577-RTA",
   },
 };
 
