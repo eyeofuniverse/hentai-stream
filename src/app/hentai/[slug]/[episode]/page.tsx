@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getEpisode, relatedSeries, miniLists } from "@/lib/queries";
+import { prisma } from "@/lib/db";
 import { findRedirect } from "@/lib/redirect-map";
 import { cover, thumb, thumbSet, episodeThumb } from "@/lib/cloudinary";
 import { thumbUrl as bunnyThumbUrl } from "@/lib/hosting/bunny";
@@ -28,8 +29,40 @@ import { Comments } from "@/components/comments/Comments";
 export const revalidate = 43200;
 export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return [] as { slug: string; episode: string }[];
+// Previously always [] — every episode page, without exception, depended on
+// ISR's on-demand generation being fast enough for a first hit. That's the
+// same failure mode /hentai/[slug]/page.tsx already avoids by prerendering
+// its top series at build time; episodes never got the same treatment.
+// AI crawlers/fetchers in particular run on tight timeouts and don't retry —
+// a slow cold render can mean the page is just skipped. Prerender the
+// episodes of the most recently touched series (same ordering as the series
+// page) so the pages most likely to actually get crawled or backlinked ship
+// as static HTML with ~0ms TTFB; everything else still falls through to ISR,
+// which is now itself cheaper (see queries.ts's getEpisode/relatedSeries
+// caching). The 2500 cap is a build-time/output-size safety net, not a
+// belief that this series count always fits inside it.
+export async function generateStaticParams() {
+  try {
+    const series = await prisma.series.findMany({
+      where: { publish: "PUBLISHED" },
+      select: {
+        slug: true,
+        episodes: {
+          where: { publish: "PUBLISHED" },
+          orderBy: { number: "asc" },
+          select: { number: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 300,
+    });
+    const params = series.flatMap((s) =>
+      s.episodes.map((e) => ({ slug: s.slug, episode: String(e.number) })),
+    );
+    return params.slice(0, 2500);
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
