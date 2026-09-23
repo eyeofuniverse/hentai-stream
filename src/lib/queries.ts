@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma, db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
@@ -90,11 +91,15 @@ async function browseSeriesInner(params: BrowseParams) {
   return { items, total, page, pages: Math.ceil(total / PAGE), pageSize: PAGE };
 }
 
-export async function getSeries(slug: string) {
+// cache() dedupes within a single request — generateMetadata and the page
+// component both call this with the same slug, and without it that was two
+// full DB round trips (each carrying its own retry-backoff risk, see db.ts)
+// on every single uncached series-page render.
+export const getSeries = cache(async (slug: string) => {
   // null on a DB failure rather than throwing — a build-time blip during
   // prerender must not fail the whole deploy (the page 404s, ISR heals it).
   return db(() => getSeriesInner(slug)).catch(() => null);
-}
+});
 function getSeriesInner(slug: string) {
   return prisma.series.findFirst({
     where: { slug, publish: "PUBLISHED" },
@@ -124,9 +129,11 @@ function getSeriesInner(slug: string) {
   });
 }
 
-export async function getEpisode(seriesSlug: string, number: number) {
+// Same dedup reasoning as getSeries above — the watch page's generateMetadata
+// and its page component both fetch the same episode.
+export const getEpisode = cache(async (seriesSlug: string, number: number) => {
   return db(() => getEpisodeInner(seriesSlug, number)).catch(() => null);
-}
+});
 function getEpisodeInner(seriesSlug: string, number: number) {
   return prisma.episode.findFirst({
     where: {
@@ -215,29 +222,43 @@ export const sidebarData = unstable_cache(
   { revalidate: 1800 },
 );
 
-/** Up-to-`limit` other published series that share the most tags with this one. */
+/** Up-to-`limit` other published series that share the most tags with this one.
+ *  Cached per (seriesId, tags, limit) — every episode page of a series calls
+ *  this with the same arguments, and it was a fresh, uncached DB round trip
+ *  (with its own independent retry-backoff risk, see db.ts) on every single
+ *  one of those renders. "Related series" doesn't need to be fresher than
+ *  this — trendingScore/viewCount don't meaningfully move minute to minute. */
+const relatedSeriesCached = unstable_cache(
+  async (seriesId: string, tagSlugs: string[], limit: number) => {
+    try {
+      return await db(() =>
+        prisma.series.findMany({
+          where: {
+            publish: "PUBLISHED",
+            id: { not: seriesId },
+            tags: { some: { slug: { in: tagSlugs } } },
+          },
+          orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
+          take: limit,
+          select: seriesCardSelect,
+        }),
+      );
+    } catch {
+      return [];
+    }
+  },
+  ["related-series"],
+  { revalidate: 1800 },
+);
+
 export async function relatedSeries(
   seriesId: string,
   tagSlugs: string[],
   limit = 12,
 ) {
   if (tagSlugs.length === 0) return [];
-  try {
-    return await db(() =>
-      prisma.series.findMany({
-        where: {
-          publish: "PUBLISHED",
-          id: { not: seriesId },
-          tags: { some: { slug: { in: tagSlugs } } },
-        },
-        orderBy: [{ trendingScore: "desc" }, { viewCount: "desc" }],
-        take: limit,
-        select: seriesCardSelect,
-      }),
-    );
-  } catch {
-    return [];
-  }
+  // sort so tag order (which varies by caller) doesn't fragment the cache key
+  return relatedSeriesCached(seriesId, [...tagSlugs].sort(), limit);
 }
 
 export async function popularTags(limit = 30) {
