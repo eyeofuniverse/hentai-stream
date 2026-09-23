@@ -6,7 +6,7 @@ name: Host videos (Bunny)
 # real time; this is the safety net + the bulk backfill.
 #
 # Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_LIBRARY_ID,
-#               BUNNY_STREAM_API_KEY, BUNNY_STREAM_CDN_HOST
+#               BUNNY_STREAM_API_KEY, BUNNY_STREAM_SECURITY_KEY, BUNNY_STREAM_CDN_HOST
 
 on:
   workflow_dispatch:
@@ -57,6 +57,7 @@ jobs:
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
             echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "BUNNY_STREAM_SECURITY_KEY=${{ secrets.BUNNY_STREAM_SECURITY_KEY }}"
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
           } > .env
       - run: npx prisma generate

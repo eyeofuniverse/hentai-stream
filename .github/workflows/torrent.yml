@@ -68,6 +68,7 @@ jobs:
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
             echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "BUNNY_STREAM_SECURITY_KEY=${{ secrets.BUNNY_STREAM_SECURITY_KEY }}"
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
           } > .env
       - run: npx prisma generate

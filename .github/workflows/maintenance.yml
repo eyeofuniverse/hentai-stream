@@ -53,6 +53,7 @@ jobs:
             echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
             echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
             echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "BUNNY_STREAM_SECURITY_KEY=${{ secrets.BUNNY_STREAM_SECURITY_KEY }}"
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
             echo "NEXT_PUBLIC_SITE_URL=${{ secrets.SITE_URL }}"
             echo "INDEXNOW_KEY=${{ secrets.INDEXNOW_KEY }}"

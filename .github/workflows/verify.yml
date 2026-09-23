@@ -4,7 +4,7 @@ name: Verify sources
 # REJECTED / DEAD), then publishes episodes + series that now have a live
 # source and unpublishes any that lost their last one.
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL
+# Repo secrets: DATABASE_URL, DIRECT_URL, BLUESKY_HANDLE, BLUESKY_APP_PASSWORD
 
 on:
   workflow_dispatch:
@@ -41,6 +41,8 @@ jobs:
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
             echo "DB_RETRY_ATTEMPTS=12"
             echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "BLUESKY_HANDLE=${{ secrets.BLUESKY_HANDLE }}"
+            echo "BLUESKY_APP_PASSWORD=${{ secrets.BLUESKY_APP_PASSWORD }}"
           } > .env
       - run: npx prisma generate
       - name: Verify
