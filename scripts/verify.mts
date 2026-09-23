@@ -32,7 +32,7 @@ console.log(JSON.stringify(summary, null, 2));
 
 // autoPromoteOnPublish (called deep inside runVerify) is fire-and-forget by
 // design — this waits for any still-in-flight social posts so process.exit()
-// below doesn't kill them before Bluesky/Tumblr ever get the request.
+// below doesn't kill them before Bluesky ever gets the request.
 await flushPendingPromotes();
 
 await prisma.$disconnect();

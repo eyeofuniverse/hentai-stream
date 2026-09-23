@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getSocialSetting, type Platform } from "@/lib/social/post";
 import { isBlueskyConfigured } from "@/lib/social/bluesky";
-import { isTumblrConfigured, isTumblrConnected } from "@/lib/social/tumblr";
 
 export const dynamic = "force-dynamic";
 
@@ -19,16 +18,15 @@ async function guard() {
 export async function GET() {
   if (!(await guard())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [setting, tumblrConnected] = await Promise.all([getSocialSetting(), isTumblrConnected()]);
+  const setting = await getSocialSetting();
 
   return NextResponse.json({
     ...setting,
     bluesky: { configured: isBlueskyConfigured() },
-    tumblr: { configured: isTumblrConfigured(), connected: tumblrConnected },
   });
 }
 
-const PLATFORMS: Platform[] = ["bluesky", "tumblr"];
+const PLATFORMS: Platform[] = ["bluesky"];
 
 export async function PUT(req: Request) {
   if (!(await guard())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

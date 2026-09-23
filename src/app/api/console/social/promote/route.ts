@@ -5,7 +5,7 @@ import { buildSeriesPromoData, buildEpisodePromoData, runPromote, type Platform 
 
 export const dynamic = "force-dynamic";
 
-const ALL_PLATFORMS: Platform[] = ["bluesky", "tumblr"];
+const ALL_PLATFORMS: Platform[] = ["bluesky"];
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +20,6 @@ export async function POST(req: Request) {
     episodeId,
     platforms,
     blueskyCaption,
-    tumblrDescription,
     tags: clientTags,
     coverImageUrl: overrideCoverImageUrl,
   } = body as {
@@ -28,7 +27,6 @@ export async function POST(req: Request) {
     episodeId?: string;
     platforms?: string[];
     blueskyCaption?: string;
-    tumblrDescription?: string;
     tags?: string[];
     coverImageUrl?: string | null;
   };
@@ -50,7 +48,6 @@ export async function POST(req: Request) {
     platforms: activePlatforms,
     title: data.title,
     blueskyCaption: blueskyCaption?.trim() || data.caption,
-    tumblrDescription: tumblrDescription?.trim() || data.caption,
     url: data.url,
     tags,
     coverImageUrl,

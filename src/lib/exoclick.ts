@@ -10,8 +10,8 @@ import { prisma, db } from "@/lib/db";
  * (advertiser-side) endpoints — it 401s on /v2/sites, /v2/zones, /v2/user.
  * Getting our own publisher stats requires a real username/password login,
  * which returns a 12h Bearer token. Cached in SocialToken (platform
- * "exoclick") — same table/shape already used for Tumblr's OAuth pair in
- * src/lib/social/tumblr.ts — re-logging in on expiry rather than wiring up
+ * "exoclick") — the same generic token-cache table used for any OAuth-style
+ * credential pair — re-logging in on expiry rather than wiring up
  * ExoClick's separate (undocumented, untested) refresh-token flow; a plain
  * re-login is cheap and this page isn't hit often enough for that to matter.
  */

@@ -2,11 +2,10 @@ import { prisma, db } from "@/lib/db";
 import { cover, thumb } from "@/lib/cloudinary";
 import { defaultSeriesSynopsis } from "@/lib/seo";
 import { postToBluesky } from "./bluesky";
-import { postToTumblr } from "./tumblr";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lusthentai.com";
 
-export type Platform = "bluesky" | "tumblr";
+export type Platform = "bluesky";
 export type PromoteResult = Partial<Record<Platform, { ok: true } | { ok: false; error: string }>>;
 
 export type SocialSetting = {
@@ -127,12 +126,11 @@ export async function buildEpisodePromoData(episodeId: string): Promise<PromoDat
 
 /** Runs the actual platform posts. Used by both the manual admin trigger and
  *  the auto-post hooks below — always Promise.allSettled so one platform
- *  failing (e.g. Tumblr token expired) doesn't block the other. */
+ *  failing doesn't block another. */
 export async function runPromote(opts: {
   platforms: Platform[];
   title: string;
   blueskyCaption: string;
-  tumblrDescription: string;
   url: string;
   tags: string[];
   coverImageUrl: string | null;
@@ -149,12 +147,6 @@ export async function runPromote(opts: {
         tags: opts.tags,
         coverImageUrl: opts.coverImageUrl,
       }),
-    ]);
-  }
-  if (opts.platforms.includes("tumblr")) {
-    tasks.push([
-      "tumblr",
-      postToTumblr({ title: opts.title, caption: opts.tumblrDescription, url: opts.url, tags: opts.tags }),
     ]);
   }
 
@@ -236,7 +228,6 @@ async function autoPromoteSeries(seriesId: string): Promise<void> {
       platforms: setting.autoPlatforms,
       title: data.title,
       blueskyCaption: data.caption,
-      tumblrDescription: data.caption,
       url: data.url,
       tags: [...setting.defaultTags, ...data.tags],
       coverImageUrl: data.coverImageUrl,
@@ -265,7 +256,6 @@ async function autoPromoteEpisode(episodeId: string): Promise<void> {
       platforms: setting.autoPlatforms,
       title: data.title,
       blueskyCaption: data.caption,
-      tumblrDescription: data.caption,
       url: data.url,
       tags: [...setting.defaultTags, ...data.tags],
       coverImageUrl: data.coverImageUrl,

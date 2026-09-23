@@ -312,8 +312,8 @@ model Series {
   autoPublishedAt DateTime?
   reviewedAt      DateTime?
 
-  /// set once this series has been announced on Bluesky/Tumblr (auto or
-  /// manual) — guards against re-posting on a later republish/revive cycle
+  /// set once this series has been announced on Bluesky (auto or manual) —
+  /// guards against re-posting on a later republish/revive cycle
   socialPostedAt DateTime?
 
   airDay        Weekday?
@@ -401,8 +401,8 @@ model Episode {
   /// it in the review queue (wrong episode / language / quality happens)
   needsReview Boolean @default(false)
 
-  /// set once this episode has been announced on Bluesky/Tumblr (auto or
-  /// manual) — guards against re-posting on a later republish/revive cycle
+  /// set once this episode has been announced on Bluesky (auto or manual) —
+  /// guards against re-posting on a later republish/revive cycle
   socialPostedAt DateTime?
 
   createdById String?  @db.Uuid
@@ -661,9 +661,9 @@ model Setting {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
-/// OAuth tokens for social auto-posting (Tumblr's OAuth2 access+refresh pair;
-/// Bluesky needs no stored token — it authenticates fresh each post via an
-/// app password in env vars).
+/// Generic OAuth/session token cache, keyed by platform (currently just
+/// "exoclick" — Bluesky needs no stored token here, it authenticates fresh
+/// each post via an app password in env vars).
 model SocialToken {
   platform     String    @id
   accessToken  String

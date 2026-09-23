@@ -4,8 +4,8 @@
  * embed and posts a rich-text record with a clickable link + hashtag facets.
  *
  * Bluesky fully allows explicit adult content (just requires the account's
- * own "Adult Content" setting to be on), so unlike Tumblr we always attach
- * the real cover image here.
+ * own "Adult Content" setting to be on), so we always attach the real cover
+ * image here.
  */
 
 async function uploadBlob(

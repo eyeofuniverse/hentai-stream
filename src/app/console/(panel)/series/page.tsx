@@ -4,7 +4,6 @@ import { prisma, db } from "@/lib/db";
 import { cover } from "@/lib/cloudinary";
 import { defaultSeriesSynopsis } from "@/lib/seo";
 import { isBlueskyConfigured } from "@/lib/social/bluesky";
-import { isTumblrConnected } from "@/lib/social/tumblr";
 import { PromoteButton } from "@/components/console/PromoteButton";
 import {
   PageHeader,
@@ -66,7 +65,7 @@ export default async function AdminSeriesList({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lusthentai.com";
   const blueskyAvailable = isBlueskyConfigured();
 
-  const [rows, total, counts, tumblrAvailable] = await db(() =>
+  const [rows, total, counts] = await db(() =>
     Promise.all([
       prisma.series.findMany({
         where,
@@ -96,7 +95,6 @@ export default async function AdminSeriesList({
       }),
       prisma.series.count({ where }),
       prisma.series.groupBy({ by: ["publish"], _count: true }),
-      isTumblrConnected(),
     ]),
   );
 
@@ -248,7 +246,6 @@ export default async function AdminSeriesList({
                   coverImageUrl={src}
                   defaultTags={s.tags.map((t) => t.name)}
                   blueskyAvailable={blueskyAvailable}
-                  tumblrAvailable={tumblrAvailable}
                   posted={!!s.socialPostedAt}
                 />
                 </div>

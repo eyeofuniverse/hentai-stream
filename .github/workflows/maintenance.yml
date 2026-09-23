@@ -17,7 +17,8 @@ name: Catalogue maintenance
 #               Bunny each night (bounded batch — see the script's own
 #               comment for why this can't just be one big sweep)
 #
-# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*
+# Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*,
+#   BLUESKY_HANDLE, BLUESKY_APP_PASSWORD
 
 on:
   schedule:
@@ -55,6 +56,8 @@ jobs:
             echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
             echo "NEXT_PUBLIC_SITE_URL=${{ secrets.SITE_URL }}"
             echo "INDEXNOW_KEY=${{ secrets.INDEXNOW_KEY }}"
+            echo "BLUESKY_HANDLE=${{ secrets.BLUESKY_HANDLE }}"
+            echo "BLUESKY_APP_PASSWORD=${{ secrets.BLUESKY_APP_PASSWORD }}"
           } > .env
       - run: npx prisma generate
 

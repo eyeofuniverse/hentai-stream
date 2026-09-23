@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Share2, X, Send, CheckCircle, XCircle, Loader2 } from "lucide-react";
 
-type Results = Partial<Record<"bluesky" | "tumblr", { ok: true } | { ok: false; error: string }>>;
+type Results = Partial<Record<"bluesky", { ok: true } | { ok: false; error: string }>>;
 
 function sanitizeTag(t: string) {
   return t.toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9]/g, "");
@@ -17,7 +17,6 @@ export function PromoteButton({
   coverImageUrl,
   defaultTags = [],
   blueskyAvailable,
-  tumblrAvailable,
   posted,
 }: {
   seriesId: string;
@@ -27,16 +26,14 @@ export function PromoteButton({
   coverImageUrl: string | null;
   defaultTags?: string[];
   blueskyAvailable: boolean;
-  tumblrAvailable: boolean;
   posted: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const title = `New series: ${seriesTitle}`;
   const [platforms, setPlatforms] = useState<string[]>(
-    [blueskyAvailable && "bluesky", tumblrAvailable && "tumblr"].filter(Boolean) as string[],
+    [blueskyAvailable && "bluesky"].filter(Boolean) as string[],
   );
   const [blueskyCaption, setBlueskyCaption] = useState(() => seriesSynopsis.slice(0, 240));
-  const [tumblrDescription, setTumblrDescription] = useState(() => seriesSynopsis.slice(0, 400));
   const [tags, setTags] = useState<string[]>(defaultTags.map(sanitizeTag).filter(Boolean));
   const [tagInput, setTagInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,7 +60,6 @@ export function PromoteButton({
           seriesId,
           platforms,
           blueskyCaption: blueskyCaption.trim(),
-          tumblrDescription: tumblrDescription.trim(),
           tags,
         }),
       });
@@ -97,7 +93,7 @@ export function PromoteButton({
           e.stopPropagation();
           setOpen(true);
         }}
-        title={posted ? "Post to Bluesky / Tumblr again" : "Post to Bluesky / Tumblr"}
+        title={posted ? "Post to Bluesky again" : "Post to Bluesky"}
         className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/40 transition-colors hover:bg-white/5 hover:text-accent"
       >
         <Share2 size={15} className={posted ? "opacity-60" : ""} />
@@ -151,18 +147,7 @@ export function PromoteButton({
                           <span className="text-xs font-medium text-white/75">Bluesky</span>
                         </label>
                       )}
-                      {tumblrAvailable && (
-                        <label className="flex items-center gap-2 rounded-lg border border-line bg-bg px-3 py-1.5">
-                          <input
-                            type="checkbox"
-                            checked={platforms.includes("tumblr")}
-                            onChange={() => togglePlatform("tumblr")}
-                            className="h-3.5 w-3.5 accent-accent"
-                          />
-                          <span className="text-xs font-medium text-white/75">Tumblr</span>
-                        </label>
-                      )}
-                      {!blueskyAvailable && !tumblrAvailable && (
+                      {!blueskyAvailable && (
                         <p className="text-xs text-amber-400/80">
                           No platform connected yet — set it up on the Social settings page.
                         </p>
@@ -193,21 +178,6 @@ export function PromoteButton({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={coverImageUrl} alt="" className="mt-2 h-16 w-11 rounded object-cover" />
                       )}
-                    </div>
-                  )}
-
-                  {platforms.includes("tumblr") && (
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/40">
-                        Tumblr description
-                      </label>
-                      <textarea
-                        value={tumblrDescription}
-                        onChange={(e) => setTumblrDescription(e.target.value)}
-                        rows={3}
-                        className="w-full resize-none rounded-lg border border-line bg-bg px-3 py-2 text-sm text-white/85 outline-none focus:border-accent/50"
-                        placeholder="Link post — title, description, tags and link only, no image (Tumblr bans explicit imagery)…"
-                      />
                     </div>
                   )}
 

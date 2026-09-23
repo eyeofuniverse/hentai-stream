@@ -9,7 +9,7 @@ export default function AdminSocialPage() {
     <div>
       <PageHeader
         title="Social"
-        subtitle="Auto-post new series and episodes to Bluesky and Tumblr, or trigger a post manually from the series list."
+        subtitle="Auto-post new series and episodes to Bluesky, or trigger a post manually from the series list."
       />
       <SocialSettings />
     </div>
