@@ -1,5 +1,9 @@
-import "server-only";
 import { Resend } from "resend";
+
+// no "server-only" import here — this module needs to load both inside
+// Next.js (api/auth/email-hook) and as a plain tsx CLI script
+// (scripts/daily-report.mts), same reason r2-upload.ts omits it. Never
+// imported from client code either way.
 
 // this replaces Supabase's own auth-email sending — Supabase still generates
 // and verifies the actual token (see api/auth/email-hook), we just own what
@@ -109,6 +113,59 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     subject: "Reset your LustHentai password",
     html: buildPasswordResetHtml(resetUrl),
     text: buildPasswordResetText(resetUrl),
+  });
+  if (error) throw new Error(error.message);
+}
+
+export type ReportRow = { label: string; value: string; warn?: boolean };
+export type ReportSection = { title: string; rows: ReportRow[] };
+
+function buildDailyReportHtml(dateLabel: string, sections: ReportSection[]): string {
+  const rowsHtml = (rows: ReportRow[]) =>
+    rows
+      .map(
+        (r) => `
+      <tr>
+        <td style="padding:8px 0;font-size:13px;color:#a3a3af;border-bottom:1px solid #1c1c26;">${r.label}</td>
+        <td style="padding:8px 0;font-size:13px;font-weight:700;text-align:right;border-bottom:1px solid #1c1c26;color:${r.warn ? "#ff6b6b" : "#ffffff"};">${r.value}</td>
+      </tr>`,
+      )
+      .join("");
+
+  const sectionsHtml = sections
+    .map(
+      (s) => `
+    <p style="${h1};font-size:15px;margin:24px 0 8px;">${s.title}</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${rowsHtml(s.rows)}</table>`,
+    )
+    .join("");
+
+  return base(
+    `Daily report — ${dateLabel}`,
+    `
+    <p style="${h1}">Daily report</p>
+    <p style="${p}margin:0 0 4px;">${dateLabel}</p>
+    ${sectionsHtml}
+  `,
+  );
+}
+
+function buildDailyReportText(dateLabel: string, sections: ReportSection[]): string {
+  return (
+    `LustHentai — Daily report — ${dateLabel}\n\n` +
+    sections
+      .map((s) => `${s.title}\n${s.rows.map((r) => `  ${r.label}: ${r.value}`).join("\n")}`)
+      .join("\n\n")
+  );
+}
+
+export async function sendDailyReportEmail(to: string, dateLabel: string, sections: ReportSection[]) {
+  const { error } = await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `LustHentai daily report — ${dateLabel}`,
+    html: buildDailyReportHtml(dateLabel, sections),
+    text: buildDailyReportText(dateLabel, sections),
   });
   if (error) throw new Error(error.message);
 }

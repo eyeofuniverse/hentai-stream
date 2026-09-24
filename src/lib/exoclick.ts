@@ -1,51 +1,83 @@
 import { prisma, db } from "@/lib/db";
 
 /**
- * ExoClick revenue API — used by /console/revenue.
+ * ExoClick revenue API — used by /console/revenue and the daily report cron.
  *
  * Verified directly against the live API before building this (their docs
  * are behind a lossy GitBook AI-summary layer that kept truncating/guessing
  * paths, so real curl calls were more reliable): the permanent API token
  * this account has only carries scope for the Bidders/Campaigns
  * (advertiser-side) endpoints — it 401s on /v2/sites, /v2/zones, /v2/user.
- * Getting our own publisher stats requires a real username/password login,
- * which returns a 12h Bearer token. Cached in SocialToken (platform
- * "exoclick") — the same generic token-cache table used for any OAuth-style
- * credential pair — re-logging in on expiry rather than wiring up
- * ExoClick's separate (undocumented, untested) refresh-token flow; a plain
- * re-login is cheap and this page isn't hit often enough for that to matter.
+ * Getting our own publisher stats requires a real login.
+ *
+ * The account has 2FA enabled (TOTP), so POST /login with just
+ * username+password no longer returns a usable Bearer token — it returns a
+ * `{type:"2FA", token:<challenge>}` that needs a live authenticator code to
+ * complete, which nothing automated has access to. That makes the refresh
+ * token the ONLY thing that can keep this working unattended: once 2FA is
+ * completed one time (by hand — see the console flow this was originally
+ * verified through), POST /login/two-factor-auth returns a normal 12h
+ * Bearer token *plus* a refresh_token valid for a full year. Confirmed live:
+ * POST /login/refresh — with the *expired* access token still sent as the
+ * `Authorization: Bearer` header (not just the refresh_token in the body,
+ * which 400s alone with "Invalid access token supplied") — returns a fresh
+ * 12h token AND a new year-long refresh_token, so this chains indefinitely
+ * without ever needing a live 2FA code again, as long as something actually
+ * calls getToken() at least once before the stored refresh_token itself
+ * expires (a year is generous, but this isn't literally "forever").
+ *
+ * Cached in SocialToken (platform "exoclick") — the same generic
+ * token-cache table used for any OAuth-style credential pair.
  */
 
 const BASE = "https://api.exoclick.com/v2";
 const SITE_ID = Number(process.env.EXOCLICK_SITE_ID ?? "0");
 
-async function login(): Promise<{ token: string; expiresIn: number }> {
-  const username = process.env.EXOCLICK_USERNAME;
-  const password = process.env.EXOCLICK_PASSWORD;
-  if (!username || !password) throw new Error("EXOCLICK_USERNAME/EXOCLICK_PASSWORD not configured.");
+async function saveToken(token: string, refreshToken: string, expiresIn: number): Promise<void> {
+  await db(() =>
+    prisma.socialToken.upsert({
+      where: { platform: "exoclick" },
+      create: { platform: "exoclick", accessToken: token, refreshToken, expiresAt: new Date(Date.now() + expiresIn * 1000) },
+      update: { accessToken: token, refreshToken, expiresAt: new Date(Date.now() + expiresIn * 1000) },
+    }),
+  );
+}
 
-  const res = await fetch(`${BASE}/login`, {
+/** Refreshes using a (possibly already-expired) access token + its
+ *  refresh_token. Throws if ExoClick rejects it (e.g. the year-long
+ *  refresh_token itself finally expired) — the caller has no automated
+ *  fallback at that point; someone needs to complete a fresh 2FA login by
+ *  hand and re-seed SocialToken, same as the very first setup. */
+async function refresh(oldAccessToken: string, refreshToken: string): Promise<{ token: string; refreshToken: string; expiresIn: number }> {
+  const res = await fetch(`${BASE}/login/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${oldAccessToken}` },
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
-  if (!res.ok) throw new Error(`ExoClick login failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`ExoClick token refresh failed: ${res.status} ${body}`);
+  }
   const data = await res.json();
-  return { token: data.token as string, expiresIn: (data.expires_in as number) ?? 43200 };
+  return {
+    token: data.token as string,
+    refreshToken: data.refresh_token as string,
+    expiresIn: (data.expires_in as number) ?? 43200,
+  };
 }
 
 async function getToken(): Promise<string> {
   const cached = await db(() => prisma.socialToken.findUnique({ where: { platform: "exoclick" } }));
   if (cached && cached.expiresAt && cached.expiresAt > new Date()) return cached.accessToken;
 
-  const { token, expiresIn } = await login();
-  await db(() =>
-    prisma.socialToken.upsert({
-      where: { platform: "exoclick" },
-      create: { platform: "exoclick", accessToken: token, expiresAt: new Date(Date.now() + expiresIn * 1000) },
-      update: { accessToken: token, expiresAt: new Date(Date.now() + expiresIn * 1000) },
-    }),
-  );
+  if (!cached?.refreshToken) {
+    throw new Error(
+      "ExoClick has no cached refresh token — 2FA requires a live authenticator code, which nothing " +
+        "automated has. Complete a login/two-factor-auth by hand and seed SocialToken (platform=exoclick) once.",
+    );
+  }
+  const { token, refreshToken, expiresIn } = await refresh(cached.accessToken, cached.refreshToken);
+  await saveToken(token, refreshToken, expiresIn);
   return token;
 }
 

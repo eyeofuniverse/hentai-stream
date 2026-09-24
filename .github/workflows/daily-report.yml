@@ -1,0 +1,44 @@
+name: Daily report email
+
+# Emails the site owner a same-day summary — revenue, new content, reports,
+# traffic — every night at 23:59 Asia/Dhaka (see scripts/daily-report.mts
+# for why "today" is computed in that timezone, not UTC).
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, RESEND_API_KEY, EXOCLICK_SITE_ID
+# (the ExoClick call re-authenticates itself off the refresh_token already
+# cached in the SocialToken table — no EXOCLICK_USERNAME/PASSWORD needed
+# here, and 2FA on that account means a bare username/password login
+# wouldn't work unattended anyway; see src/lib/exoclick.ts)
+
+on:
+  schedule:
+    - cron: "59 17 * * *" # 23:59 Asia/Dhaka (UTC+6)
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=12"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}"
+            echo "EXOCLICK_SITE_ID=${{ secrets.EXOCLICK_SITE_ID }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Send daily report
+        run: npm run daily-report

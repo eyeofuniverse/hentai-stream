@@ -27,6 +27,7 @@
     "migrate": "tsx --env-file=.env scripts/migrate.mts",
     "reconcile-bunny": "tsx --env-file=.env scripts/reconcile-bunny.mts",
     "torrent": "tsx --env-file=.env scripts/torrent.mts",
+    "daily-report": "tsx --env-file=.env scripts/daily-report.mts",
     "metadata:backfill:http": "node --env-file=.env scripts/metadata-backfill.mjs"
   },
   "prisma": {
