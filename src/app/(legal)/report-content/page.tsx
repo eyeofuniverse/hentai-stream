@@ -1,4 +1,4 @@
-export const metadata = { title: "Report content" };
+export const metadata = { title: "Report content", alternates: { canonical: "/report-content" } };
 
 export default function ReportContentPage() {
   return (

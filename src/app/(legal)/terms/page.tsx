@@ -1,4 +1,4 @@
-export const metadata = { title: "Terms of Use" };
+export const metadata = { title: "Terms of Use", alternates: { canonical: "/terms" } };
 
 export default function TermsPage() {
   return (

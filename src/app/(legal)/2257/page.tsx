@@ -1,4 +1,4 @@
-export const metadata = { title: "18 U.S.C. 2257 Statement" };
+export const metadata = { title: "18 U.S.C. 2257 Statement", alternates: { canonical: "/2257" } };
 
 export default function Statement2257() {
   return (

@@ -1,4 +1,4 @@
-export const metadata = { title: "DMCA / Copyright" };
+export const metadata = { title: "DMCA / Copyright", alternates: { canonical: "/dmca" } };
 
 export default function DmcaPage() {
   return (
