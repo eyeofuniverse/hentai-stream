@@ -113,11 +113,25 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
     // to the ad's own declared length when we have one, plus slack for normal
     // buffering; a generous flat cap otherwise. Counts as a failure, same as
     // a real error, so the ad network still sees it wasn't a real view.
+    //
+    // Re-armed on every pause/resume (see onPause/onPlay below) — a viewer
+    // deliberately pausing isn't a stall, and without this a long pause
+    // (stepping away, switching tabs) would trip the same timer and force-
+    // finish a perfectly healthy ad mid-watch, firing a false error pixel.
     const maxWaitMs = (ad.durationSec ? ad.durationSec + 10 : 25) * 1000;
-    const stallTimer = setTimeout(() => {
-      ad.errorPixels.forEach((u) => ping(u.replace("[ERRORCODE]", "402")));
-      finish();
-    }, maxWaitMs);
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    const armStallTimer = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        ad.errorPixels.forEach((u) => ping(u.replace("[ERRORCODE]", "402")));
+        finish();
+      }, maxWaitMs);
+    };
+    const onPause = () => clearTimeout(stallTimer);
+    const onPlay = () => armStallTimer();
+    armStallTimer();
+    video.addEventListener("pause", onPause);
+    video.addEventListener("play", onPlay);
 
     const onTimeUpdate = () => {
       const duration = video.duration || ad.durationSec || 0;
@@ -137,6 +151,8 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
     return () => {
       clearTimeout(stallTimer);
       video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("play", onPlay);
       video.removeAttribute("src");
       video.load();
     };
