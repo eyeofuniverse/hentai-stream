@@ -221,12 +221,12 @@ export const AD_SLOTS: Record<string, SlotDef> = {
     description: "In the filters sidebar (desktop only)",
     desktop: true,
     mobile: false,
-    recommended: "300×600",
+    recommended: "300×250",
     hint: {
-      revenue: "very_high",
-      format: "Banner (Half Page)",
-      size: "300×600",
-      why: "Sits beside the grid for the whole browse session — very high viewability. 300×600 earns a premium CPM.",
+      revenue: "high",
+      format: "Banner (MPU)",
+      size: "300×250",
+      why: "Sits beside the grid for the whole browse session — very high viewability. 300×250 outperforms the 300×600 half-page here in practice: our own per-zone eCPM data (Sept 2026) showed 300×600 as one of the worst-earning formats on the site (~$0.011) against 300×250 as one of the best (~$0.084) — the industry-lore \"half-page = premium CPM\" claim didn't hold for this site's actual ExoClick traffic.",
     },
   },
   "catalog-footer": {

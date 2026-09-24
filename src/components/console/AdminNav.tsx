@@ -149,8 +149,8 @@ export function AdminNav({
     <>
       {/* desktop */}
       <aside className="hidden shrink-0 md:block md:w-56">
-        <div className="sticky top-6">
-          <Link href="/console" className="mb-6 flex items-center gap-2 px-3">
+        <div className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col [contain:layout]">
+          <Link href="/console" className="mb-6 flex shrink-0 items-center gap-2 px-3">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-white">
               <Megaphone size={14} />
             </span>
@@ -158,8 +158,10 @@ export function AdminNav({
               Lust<span className="text-accent">Hentai</span>
             </span>
           </Link>
-          <List groups={groups} />
-          <div className="mt-5 border-t border-white/10 px-3 pt-4 text-xs">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <List groups={groups} />
+          </div>
+          <div className="mt-5 shrink-0 border-t border-white/10 px-3 pt-4 text-xs">
             <div className="truncate text-white/70">{handle}</div>
             <div className="mt-0.5 text-white/35">{role}</div>
             <LogoutButton />
