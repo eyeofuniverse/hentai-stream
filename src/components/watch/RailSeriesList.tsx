@@ -33,16 +33,16 @@ export function RailSeriesList({
         <span className="text-xs text-white/50">See all →</span>
       </Link>
       <ul className="divide-y divide-line/60">
-        {items.slice(0, 6).map((s, i) => (
+        {items.slice(0, 4).map((s, i) => (
           <li key={s.slug}>
             <Link
               href={`/hentai/${s.slug}`}
-              className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.03]"
+              className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.03]"
             >
               <span className="w-4 shrink-0 text-center text-xs font-bold tabular-nums text-white/50">
                 {i + 1}
               </span>
-              <span className="relative aspect-[2/3] w-9 shrink-0 overflow-hidden rounded-md bg-surface-2">
+              <span className="relative aspect-[2/3] w-8 shrink-0 overflow-hidden rounded-md bg-surface-2">
                 <SmartImg
                   src={cover(s.coverUrl)}
                   seed={s.slug}
@@ -53,7 +53,7 @@ export function RailSeriesList({
                 />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-white/85 transition-colors group-hover:text-accent">
+                <span className="line-clamp-1 text-[13px] font-semibold leading-snug text-white/85 transition-colors group-hover:text-accent">
                   {s.title}
                 </span>
                 <span className="mt-0.5 block text-[11px] text-white/50">
