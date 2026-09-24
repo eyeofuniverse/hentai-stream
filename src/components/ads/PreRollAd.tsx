@@ -151,7 +151,20 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
 
   const skippable = skipIn != null && skipIn <= 0;
 
-  const handleClick = () => {
+  // ExoClick's publisher guidelines: "the video ad should stop when clicked
+  // and resume when clicked again" — a real, separately-reported metric is
+  // watch-through (views/quartiles), not click, so the main video surface
+  // toggles play/pause rather than firing the click-through. Genuine
+  // click-through still exists, just as its own small CTA below, so tapping
+  // to pause never accidentally launches the advertiser's landing page.
+  const handleVideoClick = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+  };
+
+  const handleCtaClick = () => {
     if (!ad.clickThrough) return;
     ad.clickTracking.forEach(ping);
     window.open(ad.clickThrough, "_blank", "noopener,noreferrer");
@@ -179,7 +192,7 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
       <video
         ref={videoRef}
         playsInline
-        onClick={handleClick}
+        onClick={handleVideoClick}
         onEnded={handleEnded}
         onError={handleError}
         className="h-full w-full cursor-pointer object-contain"
@@ -188,6 +201,16 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
       <span className="absolute left-3 top-3 rounded bg-black/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/70">
         Advertisement
       </span>
+
+      {ad.clickThrough && (
+        <button
+          type="button"
+          onClick={handleCtaClick}
+          className="absolute right-3 top-3 rounded bg-black/70 px-2.5 py-1 text-[10px] font-semibold text-white/85 hover:bg-black/85"
+        >
+          Learn more ↗
+        </button>
+      )}
 
       {showUnmute && (
         <button

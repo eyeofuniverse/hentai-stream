@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useAdblock } from "@/components/ads/AdblockProvider";
+import { rewriteForAdblock } from "@/lib/adblock-rewrite";
 
 /**
  * Injects a raw ad-network embed (HTML + <script>), re-executing scripts.
@@ -18,19 +20,24 @@ export function AdUnit({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const injected = useRef("");
+  const { detected, domain } = useAdblock();
 
   useEffect(() => {
-    if (!ref.current || !code || injected.current === code) return;
-    injected.current = code;
+    if (!ref.current || !code) return;
+    // once adblock is detected mid-session, re-inject the rewritten version
+    // even though `code` itself hasn't changed
+    const effective = detected && domain ? rewriteForAdblock(code, domain) : code;
+    if (injected.current === effective) return;
+    injected.current = effective;
 
-    ref.current.innerHTML = code;
+    ref.current.innerHTML = effective;
     ref.current.querySelectorAll("script").forEach((old) => {
       const next = document.createElement("script");
       Array.from(old.attributes).forEach((a) => next.setAttribute(a.name, a.value));
       next.textContent = old.textContent;
       old.parentNode?.replaceChild(next, old);
     });
-  }, [code]);
+  }, [code, detected, domain]);
 
   if (!code) return null;
   return (

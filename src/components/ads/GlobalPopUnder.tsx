@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useAdblock } from "@/components/ads/AdblockProvider";
+import { rewriteForAdblock } from "@/lib/adblock-rewrite";
 
 function inject(html: string) {
   const tmp = document.createElement("div");
@@ -28,6 +30,12 @@ function inject(html: string) {
  */
 export function GlobalPopUnder() {
   const pathname = usePathname();
+  const { detected, domain } = useAdblock();
+  // read the latest detection result at the moment the deferred load()
+  // actually fires, without re-triggering the idle-callback scheduling
+  // effect below every time detection resolves
+  const adblockRef = useRef({ detected, domain });
+  adblockRef.current = { detected, domain };
 
   useEffect(() => {
     if (pathname.startsWith("/console")) return;
@@ -41,7 +49,9 @@ export function GlobalPopUnder() {
       fetch("/api/ads/active?slot=global-popunder&device=all")
         .then((r) => (r.ok ? r.json() : null))
         .then((ad) => {
-          if (ad?.type === "network" && ad.networkCode) inject(ad.networkCode);
+          if (ad?.type !== "network" || !ad.networkCode) return;
+          const { detected, domain } = adblockRef.current;
+          inject(detected && domain ? rewriteForAdblock(ad.networkCode, domain) : ad.networkCode);
         })
         .catch(() => {});
     };

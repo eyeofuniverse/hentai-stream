@@ -5,6 +5,7 @@ import { Analytics } from "@/components/Analytics";
 import { YandexMetrica } from "@/components/YandexMetrica";
 import { PageTracker } from "@/components/PageTracker";
 import { GlobalPopUnder } from "@/components/ads/GlobalPopUnder";
+import { AdblockProvider } from "@/components/ads/AdblockProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SITE, SITE_NAME, organizationLd, websiteLd } from "@/lib/seo";
@@ -85,19 +86,21 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-screen bg-bg font-sans text-[#ececf1] antialiased"
       >
-        <SiteHeader />
-        <div className="min-h-[60vh]">{children}</div>
-        <SiteFooter />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify([organizationLd(), websiteLd()]),
-          }}
-        />
-        <Analytics />
-        <YandexMetrica />
-        <PageTracker />
-        <GlobalPopUnder />
+        <AdblockProvider>
+          <SiteHeader />
+          <div className="min-h-[60vh]">{children}</div>
+          <SiteFooter />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify([organizationLd(), websiteLd()]),
+            }}
+          />
+          <Analytics />
+          <YandexMetrica />
+          <PageTracker />
+          <GlobalPopUnder />
+        </AdblockProvider>
       </body>
     </html>
   );
