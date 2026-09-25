@@ -102,22 +102,52 @@ async function seriesByTagSearch(
   ).catch(() => [] as RawSeries[]);
 }
 
-/** Title hits first (more precise intent), then tag-only hits filling the
- *  rest of the limit — deduped so a series matching both isn't repeated. */
-function mergeSeriesHits(
-  titleHits: SeriesHit[],
-  tagHits: SeriesHit[],
-  limit: number,
-): SeriesHit[] {
-  const merged = [...titleHits];
-  const seen = new Set(titleHits.map((s) => s.id));
-  for (const s of tagHits) {
-    if (merged.length >= limit) break;
-    if (seen.has(s.id)) continue;
-    seen.add(s.id);
-    merged.push(s);
+/** Each source's hits win in order (earlier = more precise intent), deduped
+ *  so a series matching more than one source isn't repeated. */
+function mergeSeriesHits(sources: SeriesHit[][], limit: number): SeriesHit[] {
+  const merged: SeriesHit[] = [];
+  const seen = new Set<string>();
+  for (const hits of sources) {
+    for (const s of hits) {
+      if (merged.length >= limit) return merged;
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      merged.push(s);
+    }
   }
   return merged;
+}
+
+/** Bare 4-digit queries ("2026", "2020") never match anything in
+ *  seriesSearch — trigram similarity against a title almost never fires for
+ *  a lone year, since titles rarely contain the number as a standalone
+ *  token, so a search for a release year returned zero results even when
+ *  the catalogue had dozens of matching series. Matches Series.year
+ *  directly instead of treating the query as title text. */
+const YEAR_RE = /^(19[6-9]\d|20[0-3]\d)$/;
+
+async function seriesByYearSearch(
+  term: string,
+  limit: number,
+  withCounts: boolean,
+): Promise<SeriesHit[]> {
+  const match = term.match(YEAR_RE);
+  if (!match) return [];
+  const year = Number(match[0]);
+  const episodesCol = withCounts
+    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED')`
+    : Prisma.sql`0`;
+  return db(() =>
+    prisma.$queryRaw<RawSeries[]>(Prisma.sql`
+      SELECT s.id, s.slug, s.title, s."titleEnglish", s."coverUrl", s.year,
+             s.type::text AS type, s.status::text AS status, s.synopsis,
+             ${episodesCol} AS episodes
+      FROM "Series" s
+      WHERE s.publish = 'PUBLISHED' AND s.year = ${year}
+      ORDER BY s."bayesianRating" DESC, s."viewCount" DESC
+      LIMIT ${limit}
+    `),
+  ).catch(() => [] as RawSeries[]);
 }
 
 async function tagSearch(term: string, limit: number): Promise<TagHit[]> {
@@ -144,12 +174,13 @@ export async function searchSuggest(q: string) {
   const term = q.trim();
   if (term.length < 2) return { series: [] as SeriesHit[], tags: [] as TagHit[] };
   const LIMIT = 7;
-  const [titleHits, tagHits, tags] = await Promise.all([
+  const [titleHits, yearHits, tagHits, tags] = await Promise.all([
     seriesSearch(term, LIMIT, false),
+    seriesByYearSearch(term, LIMIT, false),
     seriesByTagSearch(term, LIMIT, false),
     tagSearch(term, 4),
   ]);
-  return { series: mergeSeriesHits(titleHits, tagHits, LIMIT), tags };
+  return { series: mergeSeriesHits([titleHits, yearHits, tagHits], LIMIT), tags };
 }
 
 /** Full results for the /search page. */
@@ -157,12 +188,13 @@ export async function searchResults(q: string) {
   const term = q.trim();
   if (term.length < 2) return { series: [] as SeriesHit[], tags: [] as TagHit[] };
   const LIMIT = 48;
-  const [titleHits, tagHits, tags] = await Promise.all([
+  const [titleHits, yearHits, tagHits, tags] = await Promise.all([
     seriesSearch(term, LIMIT, true),
+    seriesByYearSearch(term, LIMIT, true),
     seriesByTagSearch(term, LIMIT, true),
     tagSearch(term, 12),
   ]);
-  return { series: mergeSeriesHits(titleHits, tagHits, LIMIT), tags };
+  return { series: mergeSeriesHits([titleHits, yearHits, tagHits], LIMIT), tags };
 }
 
 /**

@@ -104,6 +104,8 @@ export const TAG_DICTIONARY: TagDef[] = [
   { name: "Handjob", category: "FETISH", synonyms: ["hand job", "tekoki", "stroking"] },
   { name: "Ugly Bastard", category: "FETISH", synonyms: ["fat old man", "grotesque man", "old man and", "disgusting man"], landing: true },
   { name: "Netorase", category: "FETISH", synonyms: ["consensual sharing", "watch his wife", "lend his girlfriend"] },
+  { name: "Watersports", category: "FETISH", synonyms: ["pissing", "piss", "golden shower", "peeing"], landing: true },
+  { name: "Spanking", category: "FETISH", synonyms: ["spank", "spanked", "spanks her", "ass slapping", "paddled", "paddling", "caning"], landing: true },
 
   // ── format ──
   { name: "3D", category: "FORMAT", synonyms: ["3dcg", "cgi", "3d cg", "computer generated"], landing: true },
