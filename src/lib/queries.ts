@@ -326,15 +326,25 @@ const HERO_INCLUDE = {
  * could — and in practice did — land on a run of hero slides with no banner
  * at all. Two-pass: fill from banner-having candidates first, pad with
  * bannerless ones (in the same recency order) only if that's not enough.
+ *
+ * Ordered by `autoPublishedAt` — when the series actually became watchable on
+ * *this* site — not `releaseDate` (the anime's official MAL air date). Those
+ * two used to be conflated here, which broke hero two ways: most series MAL
+ * lists as still-upcoming get real episodes well before their official date
+ * (piracy leaks/scrapes ahead of release), so ordering by releaseDate desc
+ * put not-yet-"released" titles at the very top — and since that date never
+ * changes, whichever one won stayed pinned there for as long as nothing with
+ * an even later date got added, sometimes days. Restricting to `year >=
+ * heroYear - 1` on top of that excluded ~92% of what's actually added to the
+ * site day to day, since most scraped content is older back-catalog anime,
+ * not this year's releases — "new to watch here" and "new anime" are
+ * different things for a site with decades of back catalog, and hero should
+ * track the former.
  */
-async function getHero(pub: { publish: "PUBLISHED" }, heroYear: number | null) {
-  const baseWhere = {
-    ...pub,
-    coverUrl: { not: null },
-    ...(heroYear ? { year: { gte: heroYear - 1 } } : {}),
-  };
+async function getHero(pub: { publish: "PUBLISHED" }) {
+  const baseWhere = { ...pub, coverUrl: { not: null } };
   const orderBy = [
-    { releaseDate: { sort: "desc" as const, nulls: "last" as const } },
+    { autoPublishedAt: { sort: "desc" as const, nulls: "last" as const } },
     { createdAt: "desc" as const },
   ];
 
@@ -390,18 +400,19 @@ async function homeSectionsInner() {
     featuredTags,
     railTags,
   ] = await Promise.all([
-    // hero shows only the most recent release year we actually have — this
-    // lookup used to run before the Promise.all, serializing one extra
-    // round-trip in front of the other 8 independent queries for no reason;
-    // now it (and the getHero() call that depends on it) run alongside them.
+    // heroYear is just the "Fresh {year} drop" vs "{year} release" badge
+    // label in HomeHero — no longer a hero candidate filter (see getHero).
+    // Still run alongside the other independent queries below, not before.
     (async () => {
-      const latestYearRow = await prisma.series.findFirst({
-        where: { ...pub, year: { not: null } },
-        orderBy: { year: "desc" },
-        select: { year: true },
-      });
-      const heroYear = latestYearRow?.year ?? null;
-      return { hero: await getHero(pub, heroYear), heroYear };
+      const [hero, latestYearRow] = await Promise.all([
+        getHero(pub),
+        prisma.series.findFirst({
+          where: { ...pub, year: { not: null } },
+          orderBy: { year: "desc" },
+          select: { year: true },
+        }),
+      ]);
+      return { hero, heroYear: latestYearRow?.year ?? null };
     })(),
     prisma.series.findMany({
       where: pubArt,
