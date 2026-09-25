@@ -117,8 +117,10 @@ export async function publishIfLive(episodeId: string): Promise<{
   }
 
   if (!blocked && ep.series.publish === "DRAFT") {
+    // kind:MAIN — same reasoning as ingestEpisode: don't auto-publish a series
+    // whose only live episode turned out to be a trailer clip
     const live = await db(() =>
-      prisma.episode.count({ where: { seriesId: ep.seriesId, publish: "PUBLISHED" } }),
+      prisma.episode.count({ where: { seriesId: ep.seriesId, publish: "PUBLISHED", kind: "MAIN" } }),
     );
     if (live > 0) {
       await db(() =>

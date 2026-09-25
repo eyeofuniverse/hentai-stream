@@ -584,8 +584,10 @@ export async function ingestEpisode(opts: {
 
     let seriesPublished = false;
     if (opts.publishLive && !blocked && series.publish === "DRAFT") {
+      // kind:MAIN — a series whose only live episode is a trailer clip
+      // shouldn't auto-publish and show visitors an empty "0 episodes" page
       const livePub = await prisma.episode.count({
-        where: { seriesId: opts.seriesId, publish: "PUBLISHED" },
+        where: { seriesId: opts.seriesId, publish: "PUBLISHED", kind: "MAIN" },
       });
       if (livePub > 0) {
         await prisma.series.update({
