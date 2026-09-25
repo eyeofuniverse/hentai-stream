@@ -25,7 +25,7 @@ export async function POST() {
         where: { publish: "PUBLISHED" },
         select: {
           slug: true,
-          episodes: { where: { publish: "PUBLISHED" }, select: { number: true } },
+          episodes: { where: { publish: "PUBLISHED", kind: "MAIN" }, select: { number: true } },
         },
       }),
       prisma.tag.findMany({ where: { seriesCount: { gt: 0 } }, select: { slug: true } }),

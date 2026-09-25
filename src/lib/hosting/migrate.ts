@@ -114,6 +114,9 @@ export async function runMigrate(opts: {
   const episodes = await db(() =>
     prisma.episode.findMany({
       where: {
+        // trailer/preview clips aren't real episodes — don't spend Bunny
+        // storage/transcoding on them (see Episode.kind)
+        kind: "MAIN",
         AND: [
           { sources: { some: { direct: true, status: { not: "DEAD" as const } } } },
           // default: only episodes that can't play any other way (no live hotlink)

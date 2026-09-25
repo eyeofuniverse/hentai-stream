@@ -420,6 +420,27 @@ export function mapHost(hostOrUrl: string): { host: VideoHost; hostName: string 
 
 /* ─────────────────────────────── episode ingest ─────────────────────────── */
 
+/** exact genre term (already canonicalised to lowercase, singular) that means
+ *  "this is promo footage, not a real episode" — not a content descriptor,
+ *  so it's also stoplisted out of the public tag taxonomy in tag-canonical.ts */
+const TRAILER_GENRES = new Set(["preview", "trailer", "teaser", "pv", "cm"]);
+/** same vocabulary, matched as a whole token inside a source URL/filename —
+ *  e.g. hstorage.xyz/.../muramata-san-no-aijou-1-preview.mp4 */
+const TRAILER_FILENAME_RE = /(^|[\s._-])(preview|trailer|teaser|pv|cm)([\s._-]|$)/i;
+
+/**
+ * Does this batch of scraped signals — the source site's own genre list for
+ * this episode's post, and/or the embed/file URLs themselves — say this is a
+ * promo clip rather than a real episode? Two independent sites (hentaigasm's
+ * "Preview" genre, watchhentai's "-preview.mp4" filename) were both observed
+ * flagging the exact same episode this way, so either signal alone is trusted.
+ */
+export function looksLikeTrailer(opts: { genres?: string[]; embedUrls?: string[] }): boolean {
+  if (opts.genres?.some((g) => TRAILER_GENRES.has(g.trim().toLowerCase()))) return true;
+  if (opts.embedUrls?.some((u) => TRAILER_FILENAME_RE.test(u))) return true;
+  return false;
+}
+
 export interface IngestSource {
   hostOrUrl?: string; // explicit host hint
   embedUrl: string;
@@ -461,6 +482,14 @@ export async function ingestEpisode(opts: {
    * site. Sites whose files are directly hotlinkable pass true.
    */
   publishLive?: boolean;
+  /**
+   * This batch of sources looks like promo footage (see looksLikeTrailer),
+   * not a real numbered episode. Sets kind:TRAILER on first creation. On an
+   * existing episode this only ever *upgrades* TRAILER back to MAIN (a later,
+   * genuine source graduating a promo slot) — it never downgrades an episode
+   * that's already MAIN, so one mislabelled mirror can't undo real content.
+   */
+  looksLikeTrailer?: boolean;
 }): Promise<IngestResult> {
   const part = opts.part && opts.part > 0 ? opts.part : 1;
   const sourceStatus: SourceStatus = opts.publishLive ? "ACTIVE" : "PENDING";
@@ -484,13 +513,19 @@ export async function ingestEpisode(opts: {
         seriesId: opts.seriesId,
         number: opts.number,
         part,
+        kind: opts.looksLikeTrailer ? "TRAILER" : "MAIN",
         publish: "DRAFT",
         thumbUrl: opts.thumbUrl ?? null,
         airedAt: validAired,
       },
       update: {},
-      select: { id: true, publish: true, thumbUrl: true, airedAt: true },
+      select: { id: true, publish: true, thumbUrl: true, airedAt: true, kind: true },
     });
+    // graduation: a fresh, non-trailer-looking source just arrived for an
+    // episode we'd previously only ever seen trailer footage for — promote it
+    if (ep.kind === "TRAILER" && !opts.looksLikeTrailer) {
+      await prisma.episode.update({ where: { id: ep.id }, data: { kind: "MAIN" } });
+    }
     // fill thumb / air date only if still missing (don't clobber later data)
     if ((opts.thumbUrl && !ep.thumbUrl) || (validAired && !ep.airedAt)) {
       await prisma.episode.update({

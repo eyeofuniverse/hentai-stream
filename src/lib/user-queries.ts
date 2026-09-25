@@ -13,7 +13,9 @@ const cardSelect = {
   externalScore: true,
   ratingAvg: true,
   ratingCount: true,
-  _count: { select: { episodes: { where: { publish: "PUBLISHED" as const } } } },
+  _count: {
+    select: { episodes: { where: { publish: "PUBLISHED" as const, kind: "MAIN" as const } } },
+  },
 };
 
 /** Headline counts for the account page — each matches exactly what its
@@ -30,7 +32,9 @@ export async function myStats(profileId: string) {
     // playback of hosted video too. "Watched" = any episode with progress,
     // same definition /history already uses.
     prisma.watchProgress
-      .count({ where: { profileId, episode: { publish: "PUBLISHED", series: { publish: "PUBLISHED" } } } })
+      .count({
+        where: { profileId, episode: { publish: "PUBLISHED", kind: "MAIN", series: { publish: "PUBLISHED" } } },
+      })
       .catch(() => 0),
     prisma.rating.count({ where: { profileId } }).catch(() => 0),
   ]);
@@ -94,7 +98,7 @@ export async function continueWatching(
     .findMany({
       where: {
         profileId,
-        episode: { publish: "PUBLISHED", series: { publish: "PUBLISHED" } },
+        episode: { publish: "PUBLISHED", kind: "MAIN", series: { publish: "PUBLISHED" } },
       },
       orderBy: { lastWatchedAt: "desc" },
       take: 120,
@@ -116,7 +120,7 @@ export async function continueWatching(
                 title: true,
                 coverUrl: true,
                 episodes: {
-                  where: { publish: "PUBLISHED" },
+                  where: { publish: "PUBLISHED", kind: "MAIN" },
                   orderBy: { number: "asc" },
                   select: {
                     number: true,
@@ -174,7 +178,7 @@ export async function myHistory(profileId: string, limit = 60) {
     .findMany({
       where: {
         profileId,
-        episode: { publish: "PUBLISHED", series: { publish: "PUBLISHED" } },
+        episode: { publish: "PUBLISHED", kind: "MAIN", series: { publish: "PUBLISHED" } },
       },
       orderBy: { lastWatchedAt: "desc" },
       take: limit,

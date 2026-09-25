@@ -90,6 +90,16 @@ enum ReleaseKind {
   RAW
 }
 
+/// main = a real numbered episode. trailer = a promo/preview/teaser clip a
+/// source site listed as if it were one — set automatically at ingest from
+/// the source's own genre tag or filename (see looksLikeTrailer in ingest.ts),
+/// never shown/counted as a real episode until a genuine source graduates it
+/// back to MAIN.
+enum EpisodeKind {
+  MAIN
+  TRAILER
+}
+
 enum Quality {
   Q360
   Q480
@@ -380,6 +390,7 @@ model Episode {
   series      Series        @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   number      Float
   part        Int           @default(1)
+  kind        EpisodeKind   @default(MAIN)
   title       String?
   synopsis    String?
   thumbUrl    String?

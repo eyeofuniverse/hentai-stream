@@ -11,6 +11,7 @@ import {
   deleteSeries,
   deleteEpisode,
   setPublish,
+  setEpisodeKind,
 } from "@/lib/actions";
 import { repullSeries } from "@/lib/metadata-actions";
 import { SeriesForm } from "@/components/console/SeriesForm";
@@ -203,11 +204,25 @@ export default async function EditSeriesPage({
                       {ep.title || <span className="text-white/25">untitled</span>}
                     </span>
                     <HostBadge bunnyStatus={ep.bunnyStatus} hasHotlink={active > 0} />
+                    {ep.kind === "TRAILER" && <Badge tone="amber">trailer</Badge>}
                     <PublishBadge status={ep.publish} />
                   </summary>
 
                   <div className="space-y-3 border-t border-white/8 px-3 py-3">
                     <div className="flex flex-wrap gap-1.5">
+                      {ep.kind === "TRAILER" ? (
+                        <form action={setEpisodeKind.bind(null, ep.id, "MAIN")}>
+                          <SubmitButton variant="secondary" size="sm" pendingText="…">
+                            Not a trailer — mark as real episode
+                          </SubmitButton>
+                        </form>
+                      ) : (
+                        <form action={setEpisodeKind.bind(null, ep.id, "TRAILER")}>
+                          <SubmitButton variant="ghost" size="sm" pendingText="…">
+                            Mark as trailer/preview
+                          </SubmitButton>
+                        </form>
+                      )}
                       {ep.publish !== "PUBLISHED" ? (
                         <form action={setPublish.bind(null, "episode", ep.id, "PUBLISHED")}>
                           <SubmitButton variant="secondary" size="sm" pendingText="…">

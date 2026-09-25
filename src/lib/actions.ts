@@ -414,6 +414,20 @@ export async function setPublish(
   await bust(seriesId);
 }
 
+/** Manual override for the auto-detected trailer/real-episode classification
+ *  (see looksLikeTrailer in ingest.ts) — for the false positives/negatives a
+ *  moderator spots that the genre/filename heuristic got wrong. */
+export async function setEpisodeKind(id: string, kind: "MAIN" | "TRAILER") {
+  await requireAdmin();
+  const e = await prisma.episode.update({
+    where: { id },
+    data: { kind },
+    select: { seriesId: true },
+  });
+  revalidatePath("/console");
+  await bust(e.seriesId);
+}
+
 /** Torrent-grabbed episode passed spot-check → clear the hold and publish it. */
 export async function approveTorrentEpisode(id: string) {
   await requireAdmin();

@@ -108,7 +108,7 @@ function getSeriesInner(slug: string) {
       tags: { orderBy: { name: "asc" } },
       characters: { orderBy: { seriesCount: "desc" }, take: 12 },
       episodes: {
-        where: { publish: "PUBLISHED" },
+        where: { publish: "PUBLISHED", kind: "MAIN" },
         orderBy: { number: "asc" },
         select: {
           id: true,
@@ -139,6 +139,7 @@ function getEpisodeInner(seriesSlug: string, number: number) {
     where: {
       number,
       publish: "PUBLISHED",
+      kind: "MAIN",
       series: { slug: seriesSlug, publish: "PUBLISHED" },
     },
     include: {
@@ -147,7 +148,7 @@ function getEpisodeInner(seriesSlug: string, number: number) {
           tags: true,
           studio: { select: { name: true, slug: true } },
           episodes: {
-            where: { publish: "PUBLISHED" },
+            where: { publish: "PUBLISHED", kind: "MAIN" },
             orderBy: { number: "asc" },
             select: {
               number: true,
@@ -285,7 +286,9 @@ const seriesCardSelect = {
   status: true,
   isCensored: true,
   externalScore: true,
-  _count: { select: { episodes: { where: { publish: "PUBLISHED" as const } } } },
+  _count: {
+    select: { episodes: { where: { publish: "PUBLISHED" as const, kind: "MAIN" as const } } },
+  },
 };
 
 const EMPTY_HOME = {
@@ -305,12 +308,14 @@ const HERO_INCLUDE = {
   tags: { take: 4, orderBy: { name: "asc" as const } },
   studio: { select: { name: true, slug: true } },
   episodes: {
-    where: { publish: "PUBLISHED" as const },
+    where: { publish: "PUBLISHED" as const, kind: "MAIN" as const },
     orderBy: { number: "asc" as const },
     take: 1,
     select: { number: true },
   },
-  _count: { select: { episodes: { where: { publish: "PUBLISHED" as const } } } },
+  _count: {
+    select: { episodes: { where: { publish: "PUBLISHED" as const, kind: "MAIN" as const } } },
+  },
 };
 
 /**
@@ -407,6 +412,7 @@ async function homeSectionsInner() {
     prisma.episode.findMany({
       where: {
         ...pub,
+        kind: "MAIN",
         series: pub,
         OR: [{ thumbUrl: { not: null } }, { bunnyStatus: "ready" }],
       },
@@ -561,7 +567,7 @@ async function calendarMonthInner(start: Date, end: Date) {
              s.slug, s.title, s."coverUrl"
       FROM "Episode" e
       JOIN "Series" s ON s.id = e."seriesId"
-      WHERE e.publish = 'PUBLISHED' AND s.publish = 'PUBLISHED'
+      WHERE e.publish = 'PUBLISHED' AND e.kind = 'MAIN' AND s.publish = 'PUBLISHED'
         AND COALESCE(e."airedAt", s."releaseDate") >= ${start}
         AND COALESCE(e."airedAt", s."releaseDate") < ${end}
       ORDER BY "effectiveDate" ASC
@@ -570,7 +576,7 @@ async function calendarMonthInner(start: Date, end: Date) {
       SELECT COALESCE(e."airedAt", s."releaseDate") AS "effectiveDate"
       FROM "Episode" e
       JOIN "Series" s ON s.id = e."seriesId"
-      WHERE e.publish = 'PUBLISHED' AND s.publish = 'PUBLISHED'
+      WHERE e.publish = 'PUBLISHED' AND e.kind = 'MAIN' AND s.publish = 'PUBLISHED'
         AND COALESCE(e."airedAt", s."releaseDate") IS NOT NULL
       ORDER BY "effectiveDate" DESC
       LIMIT 1

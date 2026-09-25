@@ -28,7 +28,11 @@ export const SITEMAP_SERIES = 1;
 export const SITEMAP_EPISODES_FIRST = 2;
 
 const CACHE_SECONDS = 6 * 60 * 60;
-const PUBLISHED_EPISODE = { publish: "PUBLISHED" as const, series: { publish: "PUBLISHED" as const } };
+const PUBLISHED_EPISODE = {
+  publish: "PUBLISHED" as const,
+  kind: "MAIN" as const,
+  series: { publish: "PUBLISHED" as const },
+};
 
 /** XML-escape every value we emit. */
 function esc(v: string | number): string {

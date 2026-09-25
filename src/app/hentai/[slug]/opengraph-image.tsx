@@ -24,7 +24,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         ratingAvg: true,
         ratingCount: true,
         externalScore: true,
-        _count: { select: { episodes: { where: { publish: "PUBLISHED" } } } },
+        _count: { select: { episodes: { where: { publish: "PUBLISHED", kind: "MAIN" } } } },
         tags: { select: { name: true }, take: 3 },
       },
     })

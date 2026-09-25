@@ -50,6 +50,11 @@ const IGNORE = new Set(
     "raw", "english", "english-sub", "english-subbed", "eng-sub", "hentai",
     "anime", "ongoing", "completed", "complete", "finished", "upcoming",
     "airing", "ended", "hd", "sd", "fhd", "uhd", "4k", "1080p", "720p", "480p",
+    // release-state markers, not content — a "preview"/"trailer" genre from a
+    // source site means "this post is promo footage," not a real descriptor;
+    // Episode.kind (set via looksLikeTrailer in ingest.ts) is what actually
+    // classifies the episode, this just keeps it off the public tag list
+    "preview", "trailer", "teaser", "pv", "cm",
     "new", "latest", "popular", "trending", "featured", "recommended",
     "uncategorized", "uncategorised", "other", "others", "misc", "general",
     "download", "downloads", "stream", "streaming", "watch", "watch-online",

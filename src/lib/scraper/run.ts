@@ -4,6 +4,7 @@ import {
   recordUnmatched,
   ingestEpisode,
   attachSeriesGenres,
+  looksLikeTrailer,
 } from "@/lib/ingest";
 import { Http } from "./http";
 import { getAdapter } from "./sites";
@@ -197,6 +198,10 @@ export async function runScrape(opts: ScrapeOptions): Promise<ScrapeSummary> {
         publishLive,
         thumbUrl: ref.thumbUrl,
         airedAt: ref.airedAt,
+        looksLikeTrailer: looksLikeTrailer({
+          genres: ref.seriesGenres,
+          embedUrls: sources.map((src) => src.embedUrl),
+        }),
         sources: sources.map((src) => ({
           hostOrUrl: src.hostOrUrl,
           embedUrl: src.embedUrl,

@@ -44,7 +44,7 @@ async function seriesSearch(
   const prefix = `${q}%`;
   const infix = `%${q}%`;
   const episodesCol = withCounts
-    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED')`
+    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED' AND e.kind = 'MAIN')`
     : Prisma.sql`0`;
   return db(() =>
     prisma.$queryRaw<RawSeries[]>(Prisma.sql`
@@ -81,7 +81,7 @@ async function seriesByTagSearch(
   const q = term.slice(0, 120);
   const infix = `%${q}%`;
   const episodesCol = withCounts
-    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED')`
+    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED' AND e.kind = 'MAIN')`
     : Prisma.sql`0`;
   return db(() =>
     prisma.$queryRaw<RawSeries[]>(Prisma.sql`
@@ -135,7 +135,7 @@ async function seriesByYearSearch(
   if (!match) return [];
   const year = Number(match[0]);
   const episodesCol = withCounts
-    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED')`
+    ? Prisma.sql`(SELECT count(*)::int FROM "Episode" e WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED' AND e.kind = 'MAIN')`
     : Prisma.sql`0`;
   return db(() =>
     prisma.$queryRaw<RawSeries[]>(Prisma.sql`
