@@ -1,8 +1,12 @@
 name: Daily report email
 
-# Emails the site owner a same-day summary — revenue, new content, reports,
-# traffic — every night at 23:59 Asia/Dhaka (see scripts/daily-report.mts
-# for why "today" is computed in that timezone, not UTC).
+# Emails the site owner a summary of the LAST COMPLETE day (Asia/Dhaka) — revenue,
+# new content, reports, traffic. GitHub cron is routinely late, and a run that
+# starts after midnight used to email the new, nearly empty day; the script now
+# always reports yesterday relative to when it starts, so lateness doesn't
+# matter. It is scheduled just after Bangladesh midnight so the day is finished
+# (and ExoClick's figures, requested in Asia/Dhaka, are complete) even on a
+# punctual run. See scripts/daily-report.mts.
 #
 # Repo secrets: DATABASE_URL, DIRECT_URL, RESEND_API_KEY, EXOCLICK_SITE_ID
 # (the ExoClick call re-authenticates itself off the refresh_token already
@@ -12,8 +16,13 @@ name: Daily report email
 
 on:
   schedule:
-    - cron: "59 17 * * *" # 23:59 Asia/Dhaka (UTC+6)
-  workflow_dispatch: {}
+    - cron: "30 18 * * *" # 00:30 Asia/Dhaka (UTC+6) — reports the day that just ended
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "day to report, YYYY-MM-DD in Asia/Dhaka (blank = yesterday)"
+        required: false
+        default: ""
 
 concurrency:
   group: daily-report
@@ -41,4 +50,6 @@ jobs:
           } > .env
       - run: npx prisma generate
       - name: Send daily report
+        env:
+          REPORT_DATE: ${{ github.event.inputs.date }}
         run: npm run daily-report

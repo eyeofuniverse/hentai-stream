@@ -150,6 +150,38 @@ export async function getStats(opts: {
   return data.result;
 }
 
+/**
+ * Exact totals for one calendar day in `timezone`. ExoClick's plain per-day
+ * grouping ignores the timezone parameter and always cuts days in
+ * America/New_York (its clock reads 10:00 while it is 20:00 in Bangladesh), but
+ * hourly grouping honors it — so a day for a local reader is the sum of that
+ * zone's 24 hourly buckets.
+ */
+export async function getDayTotals(
+  ymd: string,
+  timezone: string,
+): Promise<{ revenue: number; impressions: number; clicks: number; videoImpressions: number; videoViews: number }> {
+  const data = (await call("/statistics/p/global", {
+    method: "POST",
+    body: JSON.stringify({
+      group_by: ["date", "hour"],
+      timezone,
+      filter: { date_from: ymd, date_to: ymd, site_id: [SITE_ID] },
+      limit: 100,
+    }),
+  })) as { result: StatsRow[] };
+  const t = { revenue: 0, impressions: 0, clicks: 0, videoImpressions: 0, videoViews: 0 };
+  for (const r of data.result) {
+    if (r.group_by?.date?.date !== ymd) continue;
+    t.revenue += r.revenue;
+    t.impressions += r.impressions;
+    t.clicks += r.clicks;
+    t.videoImpressions += r.video?.impressions ?? 0;
+    t.videoViews += r.video?.views ?? 0;
+  }
+  return t;
+}
+
 /** Extracts every ExoClick zone id actually referenced somewhere on the live
  *  site. There's no single column for this — each ad format embeds its zone
  *  id in a different shape within the raw HTML/JS: banner tags carry

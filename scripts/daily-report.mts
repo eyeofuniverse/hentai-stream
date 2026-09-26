@@ -1,15 +1,15 @@
 /**
  * Emails a daily summary — revenue, new content, reports, traffic, and
- * anything else worth a glance — to the site owner. Runs nightly via
- * .github/workflows/daily-report.yml at 23:59 Asia/Dhaka (17:59 UTC).
+ * anything else worth a glance — to the site owner. Runs every day via
+ * .github/workflows/daily-report.yml shortly after midnight Asia/Dhaka.
  *
- * "Today" is computed in Asia/Dhaka (Bangladesh, UTC+6), not UTC or the
- * runner's own timezone — the report lands at 11:59 PM *local* time, so
- * "today" should mean the same calendar day the recipient is living in,
- * not whatever day UTC happens to be at that moment (17:59 UTC is still
- * the same UTC day as 23:59 BDT, so this mostly doesn't matter today, but
- * would silently be wrong for anyone reasoning about this later without
- * re-deriving it — better to make the timezone explicit here once).
+ * The report always covers the LAST COMPLETE day in Asia/Dhaka (Bangladesh,
+ * UTC+6): yesterday, relative to whenever the run actually starts. GitHub
+ * Actions cron is routinely late — by minutes or by an hour or more — and the
+ * old "report today" version, scheduled for 23:59, kept starting after
+ * midnight and emailing the brand-new, nearly empty day. Reporting yesterday
+ * makes lateness irrelevant. Pass --date=YYYY-MM-DD (or REPORT_DATE) to
+ * re-send a specific day.
  *
  * Every section is independently try/caught — one bad section (e.g.
  * ExoClick's API down) must never prevent the rest of the report, or the
@@ -17,22 +17,31 @@
  */
 import { prisma, db } from "@/lib/db";
 import { sendDailyReportEmail, type ReportSection } from "@/lib/email";
-import { getStats } from "@/lib/exoclick";
+import { getDayTotals } from "@/lib/exoclick";
 
 const RECIPIENT = "mail.minhajrahman@gmail.com";
 const BDT_OFFSET_MS = 6 * 60 * 60 * 1000;
 
-function bdtTodayBounds(): { start: Date; end: Date; dateLabel: string; ymd: string } {
-  const nowBdt = new Date(Date.now() + BDT_OFFSET_MS);
-  const ymd = nowBdt.toISOString().slice(0, 10);
-  const startUtc = new Date(Date.parse(`${ymd}T00:00:00.000Z`) - BDT_OFFSET_MS);
+const DAY_MS = 24 * 60 * 60 * 1000;
+const REPORT_TZ = "Asia/Dhaka";
+
+/** The Asia/Dhaka calendar day to report: an explicit YYYY-MM-DD if given,
+ *  otherwise yesterday (the last complete day). */
+function bdtDayBounds(explicit?: string): { start: Date; end: Date; dateLabel: string; ymd: string } {
+  const ymd =
+    explicit && /^\d{4}-\d{2}-\d{2}$/.test(explicit)
+      ? explicit
+      : new Date(Date.now() + BDT_OFFSET_MS - DAY_MS).toISOString().slice(0, 10);
+  const start = new Date(Date.parse(`${ymd}T00:00:00.000Z`) - BDT_OFFSET_MS);
+  const end = new Date(start.getTime() + DAY_MS);
   const dateLabel = new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
-  return { start: startUtc, end: new Date(), dateLabel, ymd };
+  return { start, end, dateLabel, ymd };
 }
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -47,26 +56,18 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 const money = (n: number) => `$${n.toFixed(2)}`;
 
 async function main() {
-  const { start, end, dateLabel, ymd } = bdtTodayBounds();
+  const arg = process.argv.find((x) => x.startsWith("--date="))?.slice(7) || process.env.REPORT_DATE || undefined;
+  const { start, end, dateLabel, ymd } = bdtDayBounds(arg);
   const range = { createdAt: { gte: start, lt: end } };
   const sections: ReportSection[] = [];
 
   // ── revenue ──────────────────────────────────────────────────────────
-  const revenue = await safe(async () => {
-    const rows = await getStats({ dateFrom: ymd, dateTo: ymd, groupBy: "date" });
-    const today = rows[0];
-    if (!today) return { revenue: 0, impressions: 0, clicks: 0, videoImpressions: 0, videoViews: 0 };
-    return {
-      revenue: today.revenue,
-      impressions: today.impressions,
-      clicks: today.clicks,
-      videoImpressions: today.video?.impressions ?? 0,
-      videoViews: today.video?.views ?? 0,
-    };
-  }, null);
+  // exact Asia/Dhaka day (sum of hourly buckets — ExoClick's plain daily totals
+  // are New York days regardless of any timezone setting, see getDayTotals)
+  const revenue = await safe(() => getDayTotals(ymd, REPORT_TZ), null);
 
   sections.push({
-    title: "Revenue (ExoClick, today)",
+    title: "Revenue (ExoClick)",
     rows: revenue
       ? [
           { label: "Revenue", value: money(revenue.revenue) },
@@ -92,7 +93,7 @@ async function main() {
   ]);
 
   sections.push({
-    title: "Content added today",
+    title: "Content added",
     rows: [
       { label: "New series", value: `${newSeries} (${publishedSeries} published)` },
       { label: "New episodes", value: `${newEpisodes} (${publishedEpisodes} published)` },
@@ -127,9 +128,9 @@ async function main() {
   sections.push({
     title: "Reports & moderation",
     rows: [
-      { label: "New reports today", value: String(newReports), warn: newReports > 0 },
+      { label: "New reports", value: String(newReports), warn: newReports > 0 },
       { label: "Total open reports", value: String(openReportsTotal), warn: openReportsTotal > 0 },
-      { label: "New DMCA requests today", value: String(newDmca), warn: newDmca > 0 },
+      { label: "New DMCA requests", value: String(newDmca), warn: newDmca > 0 },
       { label: "Auto-published, awaiting spot-check", value: String(spotCheckPending) },
       { label: "Flagged possible-minor, awaiting review", value: String(flaggedPending), warn: flaggedPending > 0 },
     ],
