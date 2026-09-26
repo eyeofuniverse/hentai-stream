@@ -3,8 +3,8 @@ name: Re-host expired hotlinks (Bunny)
 # miohentai's CDN links expire within days, and it's the ONLY source for ~77%
 # of the series that depend on it. Policy: every video is hosted in Bunny, so
 # this pulls a fresh link per series and has Bunny fetch it immediately
-# (scripts/rehost.mts). Verifies first so dead links are flagged, then re-hosts
-# best-rated series first. Safe to re-run: targets are re-derived from the DB.
+# (scripts/rehost.mts), best-rated series first. Independent of the verify
+# job (which flags/unpublishes dead links on its own schedule). Safe to re-run: targets are re-derived from the DB.
 #
 # Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_LIBRARY_ID,
 #               BUNNY_STREAM_API_KEY, BUNNY_STREAM_SECURITY_KEY, BUNNY_STREAM_CDN_HOST
@@ -51,8 +51,6 @@ jobs:
             echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
           } > .env
       - run: npx prisma generate
-      - name: Flag dead links first
-        run: npm run verify -- --limit=6000
       - name: Re-host
         run: |
           ARGS="--max-minutes=${{ github.event.inputs.max_minutes || '320' }}"

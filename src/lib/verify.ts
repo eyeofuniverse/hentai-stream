@@ -159,6 +159,25 @@ export async function publishIfLive(episodeId: string): Promise<{
 }
 
 /**
+ * Unpublish real episodes that can no longer play at all: not hosted in Bunny
+ * and with no live source left. publishIfLive does this per episode, but only
+ * for episodes a given run happened to touch — this makes it a standing
+ * invariant so a dead link can never leave a "can't play" page up.
+ */
+export async function unpublishUnplayableEpisodes(): Promise<number> {
+  return db(() =>
+    prisma.$executeRaw`
+      UPDATE "Episode" e SET publish = 'DRAFT', "updatedAt" = now()
+      WHERE e.publish = 'PUBLISHED' AND e.kind = 'MAIN'
+        AND (e."bunnyStatus" IS NULL OR e."bunnyStatus" <> 'ready')
+        AND NOT EXISTS (
+          SELECT 1 FROM "VideoSource" v
+          WHERE v."episodeId" = e.id AND v.status = 'ACTIVE'
+        )`,
+  );
+}
+
+/**
  * Take down auto-published series that no longer have a single live real
  * episode (every source died and nothing is hosted). Left up they render "No
  * episodes published yet" pages that still sit in browse, search and the
@@ -186,6 +205,7 @@ export interface VerifySummary {
   episodesPublished: number;
   seriesPublished: number;
   seriesHidden: number;
+  episodesUnpublished: number;
   tookMs: number;
 }
 
@@ -241,38 +261,65 @@ export async function runVerify(opts: {
     episodesPublished: 0,
     seriesPublished: 0,
     seriesHidden: 0,
+    episodesUnpublished: 0,
     tookMs: 0,
   };
   const touchedEpisodes = new Set<string>();
+  // Checks run in parallel (thousands of sources one-at-a-time took over an
+  // hour), but politely: requests to the SAME host stay `gap` ms apart, so no
+  // single CDN sees more traffic than the old sequential loop sent it.
   const gap = opts.gapMs ?? 150;
+  const concurrency = Number(process.env.VERIFY_CONCURRENCY ?? 8);
+  const hostNext = new Map<string, number>();
+  const hostSlot = async (url: string) => {
+    let host = "?";
+    try {
+      host = new URL(url).host;
+    } catch {
+      /* torrent: URIs etc. */
+    }
+    const now = Date.now();
+    const at = Math.max(now, hostNext.get(host) ?? 0);
+    hostNext.set(host, at + gap);
+    if (at > now) await new Promise((res) => setTimeout(res, at - now));
+  };
 
-  for (const src of sources) {
-    const r = await checkUrl(src.embedUrl, src.direct);
-    s.checked++;
-    if (r.status === "ACTIVE") s.active++;
-    else if (r.status === "REJECTED") s.rejected++;
-    else s.dead++;
+  let next = 0;
+  const worker = async () => {
+    while (next < sources.length) {
+      const src = sources[next++];
+      await hostSlot(src.embedUrl);
+      const r = await checkUrl(src.embedUrl, src.direct);
+      s.checked++;
+      if (r.status === "ACTIVE") s.active++;
+      else if (r.status === "REJECTED") s.rejected++;
+      else s.dead++;
 
-    await db(() =>
-      prisma.videoSource.update({
-        where: { id: src.id },
-        data: {
-          status: r.status,
-          lastCheckedAt: new Date(),
-          checkFailCount: r.status === "ACTIVE" ? 0 : src.checkFailCount + 1,
-        },
-      }),
-    );
-    touchedEpisodes.add(src.episodeId);
-    if (s.checked % 50 === 0) log(`  … ${s.checked}/${sources.length}`);
-    if (gap) await new Promise((res) => setTimeout(res, gap));
-  }
+      await db(() =>
+        prisma.videoSource.update({
+          where: { id: src.id },
+          data: {
+            status: r.status,
+            lastCheckedAt: new Date(),
+            checkFailCount: r.status === "ACTIVE" ? 0 : src.checkFailCount + 1,
+          },
+        }),
+      );
+      touchedEpisodes.add(src.episodeId);
+      if (s.checked % 200 === 0) log(`  … ${s.checked}/${sources.length}`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
 
   for (const epId of touchedEpisodes) {
     const p = await publishIfLive(epId);
     if (p.episodePublished) s.episodesPublished++;
     if (p.seriesPublished) s.seriesPublished++;
   }
+  // Invariant sweep, independent of which sources this particular run touched
+  // (a run that's cancelled or times out mid-way still leaves the statuses it
+  // did write, and nothing would ever revisit those episodes otherwise).
+  s.episodesUnpublished = await unpublishUnplayableEpisodes();
   s.seriesHidden = await hideEmptySeries();
 
   s.tookMs = Date.now() - started;

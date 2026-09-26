@@ -44,8 +44,9 @@ function jaccard(a: Set<string>, b: Set<string>) {
 }
 
 async function targets() {
-  // unhosted real episodes that were sourced from miohentai and now have no
-  // source Bunny could fetch (all dead / not a direct file)
+  // unhosted real episodes whose ONLY usable source is miohentai. Its links
+  // expire, so whatever we have stored is presumed stale whether or not verify
+  // has flagged it DEAD yet — this must not wait on a verify pass.
   const eps = await db(() =>
     prisma.episode.findMany({
       where: {
@@ -53,7 +54,8 @@ async function targets() {
         bunnyGuid: null,
         sources: {
           some: { sourceSite: SITE },
-          none: { direct: true, status: { not: "DEAD" } },
+          // no other host has a copy Bunny could pull
+          none: { sourceSite: { not: SITE }, direct: true, status: { not: "DEAD" } },
         },
       },
       select: {
