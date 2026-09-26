@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type VastConfig = { tags: string[]; capMinutes: number; skipAfterSec: number };
 
-/** Console → Ads settings for the custom VAST pre-roll (src/lib/vast.ts,
+/** Console → Ads settings for the custom VAST pre-roll (src/lib/vast-client.ts,
  *  src/components/ads/PreRollAd.tsx) — tags are tried in order as a
  *  waterfall until one resolves to a real ad. */
 export function VastAdsSettings() {

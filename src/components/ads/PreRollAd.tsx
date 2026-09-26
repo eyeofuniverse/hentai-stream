@@ -1,32 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useAdblock } from "@/components/ads/AdblockProvider";
+import { rewriteForAdblock } from "@/lib/adblock-rewrite";
+import { fillMacros, offsetToSec, ping, resolveVast, type MacroValues, type ResolvedAd } from "@/lib/vast-client";
 
-type ResolvedAd = {
-  mediaUrl: string;
-  durationSec: number | null;
-  skipOffsetSec: number | null;
-  trackingEvents: { event: string; url: string; atFraction: number | null }[];
-  impressionPixels: string[];
-  errorPixels: string[];
-  clickThrough: string | null;
-  clickTracking: string[];
-};
+type VastConfig = { tags: string[]; capMinutes: number; skipAfterSec: number };
 
-/** Fire-and-forget tracking beacon — never blocks or throws on the caller. */
-function ping(url: string) {
-  try {
-    fetch(url, { mode: "no-cors", keepalive: true, cache: "no-store" }).catch(() => {});
-  } catch {
-    /* ignore */
-  }
-}
+/** never sat on a black frame longer than this waiting for the ad to start */
+const START_TIMEOUT_MS = 8000;
 
 /**
- * Our own VAST pre-roll — replaces Bunny's built-in VAST integration so we
- * can waterfall across multiple tags and theme it to match the site. Resolves
- * server-side via /api/ads/vast; renders nothing and calls onDone
- * immediately if no ad is available, so a no-fill never delays real content.
+ * Our own VAST pre-roll. The tag is resolved in the viewer's browser (see
+ * lib/vast-client.ts for why) and every pixel the VAST chain asks for is fired
+ * from here — including the ones on ExoClick's wrapper, which is where the
+ * paid events live: the Video Impression when playback starts, and the Video
+ * View after 10 seconds of real playback (a `progress` tracking event).
+ * Renders nothing and calls onDone immediately when there's no ad, so a
+ * no-fill never delays real content.
  *
  * `src`/`muted` are set imperatively on the element inside the effect below,
  * never as JSX props — this component re-renders on every timeupdate (the
@@ -36,12 +27,20 @@ function ping(url: string) {
  * pattern for the same reason.
  */
 export function PreRollAd({ onDone }: { onDone: () => void }) {
-  const [ad, setAd] = useState<ResolvedAd | null | undefined>(undefined); // undefined = loading
+  const [ad, setAd] = useState<ResolvedAd | null | undefined>(undefined); // undefined = resolving
   const [showUnmute, setShowUnmute] = useState(false);
   const [skipIn, setSkipIn] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const firedRef = useRef<Set<string>>(new Set());
   const doneRef = useRef(false);
+  const apiRef = useRef<{ skip: () => void; click: () => void } | null>(null);
+
+  const adblock = useAdblock();
+  const rewriteRef = useRef<(u: string) => string>((u) => u);
+  rewriteRef.current =
+    adblock.detected && adblock.domain
+      ? (u) => rewriteForAdblock(u, adblock.domain as string)
+      : (u) => u;
 
   const finish = () => {
     if (doneRef.current) return;
@@ -49,110 +48,201 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
     onDone();
   };
 
+  // config → frequency cap → resolve the VAST chain in the browser
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/ads/vast")
-      .then((r) => (r.ok ? r.json() : { ad: null, capMinutes: 30 }))
-      .then((d) => {
-        if (cancelled) return;
-        const capMinutes = typeof d.capMinutes === "number" ? d.capMinutes : 30;
-        let lastShown = 0;
-        try {
-          lastShown = Number(localStorage.getItem("lh_vast_last") ?? "0");
-        } catch {
-          /* ignore */
-        }
-        const capped = capMinutes > 0 && Date.now() - lastShown < capMinutes * 60_000;
-        if (!d.ad || capped) {
-          setAd(null);
-          finish();
-          return;
-        }
-        try {
-          localStorage.setItem("lh_vast_last", String(Date.now()));
-        } catch {
-          /* ignore */
-        }
-        setAd(d.ad);
-        setSkipIn(d.ad.skipOffsetSec ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAd(null);
-          finish();
-        }
-      });
+    (async () => {
+      let cfg: VastConfig = { tags: [], capMinutes: 30, skipAfterSec: 0 };
+      try {
+        const r = await fetch("/api/ads/vast");
+        if (r.ok) cfg = { ...cfg, ...(await r.json()) };
+      } catch {
+        /* no config → no ad */
+      }
+      if (cancelled) return;
+
+      // cap is checked BEFORE any ad request, so a capped viewer never costs
+      // the ad server a call it can't monetize
+      let lastShown = 0;
+      try {
+        lastShown = Number(localStorage.getItem("lh_vast_last") ?? "0");
+      } catch {
+        /* ignore */
+      }
+      const capped = cfg.capMinutes > 0 && Date.now() - lastShown < cfg.capMinutes * 60_000;
+      if (capped || !Array.isArray(cfg.tags) || !cfg.tags.length) {
+        setAd(null);
+        finish();
+        return;
+      }
+
+      const resolved = await resolveVast(cfg.tags, { rewrite: rewriteRef.current }).catch(() => null);
+      if (cancelled) return;
+      if (!resolved) {
+        setAd(null);
+        finish();
+        return;
+      }
+
+      // admin override wins over the ad's own skipoffset; 0/unset = trust the ad
+      const skipOffsetSec = cfg.skipAfterSec > 0 ? cfg.skipAfterSec : (resolved.skipOffsetSec ?? 5);
+      setAd({ ...resolved, skipOffsetSec });
+      setSkipIn(skipOffsetSec);
+    })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // mount + play the ad exactly once per resolved ad — everything here is
-  // imperative on purpose (see the component doc comment above)
+  // play the resolved ad exactly once, firing the VAST pixels at the right
+  // moments — everything imperative on purpose (see the doc comment above)
   useEffect(() => {
     if (!ad) return;
     const video = videoRef.current;
     if (!video) return;
 
+    const rewrite = rewriteRef.current;
+    const fired = firedRef.current;
+
+    const send = (url: string, m: MacroValues = {}) =>
+      ping(rewrite(fillMacros(url, { assetUri: ad.mediaUrl, playheadSec: video.currentTime || 0, ...m })));
+    const once = (key: string, url: string) => {
+      if (fired.has(key)) return;
+      fired.add(key);
+      send(url);
+    };
+    const eventOnce = (name: string) =>
+      ad.tracking.filter((t) => t.event === name).forEach((t) => once(`${name}|${t.offset}|${t.url}`, t.url));
+    const eventEvery = (name: string) =>
+      ad.tracking.filter((t) => t.event === name).forEach((t) => send(t.url));
+
+    let started = false;
+    let paused = false;
+    let prevMuted = false;
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let startTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const fail = (code: number) => {
+      ad.errors.forEach((u) => send(u, { errorCode: code }));
+      finish();
+    };
+
+    // Hard ceiling so a stalled creative (buffers forever without ever firing
+    // `error` or `ended`) can't strand the viewer on the ad screen. Sized to
+    // the ad's own length plus slack for buffering. Re-armed on every
+    // pause/resume — a viewer deliberately pausing isn't a stall.
+    const maxWaitMs = (ad.durationSec ? ad.durationSec + 10 : 25) * 1000;
+    const armStall = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => fail(402), maxWaitMs);
+    };
+
+    // ExoClick's "Video Impression" is the play event: fire the impression
+    // pixels of every hop (wrapper + inline) the moment playback really starts
+    const onPlaying = () => {
+      if (started) return;
+      started = true;
+      clearTimeout(startTimer);
+      prevMuted = video.muted;
+      ad.impressions.forEach((u) => once(`imp|${u}`, u));
+      eventOnce("creativeView");
+      eventOnce("impression");
+      eventOnce("start");
+      try {
+        localStorage.setItem("lh_vast_last", String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const onTimeUpdate = () => {
+      const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : (ad.durationSec ?? 0);
+      const t = video.currentTime;
+      if (started && dur) {
+        const frac = t / dur;
+        if (frac >= 0.25) eventOnce("firstQuartile");
+        if (frac >= 0.5) eventOnce("midpoint");
+        if (frac >= 0.75) eventOnce("thirdQuartile");
+      }
+      if (started) {
+        // ExoClick's paid "Video View" = a `progress` event at 10s of playback
+        for (const tr of ad.tracking) {
+          if (tr.event !== "progress") continue;
+          const at = offsetToSec(tr.offset, dur || null);
+          if (at != null && t >= at) once(`progress|${tr.offset}|${tr.url}`, tr.url);
+        }
+      }
+      setSkipIn(Math.max(0, Math.ceil((ad.skipOffsetSec ?? 0) - t)));
+    };
+
+    const onPause = () => {
+      clearTimeout(stallTimer);
+      if (started && !video.ended) {
+        paused = true;
+        eventEvery("pause");
+      }
+    };
+    const onPlay = () => {
+      armStall();
+      if (started && paused) {
+        paused = false;
+        eventEvery("resume");
+      }
+    };
+    const onVolume = () => {
+      if (!started || video.muted === prevMuted) return;
+      prevMuted = video.muted;
+      eventEvery(video.muted ? "mute" : "unmute");
+    };
+    const onEnded = () => {
+      eventOnce("complete");
+      finish();
+    };
+    const onError = () => fail(405);
+
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("volumechange", onVolume);
+    video.addEventListener("ended", onEnded);
+    video.addEventListener("error", onError);
+
+    apiRef.current = {
+      skip: () => {
+        eventOnce("skip");
+        finish();
+      },
+      click: () => {
+        ad.clickTracking.forEach((u) => send(u));
+        if (ad.clickThrough) window.open(fillMacros(ad.clickThrough), "_blank", "noopener,noreferrer");
+      },
+    };
+
     video.src = ad.mediaUrl;
+    armStall();
+    startTimer = setTimeout(() => {
+      if (!started) fail(405);
+    }, START_TIMEOUT_MS);
     video.play().catch(() => {
       // autoplay-with-sound blocked — fall back to muted autoplay
       video.muted = true;
       setShowUnmute(true);
-      video.play().catch(() => {
-        finish();
-      });
+      video.play().catch(() => fail(400));
     });
 
-    ad.impressionPixels.forEach(ping);
-
-    // Hard ceiling so a stalled creative (buffers forever without ever firing
-    // `error` or `ended` — a real, observed failure mode with some ad
-    // networks) can't strand the viewer on the ad screen indefinitely. Sized
-    // to the ad's own declared length when we have one, plus slack for normal
-    // buffering; a generous flat cap otherwise. Counts as a failure, same as
-    // a real error, so the ad network still sees it wasn't a real view.
-    //
-    // Re-armed on every pause/resume (see onPause/onPlay below) — a viewer
-    // deliberately pausing isn't a stall, and without this a long pause
-    // (stepping away, switching tabs) would trip the same timer and force-
-    // finish a perfectly healthy ad mid-watch, firing a false error pixel.
-    const maxWaitMs = (ad.durationSec ? ad.durationSec + 10 : 25) * 1000;
-    let stallTimer: ReturnType<typeof setTimeout> | undefined;
-    const armStallTimer = () => {
-      clearTimeout(stallTimer);
-      stallTimer = setTimeout(() => {
-        ad.errorPixels.forEach((u) => ping(u.replace("[ERRORCODE]", "402")));
-        finish();
-      }, maxWaitMs);
-    };
-    const onPause = () => clearTimeout(stallTimer);
-    const onPlay = () => armStallTimer();
-    armStallTimer();
-    video.addEventListener("pause", onPause);
-    video.addEventListener("play", onPlay);
-
-    const onTimeUpdate = () => {
-      const duration = video.duration || ad.durationSec || 0;
-      if (!duration) return;
-      const frac = video.currentTime / duration;
-      for (const t of ad.trackingEvents) {
-        if (t.event === "skip" || t.atFraction == null) continue;
-        const key = `${t.event}:${t.url}`;
-        if (frac >= t.atFraction && !firedRef.current.has(key)) {
-          firedRef.current.add(key);
-          ping(t.url);
-        }
-      }
-      setSkipIn(Math.max(0, Math.ceil((ad.skipOffsetSec ?? 0) - video.currentTime)));
-    };
-    video.addEventListener("timeupdate", onTimeUpdate);
     return () => {
       clearTimeout(stallTimer);
+      clearTimeout(startTimer);
+      apiRef.current = null;
+      video.removeEventListener("playing", onPlaying);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("play", onPlay);
+      video.removeEventListener("volumechange", onVolume);
+      video.removeEventListener("ended", onEnded);
+      video.removeEventListener("error", onError);
       video.removeAttribute("src");
       video.load();
     };
@@ -160,47 +250,28 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
   }, [ad]);
 
   if (ad === undefined) {
-    // brief resolve window — keep the existing dark frame, no flash of content
-    return <div className="absolute inset-0 bg-black" />;
+    // resolving the VAST chain in the browser — keep the dark frame (no flash
+    // of content) with a small spinner so it doesn't read as a hang
+    return (
+      <div className="absolute inset-0 grid place-items-center bg-black">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-accent" />
+      </div>
+    );
   }
   if (!ad) return null; // finish() already called
 
   const skippable = skipIn != null && skipIn <= 0;
 
   // ExoClick's publisher guidelines: "the video ad should stop when clicked
-  // and resume when clicked again" — a real, separately-reported metric is
-  // watch-through (views/quartiles), not click, so the main video surface
-  // toggles play/pause rather than firing the click-through. Genuine
-  // click-through still exists, just as its own small CTA below, so tapping
-  // to pause never accidentally launches the advertiser's landing page.
+  // and resume when clicked again" — the metric that pays is watch-through
+  // (the 10s view), not click, so the video surface toggles play/pause rather
+  // than firing the click-through. Genuine click-through still exists as its
+  // own small CTA, so tapping to pause never launches the landing page.
   const handleVideoClick = () => {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) video.play().catch(() => {});
     else video.pause();
-  };
-
-  const handleCtaClick = () => {
-    if (!ad.clickThrough) return;
-    ad.clickTracking.forEach(ping);
-    window.open(ad.clickThrough, "_blank", "noopener,noreferrer");
-  };
-
-  const handleSkip = () => {
-    const skipPixel = ad.trackingEvents.find((t) => t.event === "skip")?.url;
-    if (skipPixel) ping(skipPixel);
-    finish();
-  };
-
-  const handleError = () => {
-    ad.errorPixels.forEach((u) => ping(u.replace("[ERRORCODE]", "405")));
-    finish();
-  };
-
-  const handleEnded = () => {
-    const completePixel = ad.trackingEvents.find((t) => t.event === "complete")?.url;
-    if (completePixel && !firedRef.current.has(`complete:${completePixel}`)) ping(completePixel);
-    finish();
   };
 
   return (
@@ -209,8 +280,6 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
         ref={videoRef}
         playsInline
         onClick={handleVideoClick}
-        onEnded={handleEnded}
-        onError={handleError}
         className="h-full w-full cursor-pointer object-contain"
       />
 
@@ -221,7 +290,7 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
       {ad.clickThrough && (
         <button
           type="button"
-          onClick={handleCtaClick}
+          onClick={() => apiRef.current?.click()}
           className="absolute right-3 top-3 rounded bg-black/70 px-2.5 py-1 text-[10px] font-semibold text-white/85 hover:bg-black/85"
         >
           Learn more ↗
@@ -244,7 +313,7 @@ export function PreRollAd({ onDone }: { onDone: () => void }) {
 
       <button
         type="button"
-        onClick={skippable ? handleSkip : undefined}
+        onClick={skippable ? () => apiRef.current?.skip() : undefined}
         disabled={!skippable}
         className={`absolute bottom-3 right-3 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
           skippable
