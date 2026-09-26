@@ -55,8 +55,14 @@ async function main() {
   const revenue = await safe(async () => {
     const rows = await getStats({ dateFrom: ymd, dateTo: ymd, groupBy: "date" });
     const today = rows[0];
-    if (!today) return { revenue: 0, impressions: 0, clicks: 0 };
-    return { revenue: today.revenue, impressions: today.impressions, clicks: today.clicks };
+    if (!today) return { revenue: 0, impressions: 0, clicks: 0, videoImpressions: 0, videoViews: 0 };
+    return {
+      revenue: today.revenue,
+      impressions: today.impressions,
+      clicks: today.clicks,
+      videoImpressions: today.video?.impressions ?? 0,
+      videoViews: today.video?.views ?? 0,
+    };
   }, null);
 
   sections.push({
@@ -66,6 +72,7 @@ async function main() {
           { label: "Revenue", value: money(revenue.revenue) },
           { label: "Impressions", value: revenue.impressions.toLocaleString() },
           { label: "Clicks", value: revenue.clicks.toLocaleString() },
+          { label: "Video pre-roll plays / paid views", value: `${revenue.videoImpressions.toLocaleString()} / ${revenue.videoViews.toLocaleString()}` },
         ]
       : [{ label: "Revenue", value: "unavailable (ExoClick API error — check logs)", warn: true }],
   });

@@ -80,7 +80,11 @@ export function VastAdsSettings() {
             onChange={(e) => setCfg({ ...cfg, skipAfterSec: Number(e.target.value) || 0 })}
             className="mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-white/85 outline-none focus:border-accent/50"
           />
-          <p className="mt-1 text-[11px] text-white/40">0 = use the ad&apos;s own skip offset</p>
+          <p className="mt-1 text-[11px] text-white/40">
+            0 = use the ad&apos;s own skip offset. ExoClick pays for a view after 10s of playback,
+            so keep this at 10+ (and the same on each ExoClick VAST zone) — then every skip is
+            already a paid view.
+          </p>
         </div>
       </div>
 

@@ -470,25 +470,32 @@ export function WatchPlayer({
 
       {started && isVideo && (
         <>
-          <video
-            ref={videoRef}
-            key={cur.key}
-            src={cur.type === "file" ? cur.src : undefined}
-            poster={poster ?? undefined}
-            controls
-            playsInline
-            preload="auto"
-            controlsList="nodownload noremoteplayback"
-            disablePictureInPicture
-            onLoadedData={() => setReady(true)}
-            onCanPlay={() => setReady(true)}
-            onError={failover}
-            onEnded={() => {
-              window.dispatchEvent(new CustomEvent("lh:episode-ended"));
-              if (autoplayRef.current && nextHref) setCountdown(10);
-            }}
-            className={`absolute inset-0 h-full w-full bg-black ${adDone ? "" : "invisible"}`}
-          />
+          {/* Plyr lifts the <video> out of this tree and wraps it in its own
+              container. React must therefore never remove the <video> itself
+              (failover re-keys it; `dead` unmounts it) — removeChild would
+              throw "not a child of this node" and take the whole page down
+              with "Application error". This wrapper is what gets keyed and
+              removed instead, and it stays a direct child of the frame. */}
+          <div key={cur.key} className="absolute inset-0">
+            <video
+              ref={videoRef}
+              src={cur.type === "file" ? cur.src : undefined}
+              poster={poster ?? undefined}
+              controls
+              playsInline
+              preload="auto"
+              controlsList="nodownload noremoteplayback"
+              disablePictureInPicture
+              onLoadedData={() => setReady(true)}
+              onCanPlay={() => setReady(true)}
+              onError={failover}
+              onEnded={() => {
+                window.dispatchEvent(new CustomEvent("lh:episode-ended"));
+                if (autoplayRef.current && nextHref) setCountdown(10);
+              }}
+              className={`absolute inset-0 h-full w-full bg-black ${adDone ? "" : "invisible"}`}
+            />
+          </div>
           {/* Plyr shows its own themed loading spinner once revealed — an
               overlay Spinner here would double up with it. */}
 

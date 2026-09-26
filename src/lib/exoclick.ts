@@ -127,6 +127,9 @@ export type StatsRow = {
    *  "%" suffix; multiplying by 100 again produces nonsense (a zone with
    *  5/492 clicks showed as "101.63%" before this was caught). */
   ctr: number;
+  /** In-stream (VAST) video ads: impressions = play starts, views = the paid event
+   *  (10s of playback). Present on every row, zeros when the row had no video. */
+  video?: { impressions: number; views: number };
   group_by: Record<string, Record<string, string | number>>;
 };
 
