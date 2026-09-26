@@ -80,7 +80,7 @@ export const miohentai: SiteAdapter = {
   },
 };
 
-function parsePost(html: string, url: string): EpisodeRef | null {
+export function parsePost(html: string, url: string): EpisodeRef | null {
   const $ = cheerio.load(html);
 
   const src = decodeEntities(

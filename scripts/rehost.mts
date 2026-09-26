@@ -1,20 +1,24 @@
 /**
- * Re-host episodes whose only sources are dead hotlinks into Bunny.
+ * Re-host episodes whose only source is miohentai into Bunny.
  *
  * miohentai's CDN links are time-limited: a link that worked when scraped is a
  * dead HTML redirect a few days later (and there's no other host for ~77% of
  * those series). The only durable fix is to pull a FRESH link and have Bunny
- * fetch it right away, while it still works. So this works one series at a
- * time: scrape that series' fresh links → migrate exactly those episodes
- * immediately → move on. Runs until nothing is left or time runs out; the
- * targets are re-derived from the DB each run, so it's safe to re-run.
+ * fetch it right away, while it still works.
+ *
+ * miohentai's own search is useless for this (it returns nothing for titles
+ * that exist), so this works from its post sitemap instead: match every post
+ * to our unhosted series by name, then for each matching post — best-rated
+ * series first — fetch the page (fresh link), ingest it, and migrate exactly
+ * that episode immediately. Targets are re-derived from the DB each run, so
+ * it's safe to re-run.
  *
  *   npm run rehost
  *   npm run rehost -- --max-minutes=60 --max-series=25
  */
 import { prisma, db } from "@/lib/db";
-import { Http } from "@/lib/scraper/http";
-import { getAdapter } from "@/lib/scraper/sites";
+import { Http, sitemapLocs } from "@/lib/scraper/http";
+import { parsePost } from "@/lib/scraper/sites/miohentai";
 import { normQuality } from "@/lib/scraper/types";
 import { ingestEpisode, normalizeTitle } from "@/lib/ingest";
 import { bunnyEnabled } from "@/lib/hosting/bunny";
@@ -33,6 +37,7 @@ const flag = (n: string) => {
 const deadline = Date.now() + Number(flag("max-minutes") ?? 300) * 60_000;
 const maxSeries = Number(flag("max-series") ?? 100000);
 const SITE = "miohentai";
+const BASE = "https://miohentai.com";
 const log = (m: string) => console.log(m);
 
 const tok = (s: string) => new Set(s.split(" ").filter((t) => t.length > 1));
@@ -61,9 +66,8 @@ async function targets() {
       select: {
         id: true,
         number: true,
-        part: true,
         seriesId: true,
-        series: { select: { title: true, titleEnglish: true, titleRomaji: true, bayesianRating: true } },
+        series: { select: { title: true, titleEnglish: true, titleRomaji: true, slug: true, altTitles: true, bayesianRating: true } },
       },
       take: 6000,
     }),
@@ -73,41 +77,70 @@ async function targets() {
   return [...bySeries.values()].sort((a, b) => b[0].series.bayesianRating - a[0].series.bayesianRating);
 }
 
+async function postUrls(http: Http): Promise<string[]> {
+  const urls: string[] = [];
+  for (const sm of ["post-sitemap.xml", "post-sitemap2.xml", "post-sitemap3.xml", "post-sitemap4.xml"]) {
+    const xml = await http.getMaybe(`${BASE}/${sm}`);
+    if (!xml) continue;
+    for (const u of sitemapLocs(xml)) if (/^https:\/\/miohentai\.com\/[a-z0-9-]+\/$/i.test(u)) urls.push(u);
+  }
+  return urls;
+}
+
 async function main() {
-  const adapter = getAdapter(SITE);
   const http = new Http(1500);
-  const attempted = new Set<string>(); // don't retry a series that found nothing within one run
-  let done = 0, queued = 0, noRefs = 0;
+  const groups = await targets();
+  console.log(`${groups.length} series need re-hosting (${groups.reduce((n, g) => n + g.length, 0)} episodes)`);
+  if (!groups.length) return finish(0, 0, 0);
 
-  while (Date.now() < deadline && done < maxSeries) {
-    const list = (await targets()).filter((g) => !attempted.has(g[0].seriesId));
-    if (!list.length) break;
-    const group = list[0];
+  const nameSets = groups.map((g) => {
+    const s = g[0].series;
+    const raw = [s.title, s.titleEnglish, s.titleRomaji, s.slug.replace(/-/g, " "), ...s.altTitles.slice(0, 4)].filter(Boolean) as string[];
+    return [...new Set(raw.map((t) => normalizeTitle(t)))].filter((t) => t.length >= 3).map((t) => ({ t, k: tok(t) }));
+  });
+  const exact = new Map<string, number>();
+  nameSets.forEach((ns, i) => ns.forEach((n) => exact.set(n.t, i)));
+
+  // match every miohentai post to a series by its slug
+  const urls = await postUrls(http);
+  const posts = new Map<number, string[]>();
+  for (const u of urls) {
+    const slug = u.replace(BASE + "/", "").replace(/\/$/, "");
+    const pn = normalizeTitle(slug.replace(/-/g, " "));
+    let gi = exact.get(pn);
+    if (gi === undefined) {
+      const pk = tok(pn);
+      let best = 0;
+      nameSets.forEach((ns, i) => ns.forEach((n) => { const j = jaccard(pk, n.k); if (j >= 0.85 && j > best) { best = j; gi = i; } }));
+    }
+    if (gi !== undefined) posts.set(gi, [...(posts.get(gi) ?? []), u]);
+  }
+  console.log(`${urls.length} miohentai posts indexed; ${posts.size} of ${groups.length} target series have a matching post`);
+
+  let done = 0, queued = 0, skipped = 0;
+  for (let gi = 0; gi < groups.length && Date.now() < deadline && done < maxSeries; gi++) {
+    const list = posts.get(gi);
+    if (!list) continue;
+    const group = groups[gi];
     const s = group[0].series;
-    attempted.add(group[0].seriesId);
     done++;
-    const q = s.titleEnglish || s.title || s.titleRomaji || "";
-    log(`\n[${done}] ${s.title} — ${group.length} episode(s) to re-host (${list.length - 1} more series waiting)`);
+    const need = new Map(group.map((e) => [e.number, e]));
+    log(`\n[${done}] ${s.title} — need episode(s) ${[...need.keys()].join(",")} — ${list.length} candidate post(s)`);
 
-    try {
-      const refs = await adapter.findRefsByTitle(http, q);
-      const need = new Map(group.map((e) => [e.number, e]));
-      const names = [...new Set([s.title, s.titleEnglish, s.titleRomaji].filter(Boolean).map((t) => normalizeTitle(t as string)))];
-      const ids: string[] = [];
-      for (const ref of refs) {
+    for (const url of list) {
+      try {
+        const page = await http.getMaybe(url);
+        const ref = page ? parsePost(page, url) : null;
+        if (!ref) { log(`  · ${url.replace(BASE, "")}: no playable video on the page`); continue; }
         const e = need.get(ref.number);
-        if (!e) continue;
-        const rt = normalizeTitle(ref.seriesTitle);
-        if (!names.some((n) => n === rt || jaccard(tok(n), tok(rt)) >= 0.8)) continue; // a different series' post
-        const srcs = ref.sources?.length ? ref.sources : await adapter.fetchSources(http, ref).catch(() => []);
-        if (!srcs.length) continue;
+        if (!e) { log(`  · ${url.replace(BASE, "")}: is episode ${ref.number}, not one we need`); skipped++; continue; }
         const res = await ingestEpisode({
           seriesId: e.seriesId,
           number: ref.number,
           part: ref.part,
           site: SITE,
           publishLive: false,
-          sources: srcs.map((src) => ({
+          sources: ref.sources!.map((src) => ({
             hostOrUrl: src.hostOrUrl,
             embedUrl: src.embedUrl,
             kind: src.kind,
@@ -117,27 +150,24 @@ async function main() {
             direct: src.direct,
           })),
         });
-        ids.push(res.episodeId);
+        // host it NOW — the fresh link is only good for a limited time
+        const m = await runMigrate({ episodeIds: [res.episodeId], limit: 3, retry: true, gapMs: 8000, log });
+        queued += m.queued;
+        need.delete(ref.number);
+        log(`  → episode ${ref.number}: queued ${m.queued}/1${m.errors.length ? ` | ${m.errors[0]}` : ""}`);
+      } catch (err) {
+        log(`  ! ${(err as Error).message}`);
       }
-      if (!ids.length) {
-        noRefs++;
-        log("  · no fresh link found on the source site");
-        continue;
-      }
-      // host them NOW — the fresh links are only good for a limited time
-      const m = await runMigrate({ episodeIds: ids, limit: ids.length + 2, retry: true, log });
-      queued += m.queued;
-      log(`  → queued ${m.queued}/${ids.length}${m.errors.length ? ` | errors: ${m.errors.slice(0, 2).join("; ")}` : ""}`);
-    } catch (e) {
-      log(`  ! ${(e as Error).message}`);
     }
-
     if (done % 15 === 0) await pollHosting({ log }).catch(() => {});
   }
+  await finish(done, queued, skipped);
+}
 
+async function finish(done: number, queued: number, skipped: number) {
   await new Promise((r) => setTimeout(r, 5000));
   const p = await pollHosting({ log }).catch(() => null);
-  console.log(`\n── rehost done: ${done} series tried, ${queued} episodes queued into Bunny, ${noRefs} series had no fresh link ──`);
+  console.log(`\n── rehost done: ${done} series worked, ${queued} episodes queued into Bunny, ${skipped} posts skipped ──`);
   if (p) console.log("poll:", JSON.stringify(p));
   await prisma.$disconnect();
   process.exit(0);
