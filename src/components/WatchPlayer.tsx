@@ -421,7 +421,7 @@ export function WatchPlayer({
               </div>
             )}
             <p className="mt-3 text-xs text-white/50">
-              Or check back shortly — mirrors refresh automatically.
+              {servers.length > 1 ? "Or check" : "Check"} back shortly — mirrors refresh automatically.
             </p>
           </div>
         </div>

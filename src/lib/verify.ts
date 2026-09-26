@@ -168,6 +168,11 @@ export async function runVerify(opts: {
   const log = opts.log ?? (() => {});
   const started = Date.now();
   const staleBefore = new Date(Date.now() - 3 * 864e5);
+  // An episode with no ready hosted copy plays ONLY through these hotlinks, so
+  // a dead one is a broken page — re-check those daily instead of every 3 days
+  // (a link that dies right after a check used to stay "ACTIVE", and the
+  // episode published, for up to 3 days).
+  const hotlinkStaleBefore = new Date(Date.now() - 24 * 36e5);
 
   const sources = await db(() =>
     prisma.videoSource.findMany({
@@ -180,6 +185,10 @@ export async function runVerify(opts: {
               { status: "PENDING" },
               { lastCheckedAt: null },
               { lastCheckedAt: { lt: staleBefore } },
+              {
+                lastCheckedAt: { lt: hotlinkStaleBefore },
+                episode: { OR: [{ bunnyStatus: null }, { bunnyStatus: { not: "ready" } }] },
+              },
             ],
           },
       orderBy: { createdAt: "asc" },

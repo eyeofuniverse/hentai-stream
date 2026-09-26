@@ -342,7 +342,17 @@ const HERO_INCLUDE = {
  * track the former.
  */
 async function getHero(pub: { publish: "PUBLISHED" }) {
-  const baseWhere = { ...pub, coverUrl: { not: null } };
+  // Only series with a hosted (Bunny-ready) episode: the hero is the flagship
+  // and must always play. Hotlink-only episodes (~half the catalogue) can die
+  // between verify runs, and a dead episode as slide #1 is the worst possible
+  // first impression.
+  const baseWhere = {
+    ...pub,
+    coverUrl: { not: null },
+    episodes: {
+      some: { publish: "PUBLISHED" as const, kind: "MAIN" as const, bunnyStatus: "ready" },
+    },
+  };
   const orderBy = [
     { autoPublishedAt: { sort: "desc" as const, nulls: "last" as const } },
     { createdAt: "desc" as const },
