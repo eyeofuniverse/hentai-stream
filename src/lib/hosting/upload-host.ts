@@ -196,7 +196,7 @@ export async function runUploadHost(opts: {
     }
   }
 
-  const workers = Array.from({ length: Math.max(1, opts.concurrency ?? 3) }, async () => {
+  const workers = Array.from({ length: Math.max(1, opts.concurrency ?? 5) }, async () => {
     while (true) {
       if (consecutiveFails >= MAX_CONSECUTIVE_FAILS) return;
       // a download+upload of a big file can take ~20 min: don't start one we can't finish

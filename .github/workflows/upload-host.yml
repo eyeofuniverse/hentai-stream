@@ -21,9 +21,9 @@ on:
         required: false
         default: "320"
       concurrency:
-        description: "parallel download+upload pipelines (default 3)"
+        description: "parallel download+upload pipelines (default 5; the source CDN caps each connection at ~0.2 MB/s)"
         required: false
-        default: "3"
+        default: "5"
   schedule:
     - cron: "10 */6 * * *" # keeps going until nothing is left
 
@@ -56,6 +56,6 @@ jobs:
       - run: npx prisma generate
       - name: Download + upload
         run: |
-          ARGS="--max-minutes=${{ github.event.inputs.max_minutes || '320' }} --concurrency=${{ github.event.inputs.concurrency || '3' }}"
+          ARGS="--max-minutes=${{ github.event.inputs.max_minutes || '320' }} --concurrency=${{ github.event.inputs.concurrency || '5' }}"
           [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
           npm run upload-host -- $ARGS

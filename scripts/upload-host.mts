@@ -24,7 +24,7 @@ const s = await runUploadHost({
   site: flag("site") || "hentaigasm",
   limit: flag("limit") ? Number(flag("limit")) : undefined,
   maxMinutes: Number(flag("max-minutes") ?? 300),
-  concurrency: Number(flag("concurrency") ?? 3),
+  concurrency: Number(flag("concurrency") ?? 5),
   log: (m) => console.log(m),
 });
 console.log(
