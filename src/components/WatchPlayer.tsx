@@ -178,6 +178,11 @@ export function WatchPlayer({
   // true once the current server has delivered a playable frame — read by the
   // slow-start watchdog below (the `ready` state can also be set by the 9s
   // reveal fallback, which says nothing about whether data actually arrived)
+  // bumped to remount the player on the LAST server after a transient error
+  const [attempt, setAttempt] = useState(0);
+  const lastRetryRef = useRef(false);
+  const idxRef = useRef(0);
+  idxRef.current = idx;
   const hasDataRef = useRef(false);
   // where to pick up on the next server after a mid-playback failover
   const resumeRef = useRef(0);
@@ -185,15 +190,19 @@ export function WatchPlayer({
     setReady(false);
     setShowUnmute(false);
     hasDataRef.current = false;
-  }, [idx]);
+  }, [idx, attempt]);
   const failover = useCallback(() => {
     const v = videoRef.current;
     if (v && v.currentTime > 3) resumeRef.current = v.currentTime;
-    setIdx((i) => {
-      if (i + 1 < servers.length) return i + 1;
-      setDead(true);
-      return i;
-    });
+    const i = idxRef.current;
+    if (i + 1 < servers.length) setIdx(i + 1);
+    else if (!lastRetryRef.current) {
+      // Out of servers. One transient error (a CDN hiccup on our Bunny copy)
+      // shouldn't end the session — remount the last server once, resuming at
+      // the same position, before showing the dead-end screen.
+      lastRetryRef.current = true;
+      setAttempt((a) => a + 1);
+    } else setDead(true);
   }, [servers.length]);
 
   // Slow hotlink → next server. Hotlinks come first (fast + free) but they can
@@ -245,6 +254,7 @@ export function WatchPlayer({
   }, [ready, showPlayer, idx, isEmbed, failover]);
 
   const pickServer = useCallback((i: number) => {
+    lastRetryRef.current = false; // a server the viewer picks by hand gets its own retry
     setDead(false);
     setReady(false);
     setIdx(i);
@@ -287,7 +297,7 @@ export function WatchPlayer({
       killed = true;
       hls?.destroy();
     };
-  }, [started, cur, failover]);
+  }, [started, cur, attempt, failover]);
 
   /* ── <video>: Plyr skin — also as soon as started, so there's no flash of
         native controls the moment the ad ends and the video is revealed.
@@ -328,7 +338,7 @@ export function WatchPlayer({
       plyrRef.current?.destroy();
       plyrRef.current = null;
     };
-  }, [started, isVideo, cur?.key]);
+  }, [started, isVideo, cur?.key, attempt]);
 
   // double-tap left/right half of the video to seek -10s/+10s — a standard
   // mobile gesture Plyr doesn't provide out of the box. Gated to mobile
@@ -528,7 +538,7 @@ export function WatchPlayer({
               throw "not a child of this node" and take the whole page down
               with "Application error". This wrapper is what gets keyed and
               removed instead, and it stays a direct child of the frame. */}
-          <div key={cur.key} className="absolute inset-0">
+          <div key={`${cur.key}-${attempt}`} className="absolute inset-0">
             <video
               ref={videoRef}
               src={cur.type === "file" ? cur.src : undefined}
