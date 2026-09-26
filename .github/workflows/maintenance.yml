@@ -17,6 +17,10 @@ name: Catalogue maintenance
 #               Bunny each night (bounded batch — see the script's own
 #               comment for why this can't just be one big sweep)
 #
+# Every step has its own timeout-minutes so one slow step (topup/repair ran 3-4h
+# each and hit the 300 min job cap on 2026-09-25, starving recompute/cleanup/the
+# rest) can never starve the steps after it. Budgets sum to well under the job cap.
+#
 # Repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID, BUNNY_STREAM_*,
 #   BLUESKY_HANDLE, BLUESKY_APP_PASSWORD
 
@@ -63,6 +67,7 @@ jobs:
       - run: npx prisma generate
 
       - name: Drain unmatched queue
+        timeout-minutes: 20
         continue-on-error: true
         run: npm run unmatched:drain -- --limit=150
 
@@ -76,42 +81,52 @@ jobs:
       # playable source today — see src/lib/hosting/migrate.ts's dt_embed
       # exclusion. Worth adding back once a delivery layer exists for that.
       - name: Topup — series still missing video
+        timeout-minutes: 90
         if: ${{ github.event.inputs.skip_topup != 'true' }}
         continue-on-error: true
         run: npm run scrape -- --site=watchhentai,hentaigasm,miohentai --mode=topup --limit=200
 
       - name: Repair — re-fetch DEAD source URLs
+        timeout-minutes: 30
         continue-on-error: true
         run: npm run scrape -- --site=watchhentai,hentaigasm,miohentai --mode=repair --limit=150
 
       - name: Covers + metadata — anilist (coverless first)
+        timeout-minutes: 20
         continue-on-error: true
         run: npm run enrich -- --source=anilist --limit=250
 
       - name: Verify
+        timeout-minutes: 30
         continue-on-error: true
         run: npm run verify
 
       - name: Migrate playable episodes into Bunny
+        timeout-minutes: 30
         continue-on-error: true
         run: npm run migrate -- --retry
 
       - name: Reconcile — delete orphaned/failed Bunny videos
+        timeout-minutes: 15
         continue-on-error: true
         run: npm run reconcile-bunny
 
       - name: Recompute derived metrics
+        timeout-minutes: 10
         continue-on-error: true
         run: npm run recompute
 
       - name: Retention cleanup — prune old PageVisit/AdminLoginAttempt/IpGeoCache/junk search terms
+        timeout-minutes: 10
         continue-on-error: true
         run: npm run cleanup
 
       - name: Repair a small batch of dead episode thumbnails
+        timeout-minutes: 10
         continue-on-error: true
         run: npm run repair-thumbs
 
       - name: Ping IndexNow with what changed
+        timeout-minutes: 10
         continue-on-error: true
         run: npm run indexnow -- --hours=26
