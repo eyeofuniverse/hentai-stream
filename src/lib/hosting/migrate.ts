@@ -130,7 +130,13 @@ export async function runMigrate(opts: {
       },
       // best-rated series first: hosting is the cost driver, so if it ever has
       // to be capped the least popular titles are the ones left waiting
-      orderBy: [{ series: { bayesianRating: "desc" } }, { createdAt: "asc" }],
+      // never-attempted episodes before retries of failed ones, so a stubborn
+      // failure at the head of the list can't starve everything behind it
+      orderBy: [
+        { bunnyStatus: { sort: "asc", nulls: "first" } },
+        { series: { bayesianRating: "desc" } },
+        { createdAt: "asc" },
+      ],
       take: opts.limit ?? 700,
       select: {
         id: true,
@@ -160,10 +166,21 @@ export async function runMigrate(opts: {
   // limited / IP-banned if we fire many concurrent fetches. So: one episode at
   // a time, confirm the fetch actually started before moving on, fall through
   // to the mirror URL on failure, and pause between episodes.
-  const gap = opts.gapMs ?? 12_000;
+  const gap = opts.gapMs ?? 20_000;
   const confirmMs = 9_000;
 
+  // Circuit breaker: the source CDNs are small boxes that start refusing Bunny's
+  // fetch workers when hit continuously (hgasm1/2/3 did after hours of pulling:
+  // 300 failures in 3h, each one marking an episode failed and prolonging the
+  // block). A run of consecutive failures means "back off", not "try the rest" —
+  // stop and let the next scheduled run pick up after a cool-down.
+  let consecutiveFails = 0;
+  const MAX_CONSECUTIVE_FAILS = 6;
   for (const ep of episodes) {
+    if (consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
+      log(`migrate: ${consecutiveFails} episodes in a row failed — the source CDNs are refusing Bunny. Stopping so they can cool down; the next run resumes.`);
+      break;
+    }
     s.episodesSeen++;
     if (ep.series.contentWarnings.includes("possible-minor")) {
       s.skipped++;
@@ -264,6 +281,7 @@ export async function runMigrate(opts: {
       }
     }
 
+    consecutiveFails = done ? 0 : consecutiveFails + 1;
     if (!done) {
       s.errors.push(`${ep.series.title} E${ep.number}: all mirrors failed`);
       await db(() =>
