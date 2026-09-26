@@ -18,6 +18,12 @@ const nextConfig = {
         headers: [
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          // Nobody else may iframe our pages — including /embed/*, which renders the
+          // full player over our Bunny-hosted files. Without this any site could embed
+          // our episodes (hotlinking through our own domain). Crawlers fetch the pages
+          // normally; frame-ancestors only restricts who may render them in a frame.
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],
       },
     ];

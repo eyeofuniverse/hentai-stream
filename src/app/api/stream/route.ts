@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma, db } from "@/lib/db";
 import { verifyStream } from "@/lib/stream";
 import { hlsUrl } from "@/lib/hosting/bunny";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +19,12 @@ export async function GET(req: Request) {
 
   if (!e || !s || !t || !verifyStream(e, s, t)) {
     return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // One play is one request (hls.js reuses the signed playlist), so this is far
+  // above real use but stops a script minting signed Bunny URLs across the catalog.
+  if (!rateLimit(`stream:${clientIp(req)}`, 60, 60_000)) {
+    return new NextResponse("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
   }
 
   let realUrl: string | null = null;
