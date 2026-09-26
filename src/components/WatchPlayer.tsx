@@ -8,6 +8,14 @@ import { gradientFor } from "@/lib/gradient";
 import { PreRollAd } from "@/components/ads/PreRollAd";
 import { gaEvent } from "@/lib/ga";
 
+/** A hotlinked file that hasn't produced playable data this long after the
+ *  viewer pressed play is treated as too slow → hand over to the next server
+ *  (normally our Bunny copy, which keeps loading through the rest of the ad). */
+const SLOW_START_MS = 8000;
+/** ...and one that starves for data this long mid-playback does the same,
+ *  resuming at the same position. */
+const STALL_MS = 10000;
+
 /** Glow + icon + running total for the double-tap seek gesture. Always
  *  mounted (never conditionally rendered) so opacity/scale are real CSS
  *  transitions in both directions, instead of the old version which just
@@ -167,17 +175,61 @@ export function WatchPlayer({
     img.src = poster;
   }, [poster]);
 
+  // true once the current server has delivered a playable frame — read by the
+  // slow-start watchdog below (the `ready` state can also be set by the 9s
+  // reveal fallback, which says nothing about whether data actually arrived)
+  const hasDataRef = useRef(false);
+  // where to pick up on the next server after a mid-playback failover
+  const resumeRef = useRef(0);
   useEffect(() => {
     setReady(false);
     setShowUnmute(false);
+    hasDataRef.current = false;
   }, [idx]);
   const failover = useCallback(() => {
+    const v = videoRef.current;
+    if (v && v.currentTime > 3) resumeRef.current = v.currentTime;
     setIdx((i) => {
       if (i + 1 < servers.length) return i + 1;
       setDead(true);
       return i;
     });
   }, [servers.length]);
+
+  // Slow hotlink → next server. Hotlinks come first (fast + free) but they can
+  // be alive and crawling; when a later server exists (our Bunny copy), give a
+  // direct file 8s from the play press to deliver a frame, then switch. Timed
+  // from the press, not the end of the pre-roll, so Bunny is already buffering
+  // by the time the ad finishes.
+  useEffect(() => {
+    if (!started || !cur || cur.type !== "file" || idx + 1 >= servers.length) return;
+    const t = setTimeout(() => {
+      if (!hasDataRef.current) failover();
+    }, SLOW_START_MS);
+    return () => clearTimeout(t);
+  }, [started, cur, idx, servers.length, failover]);
+
+  // Mid-playback stall → next server at the same position (failover() records
+  // it; the new video seeks there on loadedmetadata).
+  useEffect(() => {
+    if (!showPlayer || !isVideo || idx + 1 >= servers.length) return;
+    const v = videoRef.current;
+    if (!v) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const arm = () => {
+      clearTimeout(t);
+      t = setTimeout(failover, STALL_MS);
+    };
+    const disarm = () => clearTimeout(t);
+    const clears = ["playing", "pause", "ended", "emptied"] as const;
+    v.addEventListener("waiting", arm);
+    clears.forEach((ev) => v.addEventListener(ev, disarm));
+    return () => {
+      clearTimeout(t);
+      v.removeEventListener("waiting", arm);
+      clears.forEach((ev) => v.removeEventListener(ev, disarm));
+    };
+  }, [showPlayer, isVideo, idx, servers.length, failover]);
 
   useEffect(() => {
     if (ready || !showPlayer) return;
@@ -486,8 +538,19 @@ export function WatchPlayer({
               preload="auto"
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
-              onLoadedData={() => setReady(true)}
-              onCanPlay={() => setReady(true)}
+              onLoadedMetadata={(e) => {
+                const at = resumeRef.current;
+                resumeRef.current = 0;
+                if (at > 3) e.currentTarget.currentTime = at;
+              }}
+              onLoadedData={() => {
+                hasDataRef.current = true;
+                setReady(true);
+              }}
+              onCanPlay={() => {
+                hasDataRef.current = true;
+                setReady(true);
+              }}
               onError={failover}
               onEnded={() => {
                 window.dispatchEvent(new CustomEvent("lh:episode-ended"));

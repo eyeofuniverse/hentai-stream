@@ -53,18 +53,38 @@ const qLabel = (q: string | null) =>
   q && q !== "UNKNOWN" ? q.replace(/^Q/, "") + "p" : null;
 
 /**
- * Ordered playback list. The Bunny copy (our own hosted HLS, played in our
- * own Plyr player — not Bunny's iframe embed) is first; tokenised mirrors
- * follow for silent auto-failover. The client shows none of this — it just
- * plays, falling through on error.
+ * Ordered playback list — the player tries them in this order and falls
+ * through silently on an error, a slow start, or a mid-playback stall:
+ *
+ *   1. direct-file hotlinks that verify says are alive (fast, and free of
+ *      Bunny delivery cost)
+ *   2. our own Bunny copy (hosted HLS, played in our own Plyr player) — the
+ *      safety net every episode is meant to have, so a hotlink that dies
+ *      never shows the viewer a broken page
+ *   3. iframe embeds, last: a cross-origin frame can't report failure, so
+ *      they're the least trustworthy option
  */
 export function buildServers(
   episodeId: string,
   bunnyReady: boolean,
   sources: SrcRow[],
 ): Server[] {
-  const out: Server[] = [];
+  const files: Server[] = [];
+  const frames: Server[] = [];
 
+  for (const s of sources) {
+    if (!/^https:\/\//i.test(s.embedUrl)) continue;
+    if (/\?dt_embed=/.test(s.embedUrl)) continue; // un-embeddable player page
+    (s.direct ? files : frames).push({
+      key: s.id,
+      quality: qLabel(s.quality),
+      kind: s.kind + (s.language && s.language !== "en" ? ` ${s.language.toUpperCase()}` : ""),
+      type: s.direct ? "file" : "iframe",
+      src: streamPath(episodeId, s.id),
+    });
+  }
+
+  const out = files.slice(0, 3);
   if (bunnyReady) {
     out.push({
       key: "bunny",
@@ -74,20 +94,7 @@ export function buildServers(
       src: streamPath(episodeId, "bunny"),
     });
   }
-
-  for (const s of sources) {
-    if (!/^https:\/\//i.test(s.embedUrl)) continue;
-    if (/\?dt_embed=/.test(s.embedUrl)) continue; // un-embeddable player page
-    out.push({
-      key: s.id,
-      quality: qLabel(s.quality),
-      kind: s.kind + (s.language && s.language !== "en" ? ` ${s.language.toUpperCase()}` : ""),
-      type: s.direct ? "file" : "iframe",
-      src: streamPath(episodeId, s.id),
-    });
-    if (out.length >= 6) break;
-  }
-
+  out.push(...frames.slice(0, 2));
   return out;
 }
 

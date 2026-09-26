@@ -99,9 +99,11 @@ export async function runMigrate(opts: {
   limit?: number;
   retry?: boolean; // also re-queue previously-failed episodes
   site?: string; // only episodes whose picked source is from this site
-  /** also migrate episodes that already have a working hotlink (default: only
-   *  migrate episodes whose only sources are locked/rejected — the ones that
-   *  can't play any other way) */
+  /** migrate exactly these episodes (used by the re-host job, which pulls a
+   *  fresh link and must host it immediately, before the link expires) */
+  episodeIds?: string[];
+  /** kept for CLI compatibility. Every episode is hosted now — a working
+   *  hotlink no longer exempts it (see the policy note in verify.ts). */
   all?: boolean;
   gapMs?: number;
   log?: (m: string) => void;
@@ -114,20 +116,21 @@ export async function runMigrate(opts: {
   const episodes = await db(() =>
     prisma.episode.findMany({
       where: {
+        ...(opts.episodeIds ? { id: { in: opts.episodeIds } } : {}),
         // trailer/preview clips aren't real episodes — don't spend Bunny
         // storage/transcoding on them (see Episode.kind)
         kind: "MAIN",
         AND: [
           { sources: { some: { direct: true, status: { not: "DEAD" as const } } } },
-          // default: only episodes that can't play any other way (no live hotlink)
-          ...(opts.all ? [] : [{ sources: { none: { status: "ACTIVE" as const } } }]),
         ],
         OR: [
           { bunnyGuid: null },
           ...(opts.retry ? [{ bunnyStatus: "failed" as const }] : []),
         ],
       },
-      orderBy: { createdAt: "asc" },
+      // best-rated series first: hosting is the cost driver, so if it ever has
+      // to be capped the least popular titles are the ones left waiting
+      orderBy: [{ series: { bayesianRating: "desc" } }, { createdAt: "asc" }],
       take: opts.limit ?? 700,
       select: {
         id: true,

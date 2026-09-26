@@ -70,12 +70,19 @@ export async function checkUrl(url: string, direct: boolean): Promise<CheckResul
   return { status: "ACTIVE", reason: "embeddable" };
 }
 
-/** Publish an episode if it has a live source, and its series if it has a live
+/** Publish an episode once it's HOSTED, and its series once it has a live
  *  episode — respecting the possible-minor gate. Used by verify + ingest.
  *  Whatever newly goes live gets pinged to IndexNow right here, so every
  *  auto-publish path (webhook, poll, verify, torrent-approve) reports new
  *  content the moment it's actually reachable — not just admin-triggered
- *  edits through the console. */
+ *  edits through the console.
+ *
+ *  Policy: every video is hosted in Bunny. A hotlink can die days after it
+ *  was verified, and a published episode that won't play costs reputation, so
+ *  a *new* episode only goes live once its Bunny copy is ready. An episode
+ *  that's already live through a verified hotlink (from before this policy)
+ *  stays up while it's being hosted, and comes down the moment that hotlink
+ *  dies with no hosted copy behind it. */
 export async function publishIfLive(episodeId: string): Promise<{
   episodePublished: boolean;
   seriesPublished: boolean;
@@ -89,7 +96,7 @@ export async function publishIfLive(episodeId: string): Promise<{
         number: true,
         bunnyStatus: true,
         needsReview: true,
-        series: { select: { slug: true, publish: true, contentWarnings: true } },
+        series: { select: { slug: true, publish: true, contentWarnings: true, autoPublishedAt: true } },
         _count: { select: { sources: { where: { status: "ACTIVE" } } } },
       },
     }),
@@ -98,22 +105,22 @@ export async function publishIfLive(episodeId: string): Promise<{
 
   // possible-minor OR awaiting a torrent-grab spot-check → never auto-publish
   const blocked = ep.series.contentWarnings.includes("possible-minor") || ep.needsReview;
-  // playable = a ready hosted copy, or (transition) a live hotlinkable source
-  const playable = ep.bunnyStatus === "ready" || ep._count.sources > 0;
+  const hosted = ep.bunnyStatus === "ready";
+  // playable = hosted, or (grandfathered) a live hotlinkable source — enough to
+  // KEEP an already-live episode up, never enough to publish a new one
+  const playable = hosted || ep._count.sources > 0;
   let episodePublished = false;
   let seriesPublished = false;
 
-  if (!blocked && playable && ep.publish !== "PUBLISHED") {
+  if (!blocked && hosted && ep.publish !== "PUBLISHED") {
     await db(() =>
       prisma.episode.update({ where: { id: episodeId }, data: { publish: "PUBLISHED" } }),
     );
     episodePublished = true;
-  } else if (blocked || !playable) {
-    if (ep.publish === "PUBLISHED") {
-      await db(() =>
-        prisma.episode.update({ where: { id: episodeId }, data: { publish: "DRAFT" } }),
-      );
-    }
+  } else if (ep.publish === "PUBLISHED" && (blocked || !playable)) {
+    await db(() =>
+      prisma.episode.update({ where: { id: episodeId }, data: { publish: "DRAFT" } }),
+    );
   }
 
   if (!blocked && ep.series.publish === "DRAFT") {
@@ -126,7 +133,14 @@ export async function publishIfLive(episodeId: string): Promise<{
       await db(() =>
         prisma.series.update({
           where: { id: ep.seriesId },
-          data: { publish: "PUBLISHED", autoPublishedAt: new Date(), reviewedAt: null },
+          data: {
+            publish: "PUBLISHED",
+            // a series that was live before and came back (auto-hidden while
+            // nothing played) keeps its original publish date and review state
+            // — resetting them would flood the spot-check queue and push
+            // every re-hosted series to the top of the homepage hero
+            ...(ep.series.autoPublishedAt ? {} : { autoPublishedAt: new Date(), reviewedAt: null }),
+          },
         }),
       );
       seriesPublished = true;
@@ -144,6 +158,26 @@ export async function publishIfLive(episodeId: string): Promise<{
   return { episodePublished, seriesPublished };
 }
 
+/**
+ * Take down auto-published series that no longer have a single live real
+ * episode (every source died and nothing is hosted). Left up they render "No
+ * episodes published yet" pages that still sit in browse, search and the
+ * sitemap. Only series the pipeline auto-published are touched — anything an
+ * admin created by hand is theirs to manage — and publishIfLive brings one
+ * back automatically the moment an episode is hosted again.
+ */
+export async function hideEmptySeries(): Promise<number> {
+  return db(() =>
+    prisma.$executeRaw`
+      UPDATE "Series" s SET publish = 'DRAFT', "updatedAt" = now()
+      WHERE s.publish = 'PUBLISHED' AND s."autoPublishedAt" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "Episode" e
+          WHERE e."seriesId" = s.id AND e.publish = 'PUBLISHED' AND e.kind = 'MAIN'
+        )`,
+  );
+}
+
 export interface VerifySummary {
   checked: number;
   active: number;
@@ -151,6 +185,7 @@ export interface VerifySummary {
   rejected: number;
   episodesPublished: number;
   seriesPublished: number;
+  seriesHidden: number;
   tookMs: number;
 }
 
@@ -205,6 +240,7 @@ export async function runVerify(opts: {
     rejected: 0,
     episodesPublished: 0,
     seriesPublished: 0,
+    seriesHidden: 0,
     tookMs: 0,
   };
   const touchedEpisodes = new Set<string>();
@@ -237,6 +273,7 @@ export async function runVerify(opts: {
     if (p.episodePublished) s.episodesPublished++;
     if (p.seriesPublished) s.seriesPublished++;
   }
+  s.seriesHidden = await hideEmptySeries();
 
   s.tookMs = Date.now() - started;
   return s;

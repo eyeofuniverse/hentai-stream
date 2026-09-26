@@ -1,0 +1,60 @@
+name: Re-host expired hotlinks (Bunny)
+
+# miohentai's CDN links expire within days, and it's the ONLY source for ~77%
+# of the series that depend on it. Policy: every video is hosted in Bunny, so
+# this pulls a fresh link per series and has Bunny fetch it immediately
+# (scripts/rehost.mts). Verifies first so dead links are flagged, then re-hosts
+# best-rated series first. Safe to re-run: targets are re-derived from the DB.
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_LIBRARY_ID,
+#               BUNNY_STREAM_API_KEY, BUNNY_STREAM_SECURITY_KEY, BUNNY_STREAM_CDN_HOST
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_minutes:
+        description: "stop after this many minutes (default 320)"
+        required: false
+        default: "320"
+      max_series:
+        description: "stop after this many series (blank = no limit)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "40 */6 * * *" # keeps going until nothing is left to re-host
+
+concurrency:
+  group: rehost-bunny
+  cancel-in-progress: false
+
+jobs:
+  rehost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=12"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
+            echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "BUNNY_STREAM_SECURITY_KEY=${{ secrets.BUNNY_STREAM_SECURITY_KEY }}"
+            echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+            echo "MAL_CLIENT_ID=${{ secrets.MAL_CLIENT_ID }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Flag dead links first
+        run: npm run verify -- --limit=6000
+      - name: Re-host
+        run: |
+          ARGS="--max-minutes=${{ github.event.inputs.max_minutes || '320' }}"
+          [ -n "${{ github.event.inputs.max_series }}" ] && ARGS="$ARGS --max-series=${{ github.event.inputs.max_series }}"
+          npm run rehost -- $ARGS
