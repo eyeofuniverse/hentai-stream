@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { signGate, verifyGate, tokenEqual } from "@/lib/admin/gate";
+import { isSuspectBrowserUA } from "@/lib/bot-ua";
 
 const PROD = process.env.NODE_ENV === "production";
 const SESSION_COOKIE = PROD ? "__Host-lhc_session" : "lhc_session";
@@ -39,6 +40,17 @@ export async function middleware(req: NextRequest) {
     const gateOk = await verifyGate(req.cookies.get(GATE_COOKIE)?.value);
     if (!hasSession && !gateOk) {
       return new NextResponse(null, { status: 404 });
+    }
+    return NextResponse.next();
+  }
+
+  // Scraper bots (stale-UA headless browsers, see lib/bot-ua.ts) must not be served
+  // ads or the VAST config: it would fire ad impressions from fake traffic. Runs
+  // here — before Vercel's edge cache — so a cached ad response can't leak to them.
+  if (pathname === "/api/ads/active" || pathname === "/api/ads/vast") {
+    if (isSuspectBrowserUA(req.headers.get("user-agent") ?? "")) {
+      const empty = pathname === "/api/ads/vast" ? { tags: [], capMinutes: 30, skipAfterSec: 0 } : null;
+      return NextResponse.json(empty, { headers: { "Cache-Control": "no-store" } });
     }
     return NextResponse.next();
   }
@@ -95,6 +107,8 @@ export const config = {
     "/console",
     "/console/:path*",
     "/api/console/:path*",
+    "/api/ads/active",
+    "/api/ads/vast",
     "/watchlist/:path*",
     "/history/:path*",
     "/account/:path*",
