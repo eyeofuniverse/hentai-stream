@@ -1,0 +1,61 @@
+name: Upload-host videos (Bunny, download+upload)
+
+# hentaigasm's CDN (hgasm1/2/3.com) serves normal clients but refuses Bunny's own
+# fetch workers, which left ~500 episodes failed. Here the runner downloads each
+# MP4 itself and PUTs it to Bunny (scripts/upload-host.mts) — datacentre bandwidth
+# on the runner, Bunny ingress is free. Best-rated series first. Safe to re-run:
+# targets are re-derived from the DB every run, and 5 failures in a row stops it.
+#
+# Repo secrets: DATABASE_URL, DIRECT_URL, BUNNY_STREAM_LIBRARY_ID,
+#               BUNNY_STREAM_API_KEY, BUNNY_STREAM_SECURITY_KEY, BUNNY_STREAM_CDN_HOST
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "max episodes this run (blank = no limit)"
+        required: false
+        default: ""
+      max_minutes:
+        description: "stop starting new episodes after this many minutes (default 320)"
+        required: false
+        default: "320"
+      concurrency:
+        description: "parallel download+upload pipelines (default 3)"
+        required: false
+        default: "3"
+  schedule:
+    - cron: "10 */6 * * *" # keeps going until nothing is left
+
+concurrency:
+  group: upload-host
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=12"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "BUNNY_STREAM_LIBRARY_ID=${{ secrets.BUNNY_STREAM_LIBRARY_ID }}"
+            echo "BUNNY_STREAM_API_KEY=${{ secrets.BUNNY_STREAM_API_KEY }}"
+            echo "BUNNY_STREAM_SECURITY_KEY=${{ secrets.BUNNY_STREAM_SECURITY_KEY }}"
+            echo "NEXT_PUBLIC_BUNNY_CDN_HOST=${{ secrets.BUNNY_STREAM_CDN_HOST }}"
+          } > .env
+      - run: npx prisma generate
+      - name: Download + upload
+        run: |
+          ARGS="--max-minutes=${{ github.event.inputs.max_minutes || '320' }} --concurrency=${{ github.event.inputs.concurrency || '3' }}"
+          [ -n "${{ github.event.inputs.limit }}" ] && ARGS="$ARGS --limit=${{ github.event.inputs.limit }}"
+          npm run upload-host -- $ARGS

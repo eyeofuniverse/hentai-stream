@@ -26,6 +26,7 @@
     "verify": "tsx --env-file=.env scripts/verify.mts",
     "migrate": "tsx --env-file=.env scripts/migrate.mts",
     "rehost": "tsx --env-file=.env scripts/rehost.mts",
+    "upload-host": "tsx --env-file=.env scripts/upload-host.mts",
     "reconcile-bunny": "tsx --env-file=.env scripts/reconcile-bunny.mts",
     "torrent": "tsx --env-file=.env scripts/torrent.mts",
     "daily-report": "tsx --env-file=.env scripts/daily-report.mts",

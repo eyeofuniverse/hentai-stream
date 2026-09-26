@@ -38,7 +38,7 @@ export async function copyBunnyThumbToR2(episodeId: string): Promise<void> {
 }
 
 /** Referer a source site's CDN expects, if any. */
-const SITE_REFERER: Record<string, string> = {
+export const SITE_REFERER: Record<string, string> = {
   watchhentai: "https://watchhentai.net/",
   hentaimama: "https://hentaimama.io/",
 };
@@ -51,7 +51,7 @@ const SITE_RANK: Record<string, number> = {
   hentaimama: 3,
 };
 
-type Src = {
+export type Src = {
   id: string;
   embedUrl: string;
   direct: boolean;
@@ -63,7 +63,7 @@ type Src = {
 /** All Bunny-fetchable sources for an episode, best first — ACTIVE before
  *  REJECTED, then by site rank. Player-page embeds (hentaimama) aren't
  *  fetchable. Multiple entries = mirror URLs to fall back through. */
-function usableSources(sources: Src[]): Src[] {
+export function usableSources(sources: Src[]): Src[] {
   return sources
     .filter(
       (s) =>
