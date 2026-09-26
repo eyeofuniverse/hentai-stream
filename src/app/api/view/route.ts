@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { rateLimit, clientIp, isSameOrigin } from "@/lib/ratelimit";
+import { isBotUA } from "@/lib/bot-ua";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   if (!isSameOrigin(req)) return NextResponse.json({ ok: true });
+  // bots and the stale-UA scraper must not move viewCount / trendingScore
+  if (isBotUA(req.headers.get("user-agent") ?? "")) return NextResponse.json({ ok: true });
 
   const { episodeId } = await req.json().catch(() => ({}));
   if (typeof episodeId !== "string" || episodeId.length > 64)

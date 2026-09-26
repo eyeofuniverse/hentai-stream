@@ -61,6 +61,9 @@ export async function generateMetadata({
   return {
     title,
     description: desc,
+    // nothing playable yet (all episodes still draft/hosting) → a thin page; keep it
+    // out of the index until an episode is published, but let its links be followed
+    ...(s.episodes.length === 0 ? { robots: { index: false, follow: true } } : {}),
     alternates: { canonical: `/hentai/${s.slug}` },
     openGraph: {
       title,

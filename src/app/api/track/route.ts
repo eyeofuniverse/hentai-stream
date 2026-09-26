@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { rateLimit, clientIp, isSameOrigin } from "@/lib/ratelimit";
-import { isSuspectBrowserUA } from "@/lib/bot-ua";
+import { isBotUA } from "@/lib/bot-ua";
 
 export const dynamic = "force-dynamic";
-
-const BOT_PATTERN = /bot|crawl|spider|slurp|archiv|wget|curl|python|httpclient|facebookexternalhit|headless/i;
 
 function parseDeviceType(ua: string): "mobile" | "tablet" | "desktop" {
   if (/tablet|ipad|playbook|silk|(android(?!.*mobi))/i.test(ua)) return "tablet";
@@ -76,7 +74,7 @@ export async function POST(req: Request) {
     }
 
     const ua = req.headers.get("user-agent") ?? "";
-    if (BOT_PATTERN.test(ua) || isSuspectBrowserUA(ua)) return NextResponse.json({ ok: true });
+    if (isBotUA(ua)) return NextResponse.json({ ok: true });
 
     // The body's referrer is document.referrer (the real external landing
     // page). The HTTP Referer header would just be the previous same-site

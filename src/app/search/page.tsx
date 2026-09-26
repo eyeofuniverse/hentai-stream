@@ -7,6 +7,7 @@ import { browseSeries } from "@/lib/queries";
 import { SearchBar } from "@/components/SearchBar";
 import { SeriesCard } from "@/components/SeriesCard";
 import { SITE, socialMeta } from "@/lib/seo";
+import { isBotUA } from "@/lib/bot-ua";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function SearchPage({
     headers().then((h) => h.get("user-agent") ?? ""),
   ]);
 
-  if (term.length >= 2 && !isBot(ua)) {
+  if (term.length >= 2 && !isBot(ua) && !isBotUA(ua)) {
     await recordSearch({
       raw: term,
       resultCount: series.length,

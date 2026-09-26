@@ -23,7 +23,8 @@ export async function GET(req: Request) {
 
   // One play is one request (hls.js reuses the signed playlist), so this is far
   // above real use but stops a script minting signed Bunny URLs across the catalog.
-  if (!rateLimit(`stream:${clientIp(req)}`, 60, 60_000)) {
+  // Generous on purpose: a mobile carrier's CGNAT puts many real viewers behind one IP.
+  if (!rateLimit(`stream:${clientIp(req)}`, 120, 60_000)) {
     return new NextResponse("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
   }
 
