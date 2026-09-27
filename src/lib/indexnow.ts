@@ -15,7 +15,7 @@ export async function pingIndexNow(urlsOrPaths: string[]): Promise<void> {
   if (urlList.length === 0) return;
 
   try {
-    await fetch("https://api.indexnow.org/indexnow", {
+    const res = await fetch("https://api.indexnow.org/indexnow", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -26,8 +26,16 @@ export async function pingIndexNow(urlsOrPaths: string[]): Promise<void> {
       }),
       signal: AbortSignal.timeout(8000),
     });
-  } catch {
-    /* best effort — a missed ping just means slower discovery */
+    // IndexNow answers 200/202 on success. This used to go unchecked, so an
+    // empty INDEXNOW_KEY env var (falling through the `??` default only
+    // catches null/undefined, not "") sent key:"" and got a 400 on every
+    // call for days — completely silent, because nothing ever looked. Log
+    // it now so a broken key/host shows up in the run's own output.
+    if (!res.ok && res.status !== 202) {
+      console.error(`IndexNow ping rejected: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    }
+  } catch (e) {
+    console.error(`IndexNow ping failed: ${(e as Error).message}`);
   }
 }
 
