@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { isAutomated } from "@/lib/isAutomated";
 
 /**
  * GA4 measurement id. It is NOT a secret — it ships in the page source of every
@@ -33,14 +34,16 @@ export function Analytics() {
     <>
       <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
       {/* gtag hits go straight from the browser to Google — nothing on our
-          backend gates them, so the webdriver check has to live here. Real
-          visitors never trip it (no headless browser has a human behind it);
-          see src/lib/isAutomated.ts for the reasoning. */}
+          backend gates them, so the automation check has to live here. It's
+          the exact same isAutomated() used everywhere else (inlined via
+          .toString() so this can never silently drift out of sync with it —
+          see src/lib/isAutomated.ts for the reasoning). Real visitors and
+          search-engine crawlers never trip it. */}
       {/* After config, flush events components queued while this script was
           still waiting to load (see src/lib/ga.ts) and mark GA ready so later
           events go straight through. */}
       <Script id="ga-init" strategy="afterInteractive">
-        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}if(!navigator.webdriver){gtag('js',new Date());gtag('config','${GA_ID}');window.__gaReady=true;var p=window.__gaPending||[];window.__gaPending=[];for(var i=0;i<p.length;i++){gtag('event',p[i][0],p[i][1]);}}`}
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}var isAutomated=${isAutomated.toString()};if(!isAutomated()){gtag('js',new Date());gtag('config','${GA_ID}');window.__gaReady=true;var p=window.__gaPending||[];window.__gaPending=[];for(var i=0;i<p.length;i++){gtag('event',p[i][0],p[i][1]);}}`}
       </Script>
     </>
   );

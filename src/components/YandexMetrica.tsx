@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { isAutomated } from "@/lib/isAutomated";
 
 /**
  * Yandex Metrica counter id. Not a secret — ships in every page's source,
@@ -26,7 +27,8 @@ export function YandexMetrica() {
             for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
             k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
         })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=${YM_ID}', 'ym');
-        if (!navigator.webdriver) {
+        var isAutomated=${isAutomated.toString()};
+        if (!isAutomated()) {
           ym(${YM_ID}, 'init', {ssr:true, webvisor:false, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
         }`}
       </Script>
