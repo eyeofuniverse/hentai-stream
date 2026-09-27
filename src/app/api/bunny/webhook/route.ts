@@ -3,13 +3,20 @@ import { prisma, db } from "@/lib/db";
 import { mapStatus, getVideo } from "@/lib/hosting/bunny";
 import { copyBunnyThumbToR2 } from "@/lib/hosting/migrate";
 import { publishIfLive } from "@/lib/verify";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { tokenEqual } from "@/lib/admin/gate";
 
 export const dynamic = "force-dynamic";
 
 const LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID ?? "";
-// Optional: set this here AND as `?secret=<value>` on the webhook URL in the
-// Bunny dashboard. LIBRARY_ID is public (it's in every embed URL), so without
-// this the endpoint is callable by anyone who knows a video guid.
+// Required: set this here AND as `?secret=<value>` on the webhook URL in the
+// Bunny dashboard, matching exactly. LIBRARY_ID is public (it's in every embed
+// URL), so without this the endpoint is callable by anyone who knows a video
+// guid — and now that it's reached via a DNS-only subdomain (Cloudflare's WAF
+// never sees this traffic, see the rate-limit note below), this is the only
+// gate the route has. Found unset in production on 2026-09-27: the `secret`
+// query param Bunny was actually configured with was never mirrored here, so
+// this check silently did nothing the whole time.
 const WEBHOOK_SECRET = process.env.BUNNY_WEBHOOK_SECRET ?? "";
 
 /**
@@ -20,9 +27,17 @@ const WEBHOOK_SECRET = process.env.BUNNY_WEBHOOK_SECRET ?? "";
  * Never downgrades a video that's already ready.
  */
 export async function POST(req: Request) {
+  // This endpoint is reached via a DNS-only subdomain (hooks.lusthentai.com) so
+  // Bunny's server-to-server calls skip Cloudflare's Bot Fight Mode, which can't
+  // be exempted per-path and was managed_challenge-ing ~99% of these callbacks
+  // (see memory: scraper-bot-defenses). That means Cloudflare's WAF/rate-limit
+  // never sees this traffic either, so this route needs its own basic ceiling.
+  if (!rateLimit(`bunny-webhook:${clientIp(req)}`, 60, 60_000)) {
+    return NextResponse.json({ ok: false }, { status: 429 });
+  }
   if (WEBHOOK_SECRET) {
-    const provided = new URL(req.url).searchParams.get("secret");
-    if (provided !== WEBHOOK_SECRET) {
+    const provided = new URL(req.url).searchParams.get("secret") ?? "";
+    if (!tokenEqual(provided, WEBHOOK_SECRET)) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
   }
