@@ -261,29 +261,117 @@ export function WatchPlayer({
     setStarted(true);
   }, []);
 
-  /* ── <video>: HLS attach (our own Bunny copy or an HLS mirror) — starts
-        as soon as the user clicks play, not once the pre-roll ad finishes.
-        The <video> element itself is mounted (hidden) the whole time the ad
-        is showing (see the render below) specifically so this can buffer
-        the real episode in the background — video stays paused throughout,
-        so playback position never advances during the ad; only the actual
-        .play() call below is gated on the ad being done. Without this, nothing
-        about the real video even began loading until the ad ended, which is
-        why it used to visibly stall right when playback should start. ── */
+  /* ── <video>: HLS attach + Plyr skin, combined for "hls" sources (our own
+        Bunny copy) so the player is skinned only once it already knows
+        Bunny's available quality renditions (hls.js's ABR levels), instead
+        of skinning immediately and having no quality options to offer.
+        Starts as soon as the user clicks play, not once the pre-roll ad
+        finishes — the <video> element itself is mounted (hidden) the whole
+        time the ad is showing (see the render below) specifically so this
+        can buffer the real episode in the background; video stays paused
+        throughout, so playback position never advances during the ad, and
+        by the time the ad ends hls.js has usually already parsed the
+        manifest, so there's no visible flash of native controls before the
+        Plyr skin (with its quality menu) takes over. Plain "file" sources
+        (a single hotlinked file, not an adaptive stream) skin immediately
+        the same way but skip quality entirely — there's only ever one
+        rendition to offer, so a quality menu would be empty. ── */
   useEffect(() => {
-    if (!started || !cur || cur.type !== "hls") return;
+    if (!started || !isVideo || !cur) return;
     const video = videoRef.current;
     if (!video) return;
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = cur.src;
-      return;
-    }
     let hls: import("hls.js").default | undefined;
     let killed = false;
+    // Below the `sm` breakpoint, Plyr's full default control set (play,
+    // progress, time, mute+volume slider, captions, settings, pip, airplay,
+    // fullscreen) crams so many fixed-width buttons into the bar that the
+    // progress/seek scrubber — the one thing that needs to flex-grow — gets
+    // squeezed to a sliver. Trim to what actually fits: drop the separate
+    // volume slider (keep the mute toggle), captions (unused — this content
+    // is hardsubbed, no real text tracks) and pip/airplay. Settings stays —
+    // it's the only way to reach the quality menu below — since one small
+    // gear icon costs far less width than the volume slider it replaced.
+    // Desktop is untouched — same full control set as before.
+    const isMobile =
+      typeof window !== "undefined" && window.matchMedia("(max-width: 639.98px)").matches;
+
+    const skin = (qualities?: number[]) => {
+      import("plyr").then(({ default: Plyr }) => {
+        if (killed || !videoRef.current) return;
+        plyrRef.current = new Plyr(videoRef.current, {
+          // focused (not global): Plyr's own space/arrow/volume/mute
+          // shortcuts work once the player has focus, without hijacking
+          // keys typed elsewhere on the page (search, comments). Our own
+          // keydown handler below only adds n/p/f, which Plyr doesn't have
+          // — no overlap.
+          keyboard: { focused: true, global: false },
+          tooltips: { controls: false, seek: true },
+          ...(isMobile
+            ? {
+                controls: [
+                  "play-large",
+                  "play",
+                  "progress",
+                  "current-time",
+                  "mute",
+                  "settings",
+                  "fullscreen",
+                ],
+              }
+            : {}),
+          ...(qualities && qualities.length > 1
+            ? {
+                // 0 = "Auto" (hls.js's own ABR ladder, driven by measured
+                // bandwidth) — the default, same as every other streaming
+                // site's player. onChange only ever fires from a viewer's
+                // own click on this menu, so it's the one legitimate place
+                // to override hls.js's automatic choice.
+                quality: {
+                  default: 0,
+                  options: [0, ...qualities],
+                  forced: true,
+                  onChange: (q: number) => {
+                    if (!hls) return;
+                    if (q === 0) {
+                      hls.currentLevel = -1;
+                      return;
+                    }
+                    const i = hls.levels.findIndex((l) => l.height === q);
+                    if (i !== -1) hls.currentLevel = i;
+                  },
+                },
+                i18n: { qualityLabel: { 0: "Auto" } },
+              }
+            : {}),
+        });
+      });
+    };
+
+    const teardown = () => {
+      killed = true;
+      hls?.destroy();
+      plyrRef.current?.destroy();
+      plyrRef.current = null;
+    };
+
+    if (cur.type === "file") {
+      skin();
+      return teardown;
+    }
+
+    // cur.type === "hls"
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari plays HLS natively — no hls.js instance, so no levels to
+      // build a quality menu from (Safari's own native controls handle ABR).
+      video.src = cur.src;
+      skin();
+      return teardown;
+    }
     import("hls.js").then(({ default: HlsJs }) => {
       if (killed) return;
       if (!HlsJs.isSupported()) {
         video.src = cur.src;
+        skin();
         return;
       }
       hls = new HlsJs({ maxBufferLength: 30 });
@@ -292,53 +380,16 @@ export function WatchPlayer({
       hls.on(HlsJs.Events.ERROR, (_e, data) => {
         if (data.fatal) failover();
       });
-    });
-    return () => {
-      killed = true;
-      hls?.destroy();
-    };
-  }, [started, cur, attempt, failover]);
-
-  /* ── <video>: Plyr skin — also as soon as started, so there's no flash of
-        native controls the moment the ad ends and the video is revealed.
-        Plyr's full default control set (play, progress, time, mute+volume
-        slider, captions, settings, pip, airplay, fullscreen) is a desktop
-        toolbar — on a ~360-400px phone it crams so many fixed-width buttons
-        into the bar that the progress/seek scrubber (the one thing that
-        needs to flex-grow) gets squeezed to a sliver, while the volume
-        slider — a fixed, wider element — visually dominates instead. Below
-        the `sm` breakpoint only, trim to what actually fits: drop the
-        separate volume slider (keep the mute toggle), captions (unused —
-        this content is hardsubbed, no real text tracks) and settings/pip/
-        airplay, so the seek bar gets the room it needs. Desktop is
-        untouched — same full control set as before. ── */
-  useEffect(() => {
-    if (!started || !isVideo) return;
-    const video = videoRef.current;
-    if (!video) return;
-    let killed = false;
-    const isMobile =
-      typeof window !== "undefined" && window.matchMedia("(max-width: 639.98px)").matches;
-    import("plyr").then(({ default: Plyr }) => {
-      if (killed || !videoRef.current) return;
-      plyrRef.current = new Plyr(videoRef.current, {
-        // focused (not global): Plyr's own space/arrow/volume/mute shortcuts
-        // work once the player has focus, without hijacking keys typed
-        // elsewhere on the page (search, comments). Our own keydown handler
-        // below only adds n/p/f, which Plyr doesn't have — no overlap.
-        keyboard: { focused: true, global: false },
-        tooltips: { controls: false, seek: true },
-        ...(isMobile
-          ? { controls: ["play-large", "play", "progress", "current-time", "mute", "fullscreen"] }
-          : {}),
+      hls.on(HlsJs.Events.MANIFEST_PARSED, () => {
+        if (killed || !hls) return;
+        const heights = Array.from(new Set(hls.levels.map((l) => l.height))).sort(
+          (a, b) => b - a,
+        );
+        skin(heights);
       });
     });
-    return () => {
-      killed = true;
-      plyrRef.current?.destroy();
-      plyrRef.current = null;
-    };
-  }, [started, isVideo, cur?.key, attempt]);
+    return teardown;
+  }, [started, isVideo, cur, attempt, failover]);
 
   // double-tap left/right half of the video to seek -10s/+10s — a standard
   // mobile gesture Plyr doesn't provide out of the box. Gated to mobile
