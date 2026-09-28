@@ -360,9 +360,16 @@ export function WatchPlayer({
     }
 
     // cur.type === "hls"
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari plays HLS natively — no hls.js instance, so no levels to
-      // build a quality menu from (Safari's own native controls handle ABR).
+    // Real Safari (iOS/macOS) is the one browser worth routing to native HLS:
+    // its hardware decoder is more battery-efficient than hls.js/MSE, and
+    // that tradeoff has always cost it the quality menu (native playback
+    // exposes no JS-visible levels to switch between). Chromium has since
+    // started answering "maybe" to this same canPlayType() probe too — its
+    // own (much newer, less proven) native HLS path — so this now has to be
+    // scoped to genuine Safari specifically, or Chrome silently loses hls.js
+    // entirely and with it the whole quality menu this effect exists to add.
+    const isRealSafari = /^(?!.*(?:chrome|crios|edg|android)).*safari/i.test(navigator.userAgent);
+    if (isRealSafari && video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = cur.src;
       skin();
       return teardown;
