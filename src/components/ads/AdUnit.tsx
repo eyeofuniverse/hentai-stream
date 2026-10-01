@@ -56,6 +56,25 @@ export function AdUnit({
     });
   }, [code, detected, domain]);
 
+  // The actual ad creative renders into an <iframe> the ad network's own
+  // script creates dynamically — never something present in `code` itself,
+  // so there's no markup of ours to add a title to directly. Accessibility
+  // audits flag any untitled iframe regardless of who created it, so watch
+  // this container and title whichever one shows up, whenever it does.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const titleFrames = () => {
+      el.querySelectorAll("iframe:not([title]):not([aria-label])").forEach((f) => {
+        f.setAttribute("title", "Advertisement");
+      });
+    };
+    titleFrames();
+    const observer = new MutationObserver(titleFrames);
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   if (!code) return null;
   return (
     <div
