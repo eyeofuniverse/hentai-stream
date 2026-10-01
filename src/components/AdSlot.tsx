@@ -55,9 +55,27 @@ export function AdSlot({
     load(slotKey, device()).then(setAd);
   }, [slotKey]);
 
-  if (ad == null) return null; // undefined = loading, null = empty
-
   const maxHeight = slotMaxHeight(slotKey);
+
+  if (ad === null) return null; // confirmed empty — final, stable, nothing to reserve
+
+  if (ad === undefined) {
+    // Still loading: reserve the same footprint the resolved ad will take
+    // (the slot's own configured max height) instead of rendering nothing.
+    // Previously this slot occupied zero space until its fetch resolved,
+    // then popped in full-size — with several ad slots per page each
+    // resolving at a different moment, that was the dominant cause of a
+    // 0.5 layout-shift score on episode pages. Purely a loading-state
+    // placeholder: doesn't change what ad loads, when it's requested, or
+    // anything ExoClick sees once it resolves below.
+    return (
+      <div
+        className={`ad-slot mx-auto w-full max-w-3xl ${className}`}
+        style={{ minHeight: maxHeight }}
+        aria-hidden="true"
+      />
+    );
+  }
 
   return (
     <div

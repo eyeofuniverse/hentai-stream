@@ -32,6 +32,23 @@ export function AdUnit({
 
     ref.current.innerHTML = effective;
     ref.current.querySelectorAll("script").forEach((old) => {
+      // Ad-network SDK bootstrap (e.g. ExoClick's ad-provider.js) is
+      // byte-identical boilerplate repeated in every zone's embed code. With
+      // several zones on one page, force-executing a fresh copy per zone
+      // made the browser fetch+run the same SDK repeatedly — confirmed via
+      // Lighthouse as a major chunk of script-evaluation time (the same
+      // script showing up 4x on one page). The SDK is a load-once queue
+      // (`window.AdProvider = window.AdProvider || []`) that zones push
+      // onto regardless of whether it's finished loading yet, so once any
+      // copy of it is already on the page, a second <script src> for the
+      // exact same URL is pure waste — drop it. Every zone's own
+      // <ins data-zoneid> placeholder and its push({"serve":{}}) call are
+      // separate inline scripts (no src) and always still execute below,
+      // so every zone still requests and registers its own impression.
+      if (old.src && Array.from(document.scripts).some((s) => s !== old && s.src === old.src)) {
+        old.remove();
+        return;
+      }
       const next = document.createElement("script");
       Array.from(old.attributes).forEach((a) => next.setAttribute(a.name, a.value));
       next.textContent = old.textContent;
