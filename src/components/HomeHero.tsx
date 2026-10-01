@@ -128,7 +128,7 @@ export function HomeHero({
                     {s.externalScore.toFixed(1)}
                   </span>
                 )}
-                <span className="rounded bg-accent px-1.5 py-0.5 text-white">{s.type}</span>
+                <span className="rounded bg-accent px-1.5 py-0.5 text-bg">{s.type}</span>
                 {s.year && <span>{s.year}</span>}
                 {s.episodeCount > 0 && (
                   <span>
