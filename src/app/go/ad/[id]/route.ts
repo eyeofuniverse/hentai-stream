@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma, db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  *  script) ads skip this entirely and link straight out, since the ad
  *  network already tracks those clicks on its own side. */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -17,8 +17,26 @@ export async function GET(
     select: { isActive: true, type: true, linkUrl: true },
   });
   if (!ad || !ad.isActive || ad.type !== "affiliate" || !ad.linkUrl) {
-    return NextResponse.redirect(new URL("/", _req.url));
+    return NextResponse.redirect(new URL("/", req.url));
   }
-  prisma.ad.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => {});
-  return NextResponse.redirect(ad.linkUrl);
+
+  // a malformed destination (saved without validation in the admin UI)
+  // would otherwise throw inside NextResponse.redirect() and 500 on every
+  // single click instead of just falling through
+  let destination: URL;
+  try {
+    destination = new URL(ad.linkUrl);
+  } catch {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // this is a rare, one-off navigation (unlike impression counting on the
+  // hot ad-serving path) — worth the small latency to await it, since a
+  // fire-and-forget write here can get dropped when the serverless function
+  // freezes right after the response is sent
+  await db(() => prisma.ad.update({ where: { id }, data: { clicks: { increment: 1 } } })).catch(
+    () => {},
+  );
+
+  return NextResponse.redirect(destination);
 }

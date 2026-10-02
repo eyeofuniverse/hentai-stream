@@ -714,7 +714,13 @@ model Ad {
   priority      Int      @default(0)
   // affiliate-type click count, via the /go/ad/[id] redirect — network-type
   // (raw embed) ads track their own clicks on the ad network's side instead
+  // (cross-origin iframe content is invisible to our JS; see the ata= sub-id
+  // already in those embed tags). impressions counts every time this row is
+  // *selected* to serve by getActiveAdForSlot — a reasonable relative signal
+  // for comparing pool members even though shared HTTP caching on
+  // /api/ads/active means it undercounts true pageview-level impressions.
   clicks        Int      @default(0)
+  impressions   Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @default(now()) @updatedAt
 

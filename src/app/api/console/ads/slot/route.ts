@@ -15,6 +15,7 @@ async function guard() {
 }
 
 type VariantIn = {
+  id?: string;
   type?: string;
   networkCode?: string | null;
   imageUrl?: string | null;
@@ -75,10 +76,11 @@ export async function GET(req: Request) {
  * PUT  /api/console/ads/slot
  * body: { slot, desktop?: Variant[]|null, mobile?: Variant[]|null, all?: Variant[]|null, versions }
  *
- * Replaces this slot's rows entirely: a band that's provided gets every
- * filled variant in its array written as its own row (the rotation pool —
- * same priority = random rotation, see getActiveAdForSlot); an omitted or
- * empty band is cleared. Editing "desktop" therefore NEVER touches mobile.
+ * Diffs this slot's rows against what's submitted: an existing row (has an
+ * `id` the DB still recognizes) is updated in place so its impressions/
+ * clicks survive the edit; a row with no recognized id is created fresh; any
+ * existing row not present in the submission anymore is deleted. Editing
+ * "desktop" therefore NEVER touches mobile.
  */
 export async function PUT(req: Request) {
   if (!(await guard()))
@@ -126,11 +128,22 @@ export async function PUT(req: Request) {
     }
   }
 
+  const currentIds = new Set(current.map((r) => r.id));
+  const survivingIds = new Set(
+    wanted
+      .map(({ v }) => v.id)
+      .filter((id): id is string => !!id && currentIds.has(id)),
+  );
+  const toDelete = current.filter((r) => !survivingIds.has(r.id)).map((r) => r.id);
+
   await prisma.$transaction([
-    prisma.ad.deleteMany({ where: { slot } }),
-    ...wanted.map(({ device, v, index }) =>
-      prisma.ad.create({ data: row(slot, device, v, index) }),
-    ),
+    ...(toDelete.length ? [prisma.ad.deleteMany({ where: { id: { in: toDelete } } })] : []),
+    ...wanted.map(({ device, v, index }) => {
+      const data = row(slot, device, v, index);
+      return v.id && currentIds.has(v.id)
+        ? prisma.ad.update({ where: { id: v.id }, data })
+        : prisma.ad.create({ data });
+    }),
   ]);
 
   return NextResponse.json({ ok: true, count: wanted.length });

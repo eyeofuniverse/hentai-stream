@@ -26,6 +26,9 @@ type Variant = {
   adDescription: string;
   priority: number;
   active: boolean;
+  /** read-only, from the DB — not sent back on save */
+  impressions: number;
+  clicks: number;
 };
 const emptyVariant = (): Variant => ({
   type: "network",
@@ -37,6 +40,8 @@ const emptyVariant = (): Variant => ({
   adDescription: "",
   priority: 0,
   active: true,
+  impressions: 0,
+  clicks: 0,
 });
 function fromRow(r: Record<string, unknown>): Variant {
   return {
@@ -50,6 +55,8 @@ function fromRow(r: Record<string, unknown>): Variant {
     adDescription: String(r.adDescription ?? ""),
     priority: Number(r.priority ?? 0),
     active: r.isActive !== false,
+    impressions: Number(r.impressions ?? 0),
+    clicks: Number(r.clicks ?? 0),
   };
 }
 function filled(v: Variant): boolean {
@@ -181,6 +188,16 @@ function VariantCard({
           equal priority rotates randomly · higher always wins over lower
         </span>
       </div>
+
+      {v.id && (
+        <div className="mt-1.5 text-[10px]" style={{ color: C.muted }}>
+          {v.impressions.toLocaleString()} impressions
+          {v.type === "affiliate" && <> · {v.clicks.toLocaleString()} clicks</>}
+          {v.type === "network" && (
+            <> · clicks tracked by the ad network itself (sub-id in the embed), not here</>
+          )}
+        </div>
+      )}
     </div>
   );
 }

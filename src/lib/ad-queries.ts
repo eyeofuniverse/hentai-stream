@@ -61,6 +61,12 @@ export async function getActiveAdForSlot(
     const top = pool[0].priority;
     const topPool = pool.filter((a) => a.priority === top);
     const chosen = topPool[Math.floor(Math.random() * topPool.length)];
+
+    // best-effort — a transient failure here should never break ad serving
+    db(() => prisma.ad.update({ where: { id: chosen.id }, data: { impressions: { increment: 1 } } })).catch(
+      () => {},
+    );
+
     const { priority: _p, ...rest } = chosen;
     void _p;
     return rest;

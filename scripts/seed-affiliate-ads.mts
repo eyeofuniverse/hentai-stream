@@ -44,6 +44,18 @@ const CANDY_TARGETS: { slot: string; device: "desktop" | "mobile"; size: keyof t
   { slot: "catalog-footer", device: "mobile", size: "300x100" },
 ];
 
+const CONTENT_TYPES: Record<string, string> = {
+  gif: "image/gif",
+  webp: "image/webp",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+};
+function contentTypeFor(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  return CONTENT_TYPES[ext] ?? "application/octet-stream";
+}
+
 function iframe(w: number, h: number, spotId: string): string {
   return `<iframe style="background-color: white;" width="${w}" height="${h}" scrolling="no" frameborder="0" allowtransparency="true" marginheight="0" marginwidth="0" name="spot_id_${spotId}" src="//a.adtng.com/get/${spotId}?ata=mail.minhajrahman"></iframe>`;
 }
@@ -91,7 +103,7 @@ async function seedCandyAi() {
       const buf = readFileSync(join(ASSETS_DIR, rel));
       const filename = rel.split("/").pop()!;
       const key = `ads/candyai/${filename}`;
-      const ok = await putR2FromBuffer(key, buf, "image/gif");
+      const ok = await putR2FromBuffer(key, buf, contentTypeFor(filename));
       if (!ok) {
         console.error(`  FAILED to upload ${filename}`);
         continue;
