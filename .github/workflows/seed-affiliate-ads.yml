@@ -30,10 +30,16 @@ jobs:
 
       - name: Write .env
         run: |
+          # DIRECT_URL (db.<ref>.supabase.co:5432) is IPv6-only and
+          # unreachable from GitHub-hosted runners (no IPv6 egress) — derive
+          # a direct-capable connection from the pooler host instead, on its
+          # session-mode port (5432, not the 6543 transaction-mode port),
+          # which is IPv4 and supports the DDL prisma db push needs.
+          DIRECT_FROM_POOLER=$(echo "${{ secrets.DATABASE_URL }}" | sed -E 's/:6543\//:5432\//; s/\?pgbouncer=true.*$//')
           {
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
             echo "DB_RETRY_ATTEMPTS=12"
-            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "DIRECT_URL=$DIRECT_FROM_POOLER"
             echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
             echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
             echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
