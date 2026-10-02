@@ -115,7 +115,7 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
         </thead>
         <tbody>
           {shown.map((v) => (
-            <tr key={v.ip} className="border-b border-white/[0.06] transition-opacity hover:opacity-80">
+            <tr key={`${v.ip}-${v.firstSeen}`} className="border-b border-white/[0.06] transition-opacity hover:opacity-80">
               <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-white/85">{v.ip}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-white/85">
                 <span className="mr-1">{flag(v.countryCode)}</span>
@@ -347,7 +347,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
           sub="last 5 minutes"
           tone={data.onlineNow > 0 ? "#22c55e" : undefined}
         />
-        <StatCard icon={<TrendingUp size={16} />} label="Pages / Visitor" value={data.avgPagesPerVisitor} />
+        <StatCard icon={<TrendingUp size={16} />} label="Pages / Visit" value={data.avgPagesPerVisitor} />
         <StatCard icon={<Zap size={16} />} label="Avg Time / Page" value={fmtDuration(data.avgDurationSec)} />
       </div>
 
@@ -381,7 +381,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
               ))}
             </div>
             <span className="ml-auto text-xs text-white/35">
-              {tab === "visitors" && `${data.visitors.length} IPs`}
+              {tab === "visitors" && `${data.visitors.length} visits (${data.uniqueVisitors} IPs)`}
               {tab === "activity" && `last ${data.recentVisits.length} hits`}
               {tab === "countries" && `${data.topCountries.length} countries`}
             </span>

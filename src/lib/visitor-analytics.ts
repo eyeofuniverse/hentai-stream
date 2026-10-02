@@ -351,53 +351,81 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
     for (const [ip, geo] of resolved) geoMap.set(ip, { ip, ...geo, cachedAt: new Date() });
   }
 
-  // build visitor groups
-  const visitorMap = new Map<string, VisitorGroup>();
+  // Build visitor SESSIONS, not one row per IP. Grouping by bare IP (the old
+  // behavior) meant every page view from the same address across the whole
+  // lookback window — today's visit and one from five days ago alike —
+  // landed in a single merged row, so time-spent and pages-per-visit were
+  // sums/averages across unrelated visits instead of real per-visit figures.
+  // Split on inactivity instead: a gap of this long between two page views
+  // from the same IP starts a new session (same threshold ViewPing already
+  // uses client-side for "is this still the same visit").
+  const SESSION_GAP_MS = 30 * 60 * 1000;
+
+  const byIp = new Map<string, typeof visits>();
+  for (const v of visits) {
+    const arr = byIp.get(v.ip);
+    if (arr) arr.push(v);
+    else byIp.set(v.ip, [v]);
+  }
+
+  const visitorMap = new Map<string, VisitorGroup>(); // keyed by "ip::sessionStartMs"
   const onlineIps = new Set<string>();
   // durationSec is only known once a page view has actually finished (see
-  // PageTracker) — accumulate sum/count per visitor separately so the
+  // PageTracker) — accumulate sum/count per session separately so the
   // average only counts pages that have reported one, not every page view.
   const durationAcc = new Map<string, { sum: number; count: number }>();
   let globalDurationSum = 0;
   let globalDurationCount = 0;
-  for (const v of visits) {
-    const geo = geoMap.get(v.ip);
-    const vDate = toDate(v.visitedAt as Date | string);
-    const visitedAt = vDate.toISOString();
-    const existing = visitorMap.get(v.ip);
-    if (!existing) {
-      visitorMap.set(v.ip, {
-        ip: v.ip,
-        country: geo?.country ?? null,
-        countryCode: geo?.countryCode ?? null,
-        city: geo?.city ?? null,
-        paths: [v.path],
-        visitCount: 1,
-        firstSeen: visitedAt,
-        lastSeen: visitedAt,
-        avgDurationSec: null,
-        totalDurationSec: null,
-      });
-    } else {
-      if (!existing.paths.includes(v.path)) existing.paths.push(v.path);
-      existing.visitCount++;
-      if (visitedAt < existing.firstSeen) existing.firstSeen = visitedAt;
-      if (visitedAt > existing.lastSeen) existing.lastSeen = visitedAt;
+
+  for (const [ip, ipVisits] of byIp) {
+    const geo = geoMap.get(ip);
+    // oldest-first so the gap check below walks forward through real time
+    const chrono = [...ipVisits].sort(
+      (a, b) => toDate(a.visitedAt as Date | string).getTime() - toDate(b.visitedAt as Date | string).getTime(),
+    );
+    let sessionKey = "";
+    let lastTs = -Infinity;
+    for (const v of chrono) {
+      const vDate = toDate(v.visitedAt as Date | string);
+      const ts = vDate.getTime();
+      const visitedAt = vDate.toISOString();
+      if (ts - lastTs > SESSION_GAP_MS) {
+        sessionKey = `${ip}::${ts}`;
+        visitorMap.set(sessionKey, {
+          ip,
+          country: geo?.country ?? null,
+          countryCode: geo?.countryCode ?? null,
+          city: geo?.city ?? null,
+          paths: [v.path],
+          visitCount: 1,
+          firstSeen: visitedAt,
+          lastSeen: visitedAt,
+          avgDurationSec: null,
+          totalDurationSec: null,
+        });
+      } else {
+        const existing = visitorMap.get(sessionKey)!;
+        if (!existing.paths.includes(v.path)) existing.paths.push(v.path);
+        existing.visitCount++;
+        existing.lastSeen = visitedAt; // chronological order, so this only ever advances
+      }
+      lastTs = ts;
+
+      if (v.durationSec != null) {
+        const acc = durationAcc.get(sessionKey) ?? { sum: 0, count: 0 };
+        acc.sum += v.durationSec;
+        acc.count++;
+        durationAcc.set(sessionKey, acc);
+        globalDurationSum += v.durationSec;
+        globalDurationCount++;
+      }
+      if (ts >= fiveMinutesAgo.getTime()) onlineIps.add(ip);
     }
-    if (v.durationSec != null) {
-      const acc = durationAcc.get(v.ip) ?? { sum: 0, count: 0 };
-      acc.sum += v.durationSec;
-      acc.count++;
-      durationAcc.set(v.ip, acc);
-      globalDurationSum += v.durationSec;
-      globalDurationCount++;
-    }
-    if (vDate >= fiveMinutesAgo) onlineIps.add(v.ip);
   }
   const onlineNow = onlineIps.size;
 
-  for (const [ip, group] of visitorMap) {
-    const acc = durationAcc.get(ip);
+  for (const [key, group] of visitorMap) {
+    const acc = durationAcc.get(key);
     group.avgDurationSec = acc ? Math.round(acc.sum / acc.count) : null;
     group.totalDurationSec = acc ? acc.sum : null;
   }
@@ -423,12 +451,15 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
     .slice(0, 20)
     .map(([path, count]) => ({ path, count }));
 
+  // By distinct IP, not by session — a visitor who came back three times
+  // today is still one person for "top countries" purposes, not three.
   const countryMap = new Map<string, { count: number; countryCode: string | null }>();
-  for (const vg of visitorMap.values()) {
-    if (vg.country) {
-      const e = countryMap.get(vg.country);
+  for (const ip of byIp.keys()) {
+    const geo = geoMap.get(ip);
+    if (geo?.country) {
+      const e = countryMap.get(geo.country);
       if (e) e.count++;
-      else countryMap.set(vg.country, { count: 1, countryCode: vg.countryCode });
+      else countryMap.set(geo.country, { count: 1, countryCode: geo.countryCode });
     }
   }
   const topCountries = [...countryMap.entries()]
@@ -438,6 +469,9 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
 
   const topCountry = topCountries[0]?.country ?? null;
 
+  // Pages per *visit*: total page views over total sessions, now that a
+  // returning visitor contributes multiple distinct sessions instead of
+  // inflating one merged row's page count.
   const avgPagesPerVisitor =
     visitorMap.size > 0 ? Math.round((visits.length / visitorMap.size) * 10) / 10 : 0;
 
@@ -456,7 +490,7 @@ export async function getVisitorData(days = 7): Promise<VisitorData> {
 
   return {
     totalVisits: visits.length,
-    uniqueVisitors: visitorMap.size,
+    uniqueVisitors: byIp.size,
     onlineNow,
     avgPagesPerVisitor,
     avgDurationSec,
