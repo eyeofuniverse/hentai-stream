@@ -36,6 +36,7 @@ const COLS: { title: string; links: FooterLink[] }[] = [
     title: "Partner Sites",
     links: [
       { href: "https://lustpages.com", label: "LustPages", external: true },
+      { href: "https://t.me/lusttubeofficial", label: "Telegram", external: true },
       {
         href: "https://theporndude.com/",
         label: "ThePornDude",
