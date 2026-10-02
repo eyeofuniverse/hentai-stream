@@ -1,0 +1,41 @@
+name: Print ad impression/click stats (read-only)
+
+# Quick read-only report of scripts/ad-stats.mts, for when local DB access
+# is down (common on this machine's network) — prints straight to the run
+# log, writes nothing. Runs on a US GitHub runner for reliable DB connectivity.
+#
+# Run it: repo → Actions → "Print ad impression/click stats (read-only)" → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "Only ads whose name contains this (blank = all active ads)"
+        required: false
+        default: ""
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=8"
+          } > .env
+
+      - run: npx prisma generate
+
+      - name: Print stats
+        run: npx tsx --env-file=.env scripts/ad-stats.mts "${{ inputs.filter }}"
