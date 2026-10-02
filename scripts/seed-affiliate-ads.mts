@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { putR2FromBuffer } from "@/lib/r2-upload";
 
@@ -93,6 +93,14 @@ const TARGETS: Target[] = [
 async function seedCandyAi() {
   if (!R2_HOST) {
     console.log("NEXT_PUBLIC_R2_PUBLIC_HOST not set — skipping Candy AI upload");
+    return;
+  }
+  // the staged local copies are intentionally removed from the repo once
+  // they've been uploaded (see the commit that deletes scripts/_candyai_seed_assets/)
+  // — a re-run of this script after that point has nothing to re-upload, and
+  // should leave the already-seeded Candy AI rows alone rather than throw.
+  if (!existsSync(ASSETS_DIR)) {
+    console.log(`${ASSETS_DIR} not found — skipping Candy AI (already seeded, or assets not staged this run)`);
     return;
   }
   // upload each unique local file once, reused across every target that size
