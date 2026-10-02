@@ -1,13 +1,13 @@
 /** A self-hosted banner: image + click-through link, optional title/description. */
 export function AffiliateAd({
+  id,
   imageUrl,
-  linkUrl,
   altText,
   title,
   description,
 }: {
+  id: string;
   imageUrl: string;
-  linkUrl: string;
   altText: string;
   title?: string | null;
   description?: string | null;
@@ -15,7 +15,7 @@ export function AffiliateAd({
   if (!imageUrl) return null;
   return (
     <a
-      href={linkUrl}
+      href={`/go/ad/${id}`}
       target="_blank"
       rel="nofollow sponsored noopener"
       className="group block overflow-hidden rounded-xl border border-line bg-surface/50"

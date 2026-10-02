@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X, Megaphone, Monitor, Smartphone, Globe } from "lucide-react";
+import { X, Megaphone, Monitor, Smartphone, Globe, Plus, Trash2 } from "lucide-react";
 import { AD_SLOTS, REVENUE_META, type AdSlotId } from "@/lib/ads";
 
 const C = {
@@ -16,6 +16,7 @@ const HEAD = { fontFamily: "var(--font-sora), var(--font-inter), sans-serif" };
 const SLOT_KEYS = Object.keys(AD_SLOTS) as AdSlotId[];
 
 type Variant = {
+  id?: string;
   type: "network" | "affiliate";
   networkCode: string;
   imageUrl: string;
@@ -23,6 +24,7 @@ type Variant = {
   altText: string;
   adTitle: string;
   adDescription: string;
+  priority: number;
   active: boolean;
 };
 const emptyVariant = (): Variant => ({
@@ -33,11 +35,12 @@ const emptyVariant = (): Variant => ({
   altText: "",
   adTitle: "",
   adDescription: "",
+  priority: 0,
   active: true,
 });
-function fromRow(r: Record<string, unknown> | null): Variant {
-  if (!r) return emptyVariant();
+function fromRow(r: Record<string, unknown>): Variant {
   return {
+    id: String(r.id ?? ""),
     type: r.type === "affiliate" ? "affiliate" : "network",
     networkCode: String(r.networkCode ?? ""),
     imageUrl: String(r.imageUrl ?? ""),
@@ -45,6 +48,7 @@ function fromRow(r: Record<string, unknown> | null): Variant {
     altText: String(r.altText ?? ""),
     adTitle: String(r.adTitle ?? ""),
     adDescription: String(r.adDescription ?? ""),
+    priority: Number(r.priority ?? 0),
     active: r.isActive !== false,
   };
 }
@@ -65,79 +69,63 @@ const input: React.CSSProperties = {
   outline: "none",
 };
 
-type SlotStatus = { desktop: boolean; mobile: boolean; all: boolean };
+type Band = "desktop" | "mobile" | "all";
+type Pools = Record<Band, Variant[]>;
 
-function DevicePanel({
-  band,
-  icon,
-  hint,
-  disabled,
+/** One creative in a slot's rotation pool — same shape every band uses. */
+function VariantCard({
   v,
   onChange,
+  onRemove,
 }: {
-  band: string;
-  icon: React.ReactNode;
-  hint?: string;
-  disabled?: boolean;
   v: Variant;
   onChange: (v: Variant) => void;
+  onRemove: () => void;
 }) {
   const set = (patch: Partial<Variant>) => onChange({ ...v, ...patch });
-  if (disabled) {
-    return (
-      <div
-        style={{ border: `1px dashed ${C.border}`, borderRadius: "0.7rem" }}
-        className="p-3 text-xs"
-      >
-        <span style={{ color: C.muted }} className="flex items-center gap-1.5">
-          {icon} {band} — not available for this slot
-        </span>
-      </div>
-    );
-  }
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: "0.7rem" }} className="p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: C.fg }}>
-          {icon} {band}
-        </span>
-        <label className="flex items-center gap-1.5 text-[11px]" style={{ color: C.muted }}>
-          <input
-            type="checkbox"
-            checked={v.active}
-            onChange={(e) => set({ active: e.target.checked })}
-            className="h-3.5 w-3.5 accent-[color:#ff3d7f]"
-          />
-          Live
-        </label>
-      </div>
-      {hint && (
-        <p className="mb-2 text-[11px]" style={{ color: C.muted }}>
-          {hint}
-        </p>
-      )}
-
-      <div className="mb-2 flex gap-1.5">
-        {(["network", "affiliate"] as const).map((t) => (
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex gap-1.5">
+          {(["network", "affiliate"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => set({ type: t })}
+              style={{
+                padding: "0.35rem 0.6rem",
+                borderRadius: "0.5rem",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                border: `1px solid ${C.border}`,
+                background: v.type === t ? C.accent : C.bg,
+                color: v.type === t ? "#fff" : C.muted,
+              }}
+            >
+              {t === "network" ? "Ad code" : "Banner image"}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2.5">
+          <label className="flex items-center gap-1.5 text-[11px]" style={{ color: C.muted }}>
+            <input
+              type="checkbox"
+              checked={v.active}
+              onChange={(e) => set({ active: e.target.checked })}
+              className="h-3.5 w-3.5 accent-[color:#ff3d7f]"
+            />
+            Live
+          </label>
           <button
-            key={t}
             type="button"
-            onClick={() => set({ type: t })}
-            style={{
-              flex: 1,
-              padding: "0.35rem",
-              borderRadius: "0.5rem",
-              fontSize: "0.78rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              border: `1px solid ${C.border}`,
-              background: v.type === t ? C.accent : C.bg,
-              color: v.type === t ? "#fff" : C.muted,
-            }}
+            onClick={onRemove}
+            title="Remove from pool"
+            style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}
           >
-            {t === "network" ? "Ad code" : "Banner image"}
+            <Trash2 size={14} />
           </button>
-        ))}
+        </div>
       </div>
 
       {v.type === "network" ? (
@@ -145,7 +133,7 @@ function DevicePanel({
           value={v.networkCode}
           onChange={(e) => set({ networkCode: e.target.value })}
           rows={4}
-          placeholder="Paste the ExoClick / ad-network embed for this device only"
+          placeholder="Paste the ExoClick / ad-network / affiliate embed for this device only"
           style={{ ...input, fontFamily: "monospace", fontSize: "0.72rem", resize: "vertical" }}
         />
       ) : (
@@ -178,26 +166,110 @@ function DevicePanel({
           </div>
         </div>
       )}
+
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <span className="text-[11px]" style={{ color: C.muted }}>
+          Priority
+        </span>
+        <input
+          type="number"
+          value={v.priority}
+          onChange={(e) => set({ priority: Number(e.target.value) || 0 })}
+          style={{ ...input, width: "4.5rem", padding: "0.3rem 0.5rem", fontSize: "0.78rem" }}
+        />
+        <span className="text-[10px]" style={{ color: C.muted }}>
+          equal priority rotates randomly · higher always wins over lower
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PoolPanel({
+  band,
+  icon,
+  hint,
+  disabled,
+  items,
+  onChange,
+}: {
+  band: string;
+  icon: React.ReactNode;
+  hint?: string;
+  disabled?: boolean;
+  items: Variant[];
+  onChange: (items: Variant[]) => void;
+}) {
+  if (disabled) {
+    return (
+      <div
+        style={{ border: `1px dashed ${C.border}`, borderRadius: "0.7rem" }}
+        className="p-3 text-xs"
+      >
+        <span style={{ color: C.muted }} className="flex items-center gap-1.5">
+          {icon} {band} — not available for this slot
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: C.fg }}>
+          {icon} {band}
+          {items.length > 1 && (
+            <span
+              style={{ color: C.muted, fontWeight: 500, fontSize: "0.72rem" }}
+            >
+              — {items.length} in rotation
+            </span>
+          )}
+        </span>
+      </div>
+      {hint && (
+        <p className="mb-2 text-[11px]" style={{ color: C.muted }}>
+          {hint}
+        </p>
+      )}
+      <div className="space-y-2">
+        {items.map((v, i) => (
+          <VariantCard
+            key={v.id ?? `new-${i}`}
+            v={v}
+            onChange={(next) => onChange(items.map((it, j) => (j === i ? next : it)))}
+            onRemove={() => onChange(items.filter((_, j) => j !== i))}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...items, emptyVariant()])}
+        className="mt-2 flex items-center gap-1.5"
+        style={{
+          padding: "0.4rem 0.7rem",
+          borderRadius: "0.6rem",
+          fontSize: "0.78rem",
+          fontWeight: 600,
+          color: C.muted,
+          background: "none",
+          border: `1px dashed ${C.border}`,
+          cursor: "pointer",
+        }}
+      >
+        <Plus size={13} /> Add creative
+      </button>
     </div>
   );
 }
 
 export function AdsManager() {
-  const [status, setStatus] = useState<Record<string, SlotStatus>>({});
+  const [status, setStatus] = useState<Record<string, { desktop: boolean; mobile: boolean; all: boolean }>>({});
   const [loading, setLoading] = useState(true);
   const [openSlot, setOpenSlot] = useState<AdSlotId | null>(null);
-  const [editing, setEditing] = useState<{
-    desktop: Variant;
-    mobile: Variant;
-    all: Variant;
-  } | null>(null);
-  // each band's updatedAt as last seen from GET — echoed back on save so the
+  const [editing, setEditing] = useState<Pools | null>(null);
+  // each band's row-id set as last seen from GET — echoed back on save so the
   // server can detect another admin's edit in between (see slot/route.ts)
-  const [versions, setVersions] = useState<{
-    desktop: string | null;
-    mobile: string | null;
-    all: string | null;
-  } | null>(null);
+  const [versions, setVersions] = useState<Record<Band, string[]> | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -207,7 +279,7 @@ export function AdsManager() {
     const rows: { slot: string; deviceType: string; isActive: boolean }[] = r.ok
       ? await r.json()
       : [];
-    const s: Record<string, SlotStatus> = {};
+    const s: Record<string, { desktop: boolean; mobile: boolean; all: boolean }> = {};
     for (const k of SLOT_KEYS) s[k] = { desktop: false, mobile: false, all: false };
     for (const row of rows) {
       if (!s[row.slot]) continue;
@@ -229,15 +301,16 @@ export function AdsManager() {
     setErr(null);
     const r = await fetch(`/api/console/ads/slot?slot=${slot}`);
     const d = r.ok ? await r.json() : {};
+    const rowsOf = (band: Band): Record<string, unknown>[] => (Array.isArray(d[band]) ? d[band] : []);
     setEditing({
-      desktop: fromRow(d.desktop ?? null),
-      mobile: fromRow(d.mobile ?? null),
-      all: fromRow(d.all ?? null),
+      desktop: rowsOf("desktop").map(fromRow),
+      mobile: rowsOf("mobile").map(fromRow),
+      all: rowsOf("all").map(fromRow),
     });
     setVersions({
-      desktop: d.desktop?.updatedAt ?? null,
-      mobile: d.mobile?.updatedAt ?? null,
-      all: d.all?.updatedAt ?? null,
+      desktop: rowsOf("desktop").map((r) => String(r.id)),
+      mobile: rowsOf("mobile").map((r) => String(r.id)),
+      all: rowsOf("all").map((r) => String(r.id)),
     });
   }
 
@@ -245,7 +318,7 @@ export function AdsManager() {
     if (!openSlot || !editing) return;
     setSaving(true);
     setErr(null);
-    const pack = (v: Variant) => (filled(v) ? { ...v } : null);
+    const pack = (items: Variant[]) => items.filter(filled);
     const r = await fetch("/api/console/ads/slot", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -287,11 +360,14 @@ export function AdsManager() {
           Ad slots
         </h1>
         <p style={{ color: C.muted, fontSize: "0.875rem", marginTop: "0.2rem" }}>
-          One creative per slot per device. A code you paste under{" "}
-          <strong style={{ color: C.fg }}>Desktop</strong> serves on desktop only;{" "}
-          <strong style={{ color: C.fg }}>Mobile</strong> on phones only;{" "}
-          <strong style={{ color: C.fg }}>All devices</strong> is the fallback when
-          the specific one is empty.
+          Each slot per device holds a rotation pool, not just one creative —{" "}
+          <strong style={{ color: C.fg }}>add several</strong> and they rotate
+          randomly across pageviews (equal priority = equal share; raise one's
+          priority to make it win outright). A code or banner you add under{" "}
+          <strong style={{ color: C.fg }}>Desktop</strong> only ever serves on
+          desktop; <strong style={{ color: C.fg }}>Mobile</strong> only on
+          phones; <strong style={{ color: C.fg }}>All devices</strong> is the
+          fallback when the specific band is empty.
         </p>
       </div>
 
@@ -408,27 +484,27 @@ export function AdsManager() {
                 Loading…
               </div>
             ) : (
-              <div className="space-y-3">
-                <DevicePanel
+              <div className="space-y-4">
+                <PoolPanel
                   band="Desktop"
                   icon={<Monitor size={13} />}
                   disabled={!def.desktop}
-                  v={editing.desktop}
-                  onChange={(v) => setEditing({ ...editing, desktop: v })}
+                  items={editing.desktop}
+                  onChange={(items) => setEditing({ ...editing, desktop: items })}
                 />
-                <DevicePanel
+                <PoolPanel
                   band="Mobile"
                   icon={<Smartphone size={13} />}
                   disabled={!def.mobile}
-                  v={editing.mobile}
-                  onChange={(v) => setEditing({ ...editing, mobile: v })}
+                  items={editing.mobile}
+                  onChange={(items) => setEditing({ ...editing, mobile: items })}
                 />
-                <DevicePanel
+                <PoolPanel
                   band="All devices"
                   icon={<Globe size={13} />}
                   hint="Used on any device where the specific panel above is empty."
-                  v={editing.all}
-                  onChange={(v) => setEditing({ ...editing, all: v })}
+                  items={editing.all}
+                  onChange={(items) => setEditing({ ...editing, all: items })}
                 />
               </div>
             )}

@@ -712,11 +712,16 @@ model Ad {
   adDescription String?
   isActive      Boolean  @default(true)
   priority      Int      @default(0)
+  // affiliate-type click count, via the /go/ad/[id] redirect — network-type
+  // (raw embed) ads track their own clicks on the ad network's side instead
+  clicks        Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @default(now()) @updatedAt
 
-  // the /api/console/ads/slot endpoint keeps this to one row per slot per
-  // device band (all | mobile | desktop) by wiping + rewriting the slot
+  // the /api/console/ads/slot endpoint allows several rows per slot per
+  // device band (all | mobile | desktop) — a rotation pool. getActiveAdForSlot
+  // picks the highest-priority rows for the viewer's device and rotates
+  // randomly among ties, so same-priority rows in a band share impressions.
   @@index([slot, isActive, deviceType])
 }
 

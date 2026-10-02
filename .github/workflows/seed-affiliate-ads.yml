@@ -1,0 +1,48 @@
+name: Seed affiliate ad rotation pools (one-off)
+
+# One-time load-in: real Straight Paysites / Nutaku / Candy AI creative into
+# the new rotation-pool slots (see scripts/seed-affiliate-ads.mts). Runs on a
+# US GitHub runner for reliable DB/R2 connectivity — same pattern as
+# migrate-http-covers.yml.
+#
+# Run it: repo → Actions → "Seed affiliate ad rotation pools (one-off)" → Run workflow.
+#
+# Needs these repo secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL, DIRECT_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+#   R2_SECRET_ACCESS_KEY, R2_BUCKET — same values as the app env.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Write .env
+        run: |
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "DB_RETRY_ATTEMPTS=12"
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}"
+            echo "R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}"
+            echo "R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}"
+            echo "R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}"
+            echo "R2_BUCKET=${{ secrets.R2_BUCKET }}"
+            echo "NEXT_PUBLIC_R2_PUBLIC_HOST=img-cdn.lusthentai.com"
+          } > .env
+
+      - run: npx prisma generate
+      - run: npx prisma db push
+
+      - name: Seed ad pools
+        run: npx tsx --env-file=.env scripts/seed-affiliate-ads.mts

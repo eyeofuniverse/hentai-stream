@@ -2,6 +2,7 @@ import { prisma, db } from "@/lib/db";
 import { AD_SLOTS } from "@/lib/ads";
 
 export type ActiveAd = {
+  id: string;
   type: string;
   deviceType: string;
   networkCode: string | null;
@@ -35,6 +36,7 @@ export async function getActiveAdForSlot(
         orderBy: { priority: "desc" },
         take: 12,
         select: {
+          id: true,
           type: true,
           deviceType: true,
           networkCode: true,

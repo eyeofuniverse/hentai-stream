@@ -59,6 +59,26 @@ async function optimize(buf: ArrayBuffer, key: string): Promise<{ body: Buffer; 
  * success. Used both for fresh uploads (importer/enrich) and for re-populating
  * an existing key whose old value already matches what the DB has stored.
  */
+async function putR2Bytes(key: string, body: Buffer, contentType: string): Promise<boolean> {
+  if (!client || !endpoint || !bucket) return false;
+  try {
+    const put = await client.fetch(`${endpoint}/${bucket}/${key}`, {
+      method: "PUT",
+      body: body as BodyInit,
+      headers: {
+        "Content-Type": contentType,
+        // images are re-uploaded in place only by intent (recovery/backfill
+        // scripts, both idempotent) — a year is safe, and CDN-Cache-Control
+        // lets Cloudflare's edge cache it separately from the browser.
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+    return put.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function putR2FromUrl(key: string, remoteUrl: string): Promise<boolean> {
   if (!client || !endpoint || !bucket) return false;
   try {
@@ -76,21 +96,24 @@ export async function putR2FromUrl(key: string, remoteUrl: string): Promise<bool
     if (raw.byteLength === 0 || raw.byteLength > 10 * 1024 * 1024) return false;
 
     const { body, contentType } = await optimize(raw, key);
-    const put = await client.fetch(`${endpoint}/${bucket}/${key}`, {
-      method: "PUT",
-      body: body as BodyInit,
-      headers: {
-        "Content-Type": contentType,
-        // images are re-uploaded in place only by intent (recovery/backfill
-        // scripts, both idempotent) — a year is safe, and CDN-Cache-Control
-        // lets Cloudflare's edge cache it separately from the browser.
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
-    return put.ok;
+    return putR2Bytes(key, body, contentType);
   } catch {
     return false;
   }
+}
+
+/**
+ * PUT local bytes straight to R2 at an exact key — no sharp pass. Used for
+ * creative that must stay byte-identical to the source (e.g. animated GIF ad
+ * banners; sharp's webp re-encode drops animation unless told to keep it,
+ * and these are small, already-optimized ad assets, not full-res uploads).
+ */
+export async function putR2FromBuffer(
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<boolean> {
+  return putR2Bytes(key, body, contentType);
 }
 
 /**

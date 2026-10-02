@@ -97,8 +97,8 @@ export function AdSlot({
           <AdUnit code={ad.networkCode ?? ""} maxHeight={maxHeight} />
         ) : (
           <AffiliateAd
+            id={ad.id}
             imageUrl={ad.imageUrl ?? ""}
-            linkUrl={ad.linkUrl ?? "#"}
             altText={ad.altText ?? ""}
             title={ad.adTitle}
             description={ad.adDescription}
