@@ -5,6 +5,8 @@ import { tokenEqual } from "@/lib/admin/gate";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { ga4Enabled, ga4TrafficByDay, ga4TopPages, ga4TrafficSources, ga4Audience } from "@/lib/mcp/google-analytics";
 import { bingEnabled, bingTrafficByDay, bingTopQueries, bingTopPages, bingCrawlStats } from "@/lib/mcp/bing-webmaster";
+import { gscEnabled, gscTrafficByDay, gscTopQueries, gscTopPages } from "@/lib/mcp/search-console";
+import { SITES, SITE_KEYS, type SiteKey } from "@/lib/mcp/sites";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,19 +21,27 @@ function err(message: string) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
 }
 
+const siteLabels = SITE_KEYS.map((k) => `"${k}" = ${SITES[k].label}`).join(", ");
+const siteArg = {
+  site: z
+    .enum(SITE_KEYS as [SiteKey, ...SiteKey[]])
+    .default("lusthentai")
+    .describe(`Which property to report on (${siteLabels})`),
+};
 const daysArg = { days: z.number().int().min(1).max(180).default(30).describe("How many days back from today") };
 const limitArg = (def: number) => z.number().int().min(1).max(100).default(def).describe("Max rows to return");
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: "lusthentai-analytics", version: "1.0.0" });
+  const server = new McpServer({ name: "lust-network-analytics", version: "2.0.0" });
 
   server.registerTool(
     "ga4_traffic_by_day",
-    { title: "GA4 traffic by day", description: "Google Analytics 4: sessions, active users, page views and engagement rate per day for lusthentai.com.", inputSchema: daysArg },
-    async ({ days }) => {
-      if (!ga4Enabled()) return err("GA4 isn't configured yet — GA4_PROPERTY_ID, GOOGLE_SA_CLIENT_EMAIL or GOOGLE_SA_PRIVATE_KEY is missing.");
+    { title: "GA4 traffic by day", description: `Google Analytics 4: sessions, active users, page views and engagement rate per day. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg } },
+    async ({ site, days }) => {
+      const propertyId = SITES[site].ga4PropertyId;
+      if (!ga4Enabled(propertyId)) return err(`GA4 isn't configured for ${SITES[site].label} yet — missing GA4_PROPERTY_ID${site === "lusthentai" ? "" : "_" + site.toUpperCase()} (or the shared GOOGLE_SA_CLIENT_EMAIL/GOOGLE_SA_PRIVATE_KEY).`);
       try {
-        return json(await ga4TrafficByDay(days));
+        return json(await ga4TrafficByDay(propertyId, days));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -40,11 +50,12 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "ga4_top_pages",
-    { title: "GA4 top pages", description: "Google Analytics 4: top pages by page views over a date range, with active users and engagement rate.", inputSchema: { ...daysArg, limit: limitArg(20) } },
-    async ({ days, limit }) => {
-      if (!ga4Enabled()) return err("GA4 isn't configured yet — GA4_PROPERTY_ID, GOOGLE_SA_CLIENT_EMAIL or GOOGLE_SA_PRIVATE_KEY is missing.");
+    { title: "GA4 top pages", description: `Google Analytics 4: top pages by page views over a date range, with active users and engagement rate. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg, limit: limitArg(20) } },
+    async ({ site, days, limit }) => {
+      const propertyId = SITES[site].ga4PropertyId;
+      if (!ga4Enabled(propertyId)) return err(`GA4 isn't configured for ${SITES[site].label} yet.`);
       try {
-        return json(await ga4TopPages(days, limit));
+        return json(await ga4TopPages(propertyId, days, limit));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -53,11 +64,12 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "ga4_traffic_sources",
-    { title: "GA4 traffic sources", description: "Google Analytics 4: sessions broken down by channel group and source (organic search, direct, referral, etc.).", inputSchema: { ...daysArg, limit: limitArg(15) } },
-    async ({ days, limit }) => {
-      if (!ga4Enabled()) return err("GA4 isn't configured yet — GA4_PROPERTY_ID, GOOGLE_SA_CLIENT_EMAIL or GOOGLE_SA_PRIVATE_KEY is missing.");
+    { title: "GA4 traffic sources", description: `Google Analytics 4: sessions broken down by channel group and source (organic search, direct, referral, etc.). Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg, limit: limitArg(15) } },
+    async ({ site, days, limit }) => {
+      const propertyId = SITES[site].ga4PropertyId;
+      if (!ga4Enabled(propertyId)) return err(`GA4 isn't configured for ${SITES[site].label} yet.`);
       try {
-        return json(await ga4TrafficSources(days, limit));
+        return json(await ga4TrafficSources(propertyId, days, limit));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -66,11 +78,12 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "ga4_audience",
-    { title: "GA4 audience shape", description: "Google Analytics 4: sessions by device category and by country over a date range.", inputSchema: daysArg },
-    async ({ days }) => {
-      if (!ga4Enabled()) return err("GA4 isn't configured yet — GA4_PROPERTY_ID, GOOGLE_SA_CLIENT_EMAIL or GOOGLE_SA_PRIVATE_KEY is missing.");
+    { title: "GA4 audience shape", description: `Google Analytics 4: sessions by device category and by country over a date range. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg } },
+    async ({ site, days }) => {
+      const propertyId = SITES[site].ga4PropertyId;
+      if (!ga4Enabled(propertyId)) return err(`GA4 isn't configured for ${SITES[site].label} yet.`);
       try {
-        return json(await ga4Audience(days));
+        return json(await ga4Audience(propertyId, days));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -79,11 +92,12 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "bing_traffic_by_day",
-    { title: "Bing search traffic by day", description: "Bing Webmaster Tools: search clicks and impressions per day for lusthentai.com.", inputSchema: daysArg },
-    async ({ days }) => {
-      if (!bingEnabled()) return err("Bing Webmaster isn't configured yet — BING_WEBMASTER_API_KEY is missing.");
+    { title: "Bing search traffic by day", description: `Bing Webmaster Tools: search clicks and impressions per day. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg } },
+    async ({ site, days }) => {
+      const siteUrl = SITES[site].bingSiteUrl;
+      if (!bingEnabled(siteUrl)) return err(`Bing Webmaster isn't configured for ${SITES[site].label} yet — BING_WEBMASTER_API_KEY is missing.`);
       try {
-        return json(await bingTrafficByDay(days));
+        return json(await bingTrafficByDay(siteUrl, days));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -92,11 +106,12 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "bing_top_queries",
-    { title: "Bing top search queries", description: "Bing Webmaster Tools: top search queries by clicks over a date range, with impressions, CTR and average position.", inputSchema: { ...daysArg, limit: limitArg(25) } },
-    async ({ days, limit }) => {
-      if (!bingEnabled()) return err("Bing Webmaster isn't configured yet — BING_WEBMASTER_API_KEY is missing.");
+    { title: "Bing top search queries", description: `Bing Webmaster Tools: top search queries by clicks over a date range, with impressions, CTR and average position. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg, limit: limitArg(25) } },
+    async ({ site, days, limit }) => {
+      const siteUrl = SITES[site].bingSiteUrl;
+      if (!bingEnabled(siteUrl)) return err(`Bing Webmaster isn't configured for ${SITES[site].label} yet.`);
       try {
-        return json(await bingTopQueries(days, limit));
+        return json(await bingTopQueries(siteUrl, days, limit));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -105,11 +120,12 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "bing_top_pages",
-    { title: "Bing top pages", description: "Bing Webmaster Tools: top pages by search clicks over a date range, with impressions, CTR and average position.", inputSchema: { ...daysArg, limit: limitArg(25) } },
-    async ({ days, limit }) => {
-      if (!bingEnabled()) return err("Bing Webmaster isn't configured yet — BING_WEBMASTER_API_KEY is missing.");
+    { title: "Bing top pages", description: `Bing Webmaster Tools: top pages by search clicks over a date range, with impressions, CTR and average position. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg, limit: limitArg(25) } },
+    async ({ site, days, limit }) => {
+      const siteUrl = SITES[site].bingSiteUrl;
+      if (!bingEnabled(siteUrl)) return err(`Bing Webmaster isn't configured for ${SITES[site].label} yet.`);
       try {
-        return json(await bingTopPages(days, limit));
+        return json(await bingTopPages(siteUrl, days, limit));
       } catch (e) {
         return err((e as Error).message);
       }
@@ -118,11 +134,54 @@ function buildServer(): McpServer {
 
   server.registerTool(
     "bing_crawl_stats",
-    { title: "Bing crawl & index stats", description: "Bing Webmaster Tools: pages crawled, pages in index, crawl errors and blocked/4xx/5xx counts per day.", inputSchema: daysArg },
-    async ({ days }) => {
-      if (!bingEnabled()) return err("Bing Webmaster isn't configured yet — BING_WEBMASTER_API_KEY is missing.");
+    { title: "Bing crawl & index stats", description: `Bing Webmaster Tools: pages crawled, pages in index, crawl errors and blocked/4xx/5xx counts per day. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg } },
+    async ({ site, days }) => {
+      const siteUrl = SITES[site].bingSiteUrl;
+      if (!bingEnabled(siteUrl)) return err(`Bing Webmaster isn't configured for ${SITES[site].label} yet.`);
       try {
-        return json(await bingCrawlStats(days));
+        return json(await bingCrawlStats(siteUrl, days));
+      } catch (e) {
+        return err((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "gsc_traffic_by_day",
+    { title: "Search Console traffic by day", description: `Google Search Console: organic search clicks, impressions, CTR and average position per day. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg } },
+    async ({ site, days }) => {
+      const siteUrl = SITES[site].gscSiteUrl;
+      if (!gscEnabled(siteUrl)) return err(`Search Console isn't configured for ${SITES[site].label} yet — GOOGLE_SA_CLIENT_EMAIL/GOOGLE_SA_PRIVATE_KEY is missing, or the service account hasn't been added as a user on that property.`);
+      try {
+        return json(await gscTrafficByDay(siteUrl, days));
+      } catch (e) {
+        return err((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "gsc_top_queries",
+    { title: "Search Console top queries", description: `Google Search Console: top organic search queries by clicks over a date range, with impressions, CTR and average position. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg, limit: limitArg(25) } },
+    async ({ site, days, limit }) => {
+      const siteUrl = SITES[site].gscSiteUrl;
+      if (!gscEnabled(siteUrl)) return err(`Search Console isn't configured for ${SITES[site].label} yet.`);
+      try {
+        return json(await gscTopQueries(siteUrl, days, limit));
+      } catch (e) {
+        return err((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "gsc_top_pages",
+    { title: "Search Console top pages", description: `Google Search Console: top pages by organic search clicks over a date range, with impressions, CTR and average position. Covers: ${siteLabels}.`, inputSchema: { ...siteArg, ...daysArg, limit: limitArg(25) } },
+    async ({ site, days, limit }) => {
+      const siteUrl = SITES[site].gscSiteUrl;
+      if (!gscEnabled(siteUrl)) return err(`Search Console isn't configured for ${SITES[site].label} yet.`);
+      try {
+        return json(await gscTopPages(siteUrl, days, limit));
       } catch (e) {
         return err((e as Error).message);
       }

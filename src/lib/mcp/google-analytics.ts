@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { getGoogleAccessToken, googleSaConfigured } from "@/lib/mcp/google-auth";
 
 /**
  * GA4 Data API client for the MCP server — a service-account JWT bearer flow,
@@ -8,75 +8,26 @@ import { createSign } from "node:crypto";
  *
  * Verified live against the real API before writing this: the service
  * account's project has the GA4 Data API enabled (Admin API is NOT, so this
- * can't self-discover property IDs — GA4_PROPERTY_ID must be set by hand,
- * and the service account must be added as a Viewer on that property in
- * GA4's Admin > Property Access Management, a step Google Cloud IAM cannot
- * do on its own).
+ * can't self-discover property IDs — each site's property ID must be set by
+ * hand in sites.ts/env, and the service account must be added as a Viewer on
+ * that property in GA4's Admin > Property Access Management, a step Google
+ * Cloud IAM cannot do on its own — needed per property, not just once).
  */
 
-const CLIENT_EMAIL = process.env.GOOGLE_SA_CLIENT_EMAIL ?? "";
-// Vercel/GitHub env vars can't hold real newlines cleanly — stored with
-// literal "\n" escapes, unescaped here (the standard convention for pasting
-// a PEM private key into a single-line env var).
-const PRIVATE_KEY = (process.env.GOOGLE_SA_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
-const PROPERTY_ID = process.env.GA4_PROPERTY_ID ?? "";
+const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 
-export function ga4Enabled(): boolean {
-  return !!(CLIENT_EMAIL && PRIVATE_KEY && PROPERTY_ID);
-}
-
-function base64url(input: string): string {
-  return Buffer.from(input).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-let cached: { token: string; expiresAt: number } | null = null;
-
-/** Short-lived (1h) bearer token via the service-account JWT flow. Cached in
- *  memory for the life of the process — fine for a serverless function that's
- *  reused across a handful of requests, and harmless to re-derive on a cold start. */
-async function getAccessToken(): Promise<string> {
-  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claim = base64url(
-    JSON.stringify({
-      iss: CLIENT_EMAIL,
-      scope: "https://www.googleapis.com/auth/analytics.readonly",
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-    }),
-  );
-  const signer = createSign("RSA-SHA256");
-  signer.update(`${header}.${claim}`);
-  const signature = signer
-    .sign(PRIVATE_KEY)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-  const jwt = `${header}.${claim}.${signature}`;
-
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
-    signal: AbortSignal.timeout(10_000),
-  });
-  const body = (await res.json()) as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
-  if (!res.ok || !body.access_token) {
-    throw new Error(`Google token exchange failed: ${body.error ?? res.status} ${body.error_description ?? ""}`);
-  }
-  cached = { token: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 };
-  return cached.token;
+export function ga4Enabled(propertyId: string): boolean {
+  return googleSaConfigured() && !!propertyId;
 }
 
 type Row = { dims: string[]; metrics: number[] };
 
-async function runReport(body: Record<string, unknown>): Promise<{ dimensionHeaders: string[]; metricHeaders: string[]; rows: Row[] }> {
-  const token = await getAccessToken();
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY_ID}:runReport`, {
+async function runReport(
+  propertyId: string,
+  body: Record<string, unknown>,
+): Promise<{ dimensionHeaders: string[]; metricHeaders: string[]; rows: Row[] }> {
+  const token = await getGoogleAccessToken(SCOPE);
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -96,8 +47,8 @@ async function runReport(body: Record<string, unknown>): Promise<{ dimensionHead
 const DATE_METRICS = ["sessions", "activeUsers", "screenPageViews", "engagementRate", "averageSessionDuration"];
 
 /** Traffic by day: sessions, users, pageviews, engagement rate. */
-export async function ga4TrafficByDay(days: number) {
-  const { rows } = await runReport({
+export async function ga4TrafficByDay(propertyId: string, days: number) {
+  const { rows } = await runReport(propertyId, {
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
     dimensions: [{ name: "date" }],
     metrics: DATE_METRICS.map((name) => ({ name })),
@@ -114,8 +65,8 @@ export async function ga4TrafficByDay(days: number) {
 }
 
 /** Top pages by pageviews over the period. */
-export async function ga4TopPages(days: number, limit: number) {
-  const { rows } = await runReport({
+export async function ga4TopPages(propertyId: string, days: number, limit: number) {
+  const { rows } = await runReport(propertyId, {
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
     dimensions: [{ name: "pagePath" }],
     metrics: [{ name: "screenPageViews" }, { name: "activeUsers" }, { name: "engagementRate" }],
@@ -131,8 +82,8 @@ export async function ga4TopPages(days: number, limit: number) {
 }
 
 /** Where sessions came from (channel grouping + source/medium). */
-export async function ga4TrafficSources(days: number, limit: number) {
-  const { rows } = await runReport({
+export async function ga4TrafficSources(propertyId: string, days: number, limit: number) {
+  const { rows } = await runReport(propertyId, {
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
     dimensions: [{ name: "sessionDefaultChannelGroup" }, { name: "sessionSource" }],
     metrics: [{ name: "sessions" }, { name: "activeUsers" }],
@@ -148,15 +99,15 @@ export async function ga4TrafficSources(days: number, limit: number) {
 }
 
 /** Devices and countries, for a quick audience shape check. */
-export async function ga4Audience(days: number) {
+export async function ga4Audience(propertyId: string, days: number) {
   const [devices, countries] = await Promise.all([
-    runReport({
+    runReport(propertyId, {
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
       dimensions: [{ name: "deviceCategory" }],
       metrics: [{ name: "sessions" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
     }),
-    runReport({
+    runReport(propertyId, {
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
       dimensions: [{ name: "country" }],
       metrics: [{ name: "sessions" }],

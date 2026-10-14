@@ -7,17 +7,20 @@
  * for the requested window. Response sizes are small (tens of rows), so this
  * is cheap. GetPageStats' rows come back typed "QueryStats" with the page URL
  * in the `Query` field — a real quirk of the API, not a bug here.
+ *
+ * The API key is account-level, not site-level — one Bing Webmaster account
+ * can hold several verified sites under the same key, only `siteUrl` changes
+ * per site (as long as that site is actually verified under this account).
  */
 const KEY = process.env.BING_WEBMASTER_API_KEY ?? "";
-const SITE = process.env.BING_SITE_URL ?? "https://lusthentai.com/";
 const BASE = "https://ssl.bing.com/webmaster/api.svc/json";
 
-export function bingEnabled(): boolean {
-  return !!KEY;
+export function bingEnabled(siteUrl: string): boolean {
+  return !!(KEY && siteUrl);
 }
 
-async function call<T>(method: string): Promise<T[]> {
-  const url = `${BASE}/${method}?apikey=${KEY}&siteUrl=${encodeURIComponent(SITE)}`;
+async function call<T>(method: string, siteUrl: string): Promise<T[]> {
+  const url = `${BASE}/${method}?apikey=${KEY}&siteUrl=${encodeURIComponent(siteUrl)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   const text = await res.text();
   if (!res.ok) throw new Error(`Bing Webmaster ${method} failed: ${res.status} ${text.slice(0, 200)}`);
@@ -36,8 +39,8 @@ function parseDotNetDate(s: string): number {
 }
 
 /** Search clicks/impressions by day — Bing's equivalent of Search Console's Performance overview. */
-export async function bingTrafficByDay(days: number) {
-  const rows = await call<{ Date: string; Clicks: number; Impressions: number }>("GetRankAndTrafficStats");
+export async function bingTrafficByDay(siteUrl: string, days: number) {
+  const rows = await call<{ Date: string; Clicks: number; Impressions: number }>("GetRankAndTrafficStats", siteUrl);
   const since = Date.now() - days * 86_400_000;
   return rows
     .filter((r) => parseDotNetDate(r.Date) >= since)
@@ -50,9 +53,10 @@ export async function bingTrafficByDay(days: number) {
 }
 
 /** Top search queries in the window, aggregated across days. */
-export async function bingTopQueries(days: number, limit: number) {
+export async function bingTopQueries(siteUrl: string, days: number, limit: number) {
   const rows = await call<{ Date: string; Query: string; Clicks: number; Impressions: number; AvgClickPosition: number; AvgImpressionPosition: number }>(
     "GetQueryStats",
+    siteUrl,
   );
   const since = Date.now() - days * 86_400_000;
   const byQuery = new Map<string, { clicks: number; impressions: number; posSum: number; posN: number }>();
@@ -80,8 +84,8 @@ export async function bingTopQueries(days: number, limit: number) {
 }
 
 /** Top pages by search clicks/impressions in the window, aggregated across days. */
-export async function bingTopPages(days: number, limit: number) {
-  const rows = await call<{ Date: string; Query: string; Clicks: number; Impressions: number; AvgImpressionPosition: number }>("GetPageStats");
+export async function bingTopPages(siteUrl: string, days: number, limit: number) {
+  const rows = await call<{ Date: string; Query: string; Clicks: number; Impressions: number; AvgImpressionPosition: number }>("GetPageStats", siteUrl);
   const since = Date.now() - days * 86_400_000;
   const byPage = new Map<string, { clicks: number; impressions: number; posSum: number; posN: number }>();
   for (const r of rows) {
@@ -109,7 +113,7 @@ export async function bingTopPages(days: number, limit: number) {
 }
 
 /** Crawl health by day: pages crawled, indexed, blocked, errored. */
-export async function bingCrawlStats(days: number) {
+export async function bingCrawlStats(siteUrl: string, days: number) {
   const rows = await call<{
     Date: string;
     CrawledPages: number;
@@ -118,7 +122,7 @@ export async function bingCrawlStats(days: number) {
     BlockedByRobotsTxt: number;
     Code4xx: number;
     Code5xx: number;
-  }>("GetCrawlStats");
+  }>("GetCrawlStats", siteUrl);
   const since = Date.now() - days * 86_400_000;
   return rows
     .filter((r) => parseDotNetDate(r.Date) >= since)
