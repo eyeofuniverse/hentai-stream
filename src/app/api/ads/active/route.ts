@@ -19,11 +19,14 @@ export async function GET(req: Request) {
     // a slot's pool now holds several same-priority creatives that should
     // rotate across visits — the old 600s/3600s shared-cache window meant
     // every visitor hitting the same edge POP got the exact same random
-    // pick for up to an hour, defeating the rotation almost entirely. Short
-    // enough here to actually rotate, still long enough to spare the DB a
-    // query on every single ad-slot fetch.
+    // pick for up to an hour, defeating the rotation almost entirely.
+    // s-maxage=60 fixed the rotation but, with several ad slots firing this
+    // route per pageview across real traffic, a 10x-shorter cache meant
+    // ~10x more real function executions — a real, measurable contributor
+    // to a Vercel usage spike (2026-10-18). 150s is the compromise: still
+    // rotates several times an hour, far fewer cold executions than 60s.
     headers: ad
-      ? { "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=180" }
+      ? { "Cache-Control": "public, max-age=60, s-maxage=150, stale-while-revalidate=450" }
       : { "Cache-Control": "public, max-age=60, s-maxage=300" },
   });
 }
