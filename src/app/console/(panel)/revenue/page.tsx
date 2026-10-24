@@ -79,7 +79,7 @@ export default async function RevenuePage() {
           <ul className="space-y-1.5 text-sm text-white/70">
             {unused.map((r) => (
               <li key={r.zone.id} className="flex items-center gap-2">
-                <Badge tone="amber">Not wired in</Badge>
+                <Badge tone="warn">Not wired in</Badge>
                 {r.zone.name} ({r.zone.publisher_ad_type_label}, id {r.zone.id}) is active in ExoClick but
                 isn&apos;t referenced anywhere on the site.
               </li>
@@ -89,7 +89,7 @@ export default async function RevenuePage() {
               const meta = zoneMeta.get(id);
               return (
                 <li key={id} className="flex items-center gap-2">
-                  <Badge tone="red">Zero revenue</Badge>
+                  <Badge tone="bad">Zero revenue</Badge>
                   {meta?.zone.name ?? `Zone ${id}`} is wired in and active but earned $0 in the last 30 days.
                 </li>
               );
@@ -167,13 +167,13 @@ export default async function RevenuePage() {
                 <Td className="tabular-nums">{fmtMoney(z.revenue)}</Td>
                 <Td>
                   {!meta ? (
-                    <Badge tone="red">Unknown to ExoClick</Badge>
+                    <Badge tone="bad">Unknown to ExoClick</Badge>
                   ) : !meta.usedOnSite ? (
-                    <Badge tone="amber">Not wired in</Badge>
+                    <Badge tone="warn">Not wired in</Badge>
                   ) : meta.zone.active === 1 ? (
-                    <Badge tone="green">Active</Badge>
+                    <Badge tone="good">Active</Badge>
                   ) : (
-                    <Badge tone="slate">Paused</Badge>
+                    <Badge tone="muted">Paused</Badge>
                   )}
                 </Td>
               </tr>

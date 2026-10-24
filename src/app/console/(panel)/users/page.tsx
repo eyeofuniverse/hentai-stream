@@ -12,6 +12,7 @@ import {
   EmptyState,
   inputCls,
   timeAgo,
+  type Tone,
 } from "@/components/console/ui";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,11 @@ export const metadata = { robots: { index: false } };
 
 const PER = 50;
 const ROLES: Role[] = ["USER", "UPLOADER", "MODERATOR", "ADMIN"];
-const ROLE_TONE: Record<Role, string> = {
-  USER: "slate",
-  UPLOADER: "violet",
-  MODERATOR: "amber",
-  ADMIN: "pink",
+const ROLE_TONE: Record<Role, Tone> = {
+  USER: "muted",
+  UPLOADER: "info",
+  MODERATOR: "warn",
+  ADMIN: "accent",
 };
 
 type SP = { q?: string; status?: string; role?: string; page?: string };
@@ -134,8 +135,8 @@ export default async function UsersPage({
       {rows.length === 0 ? (
         <EmptyState title="No users match these filters." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10">
-          <div className="hidden items-center gap-3 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/35 sm:flex">
+        <div className="overflow-hidden rounded-xl border border-line">
+          <div className="hidden items-center gap-3 border-b border-line bg-white/[0.02] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted sm:flex">
             <span className="w-8" />
             <span className="flex-1">User</span>
             <span className="w-28">Role</span>
@@ -143,7 +144,7 @@ export default async function UsersPage({
             <span className="w-20">Joined</span>
             <span className="w-56 text-right">Status</span>
           </div>
-          <div className="divide-y divide-white/[0.06]">
+          <div className="divide-y divide-line">
             {rows.map((u) => (
               <div
                 key={u.id}
@@ -159,7 +160,7 @@ export default async function UsersPage({
                       loading="lazy"
                     />
                   ) : (
-                    <div className="h-9 w-9 shrink-0 rounded-full bg-white/10" />
+                    <div className="h-9 w-9 shrink-0 rounded-full bg-surface-2" />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-white/85">
@@ -167,7 +168,7 @@ export default async function UsersPage({
                     </div>
                     <div className="truncate text-xs text-white/40">@{u.handle}</div>
                     {/* compact stand-in for the role/activity/joined columns, mobile only */}
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-white/45 sm:hidden">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted sm:hidden">
                       <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>
                       <span>
                         {u._count.comments} comments · {u._count.ratings} ratings
@@ -213,7 +214,7 @@ export default async function UsersPage({
                   )}
                 </div>
 
-                <div className="hidden w-20 text-xs text-white/35 sm:block">{timeAgo(u.createdAt)}</div>
+                <div className="hidden w-20 text-xs text-muted sm:block">{timeAgo(u.createdAt)}</div>
 
                 {/* role editor, mobile only — desktop gets the inline column above */}
                 {canChangeRoles && (
@@ -239,12 +240,12 @@ export default async function UsersPage({
                   {u.banned ? (
                     <>
                       <div className="min-w-0 flex-1 text-xs sm:flex-none sm:text-right">
-                        <Badge tone="red">Banned</Badge>
+                        <Badge tone="bad">Banned</Badge>
                         {u.bannedUntil && (
-                          <div className="mt-0.5 text-white/35">until {u.bannedUntil.toLocaleDateString()}</div>
+                          <div className="mt-0.5 text-muted">until {u.bannedUntil.toLocaleDateString()}</div>
                         )}
                         {u.bannedReason && (
-                          <div className="mt-0.5 truncate text-white/35" title={u.bannedReason}>
+                          <div className="mt-0.5 truncate text-muted" title={u.bannedReason}>
                             {u.bannedReason}
                           </div>
                         )}

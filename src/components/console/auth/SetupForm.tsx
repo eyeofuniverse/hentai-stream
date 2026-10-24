@@ -38,7 +38,7 @@ export function SetupForm({ secret, qr }: { secret: string; qr: string }) {
           Save these backup recovery codes somewhere safe. Each works once if you
           lose your authenticator. They won&apos;t be shown again.
         </p>
-        <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-white/10 bg-black/30 p-3 font-mono text-xs">
+        <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-line bg-black/30 p-3 font-mono text-xs">
           {codes.map((c) => (
             <span key={c} className="text-white/80">
               {c}
@@ -80,7 +80,7 @@ export function SetupForm({ secret, qr }: { secret: string; qr: string }) {
         placeholder="Enter the 6-digit code to confirm"
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-        className="w-full rounded-lg border border-white/10 bg-black/30 py-3 text-center font-mono text-xl tracking-[0.3em] text-white outline-none focus:border-accent/50"
+        className="w-full rounded-lg border border-line bg-black/30 py-3 text-center font-mono text-xl tracking-[0.3em] text-white outline-none focus:border-accent/50"
       />
       {err && <p className="text-center text-xs text-red-400">{err}</p>}
       <button

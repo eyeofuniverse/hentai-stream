@@ -60,7 +60,7 @@ export function TagRow({ tag }: { tag: Tag }) {
         ))}
       </select>
 
-      <span className="tabular-nums text-white/45">{tag.seriesCount} series</span>
+      <span className="tabular-nums text-muted">{tag.seriesCount} series</span>
 
       <button
         onClick={() => start(() => toggleTagFeatured(tag.id, !tag.featured))}
@@ -68,7 +68,7 @@ export function TagRow({ tag }: { tag: Tag }) {
         className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide transition ${
           tag.featured
             ? "bg-accent/20 text-accent"
-            : "bg-white/5 text-white/35 hover:text-white/60"
+            : "bg-white/5 text-muted hover:text-white/60"
         }`}
       >
         {tag.featured ? "★ featured" : "feature"}
@@ -154,10 +154,10 @@ function MergePicker({
             <li key={h.id}>
               <button
                 onClick={() => onPick(h.id)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/10"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-2"
               >
                 <span className="min-w-0 flex-1 truncate">{h.name}</span>
-                <Badge tone="slate">{h.seriesCount}</Badge>
+                <Badge tone="muted">{h.seriesCount}</Badge>
               </button>
             </li>
           ))}

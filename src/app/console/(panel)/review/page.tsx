@@ -85,14 +85,14 @@ export default async function ReviewQueue() {
         <div className="mb-8 grid gap-2">
           {torrentEps.map((e) => (
             <Card key={e.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
-              <Badge tone="violet">torrent</Badge>
+              <Badge tone="info">torrent</Badge>
               <Link
                 href={`/console/series/${e.series.id}`}
                 className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
               >
                 {e.series.title} · EP {e.number}
               </Link>
-              <span className="text-xs text-white/35">
+              <span className="text-xs text-muted">
                 {e.series.year ?? "—"} · bunny {e.bunnyStatus ?? "?"}
               </span>
               {e.bunnyGuid && (
@@ -150,15 +150,15 @@ export default async function ReviewQueue() {
           {flagged.map((s) => (
             <Card key={s.id} className="p-4">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge tone="pink">⚑ possible-minor</Badge>
+                <Badge tone="accent">⚑ possible-minor</Badge>
                 <Link
                   href={`/console/series/${s.id}`}
                   className="font-semibold text-white hover:text-accent"
                 >
                   {s.title}
                 </Link>
-                {s.year && <span className="text-xs text-white/35">{s.year}</span>}
-                {s.malId && <Badge tone="violet">MAL #{s.malId}</Badge>}
+                {s.year && <span className="text-xs text-muted">{s.year}</span>}
+                {s.malId && <Badge tone="info">MAL #{s.malId}</Badge>}
                 <span className="ml-auto text-xs text-white/30">
                   imported {timeAgo(s.createdAt)}
                 </span>

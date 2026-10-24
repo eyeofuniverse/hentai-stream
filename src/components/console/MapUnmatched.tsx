@@ -97,10 +97,10 @@ export function MapUnmatched({
                 <button
                   disabled={mapping}
                   onClick={() => pick(h.id, h.title)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/10 disabled:opacity-50"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-2 disabled:opacity-50"
                 >
                   <span className="min-w-0 flex-1 truncate">{h.title}</span>
-                  <span className="shrink-0 text-white/35">
+                  <span className="shrink-0 text-muted">
                     {h.year ?? "—"} · {h._count.episodes} ep
                   </span>
                 </button>

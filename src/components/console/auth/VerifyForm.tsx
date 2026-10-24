@@ -42,7 +42,7 @@ export function VerifyForm() {
         placeholder="000000"
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/[^0-9a-z-]/gi, "").slice(0, 20))}
-        className="w-full rounded-lg border border-white/10 bg-black/30 py-3 text-center font-mono text-2xl tracking-[0.4em] text-white outline-none focus:border-accent/50"
+        className="w-full rounded-lg border border-line bg-black/30 py-3 text-center font-mono text-2xl tracking-[0.4em] text-white outline-none focus:border-accent/50"
       />
       {err && <p className="text-center text-xs text-red-400">{err}</p>}
       <button

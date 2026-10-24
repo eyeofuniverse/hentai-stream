@@ -41,12 +41,12 @@ export function CommentModRow({
   }
 
   if (done) {
-    return <p className="text-xs text-white/35">Comment {done}.</p>;
+    return <p className="text-xs text-muted">Comment {done}.</p>;
   }
 
   return (
     <div>
-      <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-white/45">
+      <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted">
         <span className="font-semibold text-white/70">{author}</span>
         <span>{new Date(createdAt).toLocaleDateString()}</span>
         {replyCount > 0 && <span>· {replyCount} repl{replyCount === 1 ? "y" : "ies"}</span>}
@@ -81,7 +81,7 @@ export function CommentModRow({
           <button
             onClick={() => act("hide")}
             disabled={busy}
-            className="rounded-md bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 hover:bg-white/10 disabled:opacity-50"
+            className="rounded-md bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 hover:bg-surface-2 disabled:opacity-50"
           >
             Hide
           </button>
@@ -90,7 +90,7 @@ export function CommentModRow({
           <button
             onClick={() => act("restore")}
             disabled={busy}
-            className="rounded-md bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 hover:bg-white/10 disabled:opacity-50"
+            className="rounded-md bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 hover:bg-surface-2 disabled:opacity-50"
           >
             Restore
           </button>

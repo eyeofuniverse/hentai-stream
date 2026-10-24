@@ -9,20 +9,21 @@ import {
   FilterTabs,
   EmptyState,
   timeAgo,
+  type Tone,
 } from "@/components/console/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false } };
 
-const REASON_TONE: Record<string, string> = {
-  UNDERAGE: "pink",
-  NON_CONSENSUAL: "pink",
-  COPYRIGHT: "amber",
-  BROKEN_LINK: "slate",
-  WRONG_CONTENT: "amber",
-  SPAM: "slate",
-  ABUSE: "red",
-  OTHER: "slate",
+const REASON_TONE: Record<string, Tone> = {
+  UNDERAGE: "accent",
+  NON_CONSENSUAL: "accent",
+  COPYRIGHT: "warn",
+  BROKEN_LINK: "muted",
+  WRONG_CONTENT: "warn",
+  SPAM: "muted",
+  ABUSE: "bad",
+  OTHER: "muted",
 };
 
 export default async function ReportsPage({
@@ -101,7 +102,7 @@ export default async function ReportsPage({
         <div className="grid gap-2">
           {withTargets.map((r) => (
             <Card key={r.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
-              <Badge tone={REASON_TONE[r.reason] ?? "slate"}>
+              <Badge tone={REASON_TONE[r.reason] ?? "muted"}>
                 {r.reason.replace("_", " ")}
               </Badge>
               <Link href={r.href} className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent">

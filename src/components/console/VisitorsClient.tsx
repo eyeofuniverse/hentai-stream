@@ -9,7 +9,7 @@ import type {
   TopPage,
   CountryStat,
 } from "@/lib/visitor-analytics";
-import { Card, EmptyState, DailyTrendChart } from "@/components/console/ui";
+import { Card, Stat, EmptyState, DailyTrendChart } from "@/components/console/ui";
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -51,37 +51,6 @@ function fmtDuration(sec: number | null): string {
 
 // ── sub-components ──────────────────────────────────────────────────────
 
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub?: string;
-  tone?: string;
-}) {
-  const c = tone ?? "#ff3d7f";
-  return (
-    <Card className="flex items-center gap-3 p-4">
-      <div
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-        style={{ background: `${c}20`, color: c }}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-white/45">{label}</p>
-        <p className="text-xl font-bold leading-tight text-white">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-white/35">{sub}</p>}
-      </div>
-    </Card>
-  );
-}
-
 // Rendering every row straight into the DOM (the data layer already caps at
 // up to 10,000/20,000 for accurate aggregates) was producing 29,000+ real
 // elements and a 130,000px-tall page — confirmed live, not theoretical.
@@ -92,7 +61,7 @@ const DISPLAY_ROW_CAP = 150;
 function TruncatedNote({ shown, total }: { shown: number; total: number }) {
   if (total <= shown) return null;
   return (
-    <p className="px-3 py-2 text-xs text-white/35">
+    <p className="px-3 py-2 text-xs text-muted">
       Showing the most recent {shown.toLocaleString()} of {total.toLocaleString()}.
     </p>
   );
@@ -105,9 +74,9 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10">
+          <tr className="border-b border-line">
             {["IP Address", "Location", "Pages Visited", "Visits", "Avg Time/Page", "Total Time", "Last Seen"].map((h) => (
-              <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-white/45">
+              <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-muted">
                 {h}
               </th>
             ))}
@@ -119,15 +88,15 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
               <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-white/85">{v.ip}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-white/85">
                 <span className="mr-1">{flag(v.countryCode)}</span>
-                <span>{v.country ?? <span className="text-white/35">Unknown</span>}</span>
-                {v.city && <span className="ml-1 text-xs text-white/35">· {v.city}</span>}
+                <span>{v.country ?? <span className="text-muted">Unknown</span>}</span>
+                {v.city && <span className="ml-1 text-xs text-muted">· {v.city}</span>}
               </td>
               <td className="max-w-xs px-3 py-2.5">
                 <div className="flex flex-wrap gap-1">
                   {v.paths.slice(0, 3).map((p) => (
                     <span
                       key={p}
-                      className="max-w-[140px] truncate rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-xs text-white/45"
+                      className="max-w-[140px] truncate rounded border border-line bg-white/5 px-1.5 py-0.5 font-mono text-xs text-muted"
                     >
                       {p}
                     </span>
@@ -142,7 +111,7 @@ function VisitorTable({ visitors, now }: { visitors: VisitorGroup[]; now: number
               <td className="px-3 py-2.5 text-center font-semibold text-white/85">{v.visitCount}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/85">{fmtDuration(v.avgDurationSec)}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold text-white/85">{fmtDuration(v.totalDurationSec)}</td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45" title={new Date(v.lastSeen).toLocaleString()}>
+              <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted" title={new Date(v.lastSeen).toLocaleString()}>
                 {fmtTime(v.lastSeen)} · {timeAgo(v.lastSeen, now)}
               </td>
             </tr>
@@ -161,9 +130,9 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10">
+          <tr className="border-b border-line">
             {["Time", "IP Address", "Country", "Page", "Time Spent"].map((h) => (
-              <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-white/45">
+              <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-muted">
                 {h}
               </th>
             ))}
@@ -173,7 +142,7 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
           {shown.map((v) => (
             <tr key={v.id} className="border-b border-white/[0.06] transition-opacity hover:opacity-80">
               <td
-                className="whitespace-nowrap px-3 py-2.5 text-xs text-white/45"
+                className="whitespace-nowrap px-3 py-2.5 text-xs text-muted"
                 title={new Date(v.visitedAt).toLocaleString()}
               >
                 {fmtTime(v.visitedAt)} · {timeAgo(v.visitedAt, now)}
@@ -181,9 +150,9 @@ function ActivityTable({ visits, now }: { visits: RecentVisit[]; now: number }) 
               <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-white/85">{v.ip}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-white/85">
                 <span className="mr-1">{flag(v.countryCode)}</span>
-                {v.country ?? <span className="text-white/35">Unknown</span>}
+                {v.country ?? <span className="text-muted">Unknown</span>}
               </td>
-              <td className="max-w-xs truncate px-3 py-2.5 font-mono text-xs text-white/45">{v.path}</td>
+              <td className="max-w-xs truncate px-3 py-2.5 font-mono text-xs text-muted">{v.path}</td>
               <td className="whitespace-nowrap px-3 py-2.5 text-xs text-white/85">{fmtDuration(v.durationSec)}</td>
             </tr>
           ))}
@@ -201,9 +170,9 @@ function CountriesTable({ countries, total }: { countries: CountryStat[]; total:
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10">
+          <tr className="border-b border-line">
             {["Country", "Visitors", "Share", ""].map((h) => (
-              <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-white/45">
+              <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-muted">
                 {h}
               </th>
             ))}
@@ -217,11 +186,11 @@ function CountriesTable({ countries, total }: { countries: CountryStat[]; total:
                 {c.country}
               </td>
               <td className="px-3 py-2.5 font-semibold text-white/85">{c.count.toLocaleString()}</td>
-              <td className="px-3 py-2.5 text-xs text-white/45">
+              <td className="px-3 py-2.5 text-xs text-muted">
                 {total > 0 ? `${Math.round((c.count / total) * 100)}%` : "—"}
               </td>
               <td className="w-32 px-3 py-2.5">
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
                   <div className="h-full rounded-full bg-accent" style={{ width: `${(c.count / max) * 100}%` }} />
                 </div>
               </td>
@@ -240,12 +209,12 @@ function TopPagesList({ pages }: { pages: TopPage[] }) {
     <div className="space-y-2.5">
       {pages.map((p, i) => (
         <div key={p.path} className="flex items-center gap-2">
-          <span className="w-4 shrink-0 text-right text-xs font-semibold text-white/35">{i + 1}</span>
-          <span className="flex-1 truncate font-mono text-xs text-white/45" title={p.path}>
+          <span className="w-4 shrink-0 text-right text-xs font-semibold text-muted">{i + 1}</span>
+          <span className="flex-1 truncate font-mono text-xs text-muted" title={p.path}>
             {p.path}
           </span>
           <div className="flex shrink-0 items-center gap-1.5">
-            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-2">
               <div className="h-full rounded-full bg-accent" style={{ width: `${(p.count / max) * 100}%` }} />
             </div>
             <span className="w-8 text-right text-xs font-semibold text-white/85">{p.count}</span>
@@ -310,17 +279,14 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
       )}
       {/* header controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl border border-white/10 bg-surface p-1">
+        <div className="inline-flex gap-1 rounded-xl bg-surface-2 p-1">
           {RANGE_OPTIONS.map(({ label, days }) => (
             <button
               key={days}
               onClick={() => fetchRange(days)}
               disabled={loading}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50"
-              style={{
-                background: activeDays === days ? "#ff3d7f" : "transparent",
-                color: activeDays === days ? "white" : "rgba(255,255,255,0.45)",
-              }}
+              aria-current={activeDays === days ? "page" : undefined}
+              className="c-tab disabled:opacity-50"
             >
               {label}
             </button>
@@ -329,7 +295,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
         <button
           onClick={() => fetchRange(activeDays)}
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-surface px-3 py-1.5 text-xs font-medium text-white/45 transition-all hover:text-white disabled:opacity-50"
+          className="c-btn-default disabled:opacity-50"
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
           Refresh
@@ -338,17 +304,17 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
 
       {/* stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatCard icon={<Activity size={16} />} label="Total Visits" value={data.totalVisits.toLocaleString()} sub={`last ${activeDays}d`} />
-        <StatCard icon={<Users size={16} />} label="Unique Visitors" value={data.uniqueVisitors.toLocaleString()} />
-        <StatCard
+        <Stat icon={<Activity size={16} />} label="Total Visits" value={data.totalVisits.toLocaleString()} sub={`last ${activeDays}d`} />
+        <Stat icon={<Users size={16} />} label="Unique Visitors" value={data.uniqueVisitors.toLocaleString()} />
+        <Stat
           icon={<Zap size={16} />}
           label="Online Now"
           value={data.onlineNow}
           sub="last 5 minutes"
-          tone={data.onlineNow > 0 ? "#22c55e" : undefined}
+          tone={data.onlineNow > 0 ? "good" : "neutral"}
         />
-        <StatCard icon={<TrendingUp size={16} />} label="Pages / Visit" value={data.avgPagesPerVisitor} />
-        <StatCard icon={<Zap size={16} />} label="Avg Time / Page" value={fmtDuration(data.avgDurationSec)} />
+        <Stat icon={<TrendingUp size={16} />} label="Pages / Visit" value={data.avgPagesPerVisitor} />
+        <Stat icon={<Zap size={16} />} label="Avg Time / Page" value={fmtDuration(data.avgDurationSec)} />
       </div>
 
       {/* daily traffic */}
@@ -356,7 +322,7 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
         <div className="mb-4 flex items-center gap-2">
           <BarChart2 size={14} className="text-accent" />
           <h2 className="text-sm font-semibold text-white">Daily Traffic</h2>
-          <span className="ml-auto text-xs text-white/35">
+          <span className="ml-auto text-xs text-muted">
             peak: {Math.max(...data.dailyTraffic.map((d) => d.visits)).toLocaleString()} visits
           </span>
         </div>
@@ -366,21 +332,20 @@ export function VisitorsClient({ data: initialData }: { data: VisitorData }) {
       {/* main content */}
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="overflow-hidden lg:col-span-2">
-          <div className="flex items-center gap-2 border-b border-white/10 px-4 pb-0 pt-3">
+          <div className="flex items-center gap-2 border-b border-line px-4 pb-0 pt-3">
             <div className="flex gap-0.5">
               {TABS.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setTab(key)}
-                  className="relative px-3 py-2 text-xs font-semibold transition-all"
-                  style={{ color: tab === key ? "#ff3d7f" : "rgba(255,255,255,0.45)" }}
+                  className={`relative px-3 py-2 text-xs font-semibold transition-colors ${tab === key ? "text-accent" : "text-muted hover:text-white"}`}
                 >
                   {label}
                   {tab === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-accent" />}
                 </button>
               ))}
             </div>
-            <span className="ml-auto text-xs text-white/35">
+            <span className="ml-auto text-xs text-muted">
               {tab === "visitors" && `${data.visitors.length} visits (${data.uniqueVisitors} IPs)`}
               {tab === "activity" && `last ${data.recentVisits.length} hits`}
               {tab === "countries" && `${data.topCountries.length} countries`}

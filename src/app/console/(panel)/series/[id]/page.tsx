@@ -70,7 +70,7 @@ export default async function EditSeriesPage({
         </Link>
         <h1 className="text-lg font-bold text-white">{series.title}</h1>
         <PublishBadge status={series.publish} />
-        {series.metadataSource && <Badge tone="violet">{series.metadataSource}</Badge>}
+        {series.metadataSource && <Badge tone="info">{series.metadataSource}</Badge>}
         <LinkButton
           href={`/hentai/${series.slug}`}
           variant="ghost"
@@ -117,7 +117,7 @@ export default async function EditSeriesPage({
             </SubmitButton>
           </form>
         )}
-        <span className="ml-auto text-xs text-white/35">
+        <span className="ml-auto text-xs text-muted">
           {series.episodes.length} episodes · {withVideo} with video
         </span>
       </div>
@@ -132,7 +132,7 @@ export default async function EditSeriesPage({
       <div className="mt-8">
         <SectionTitle
           right={
-            <span className="text-xs font-normal normal-case text-white/35">
+            <span className="text-xs font-normal normal-case text-muted">
               add or update an episode
             </span>
           }
@@ -192,7 +192,7 @@ export default async function EditSeriesPage({
               return (
                 <details
                   key={ep.id}
-                  className="group min-w-0 rounded-xl border border-white/10 bg-surface"
+                  className="group min-w-0 rounded-xl border border-line bg-surface"
                   open={ep.sources.length > 0}
                 >
                   <summary className="flex w-full cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
@@ -204,7 +204,7 @@ export default async function EditSeriesPage({
                       {ep.title || <span className="text-white/25">untitled</span>}
                     </span>
                     <HostBadge bunnyStatus={ep.bunnyStatus} hasHotlink={active > 0} />
-                    {ep.kind === "TRAILER" && <Badge tone="amber">trailer</Badge>}
+                    {ep.kind === "TRAILER" && <Badge tone="warn">trailer</Badge>}
                     <PublishBadge status={ep.publish} />
                   </summary>
 

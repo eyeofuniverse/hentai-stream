@@ -180,7 +180,7 @@ export default async function AdminHome() {
                 className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-sm text-white/75 transition-colors hover:bg-white/[0.06] hover:text-white"
               >
                 <span>{a.label}</span>
-                <Badge tone={a.label.includes("minor") ? "pink" : a.label.includes("report") ? "red" : "amber"}>
+                <Badge tone={a.label.includes("minor") ? "accent" : a.label.includes("report") ? "bad" : "warn"}>
                   {a.value}
                 </Badge>
               </Link>
@@ -201,13 +201,13 @@ export default async function AdminHome() {
                 {sync.updated ?? 0} updated · {sync.episodeStubs ?? 0} episode stubs ·{" "}
                 <span className={sync.flagged ? "text-accent" : ""}>{sync.flagged ?? 0} flagged</span>
               </p>
-              <p className="mt-1 text-xs text-white/35">
+              <p className="mt-1 text-xs text-muted">
                 {sync.seasons ?? 0} seasons · {((sync.tookMs ?? 0) / 1000) | 0}s ·{" "}
                 {sync.at ? timeAgo(sync.at) : "—"}
               </p>
             </div>
           ) : (
-            <p className="text-sm text-white/35">No sync has run yet.</p>
+            <p className="text-sm text-muted">No sync has run yet.</p>
           )}
         </Card>
 
@@ -221,7 +221,7 @@ export default async function AdminHome() {
                   className="flex items-center gap-2 rounded px-1 py-0.5 text-white/70 hover:text-white"
                 >
                   <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                  {s.metadataSource === "mal" && <Badge tone="violet">MAL</Badge>}
+                  {s.metadataSource === "mal" && <Badge tone="info">MAL</Badge>}
                   <span className="shrink-0 text-xs text-white/30">{timeAgo(s.createdAt)}</span>
                 </Link>
               </li>
@@ -240,17 +240,17 @@ export default async function AdminHome() {
             Scraper runs
           </SectionTitle>
           {scrapeRuns.length === 0 ? (
-            <p className="text-sm text-white/35">
+            <p className="text-sm text-muted">
               No runs yet — trigger the “Scrape video sources” Action.
             </p>
           ) : (
             <ul className="space-y-1 text-sm">
               {scrapeRuns.map((r) => (
                 <li key={r.id} className="flex items-center gap-2 text-white/70">
-                  <Badge tone={r.ok ? "green" : r.finishedAt ? "red" : "amber"}>
+                  <Badge tone={r.ok ? "good" : r.finishedAt ? "bad" : "warn"}>
                     {r.site}
                   </Badge>
-                  <span className="text-xs text-white/45">{r.mode}</span>
+                  <span className="text-xs text-muted">{r.mode}</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-white/40">
                     +{r.sourcesAdded} src · {r.matched} matched · {r.unmatched} new
                   </span>
@@ -266,14 +266,14 @@ export default async function AdminHome() {
         <Card className="p-4">
           <SectionTitle>Enrichment runs</SectionTitle>
           {enrichRuns.length === 0 ? (
-            <p className="text-sm text-white/35">
+            <p className="text-sm text-muted">
               No runs yet — trigger the “Enrich metadata” Action.
             </p>
           ) : (
             <ul className="space-y-1 text-sm">
               {enrichRuns.map((r) => (
                 <li key={r.id} className="flex items-center gap-2 text-white/70">
-                  <Badge tone={r.ok ? "green" : r.finishedAt ? "red" : "amber"}>
+                  <Badge tone={r.ok ? "good" : r.finishedAt ? "bad" : "warn"}>
                     {r.source}
                   </Badge>
                   <span className="min-w-0 flex-1 truncate text-xs text-white/40">
@@ -291,14 +291,14 @@ export default async function AdminHome() {
         <Card className="p-4 lg:col-span-2">
           <SectionTitle>Recently attached video sources</SectionTitle>
           {recentSources.length === 0 ? (
-            <p className="text-sm text-white/35">
+            <p className="text-sm text-muted">
               None yet — sources arrive from the admin editor or the scraper.
             </p>
           ) : (
             <ul className="space-y-1 text-sm">
               {recentSources.map((s) => (
                 <li key={s.id} className="flex items-center gap-2 text-white/70">
-                  <Badge tone="slate">{s.host}</Badge>
+                  <Badge tone="muted">{s.host}</Badge>
                   <Link
                     href={`/console/series/${s.episode.seriesId}`}
                     className="min-w-0 flex-1 truncate hover:text-white"
@@ -315,7 +315,7 @@ export default async function AdminHome() {
 
       <Card className="mt-6 p-5">
         <SectionTitle>SEO tools</SectionTitle>
-        <p className="mb-4 text-xs text-white/45">
+        <p className="mb-4 text-xs text-muted">
           Submit the whole published catalogue to IndexNow (Bing and other IndexNow-compatible
           search engines) in one go. New series and episodes don&apos;t need this — they&apos;re
           already submitted automatically the moment they go live.

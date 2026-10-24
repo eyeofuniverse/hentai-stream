@@ -73,7 +73,7 @@ export default async function MetadataPage() {
         <Card className="mt-6 p-4">
           <SectionTitle
             right={
-              <span className="text-xs font-normal normal-case text-white/35">
+              <span className="text-xs font-normal normal-case text-muted">
                 {log.at ? timeAgo(log.at) : ""}
               </span>
             }
@@ -93,7 +93,7 @@ export default async function MetadataPage() {
               <summary className="cursor-pointer text-xs text-white/40">
                 {log.errorCount ?? log.errors.length} errors
               </summary>
-              <ul className="mt-1 space-y-0.5 text-xs text-white/45">
+              <ul className="mt-1 space-y-0.5 text-xs text-muted">
                 {log.errors.map((e, i) => (
                   <li key={i} className="break-all">
                     {e}
@@ -119,7 +119,7 @@ export default async function MetadataPage() {
           </li>
           <li>Needs repo secrets: DATABASE_URL, DIRECT_URL, MAL_CLIENT_ID</li>
         </ol>
-        <p className="mt-3 text-xs text-white/35">
+        <p className="mt-3 text-xs text-muted">
           Or locally: <code className="rounded bg-black/40 px-1 py-0.5">npm run metadata:backfill</code>
         </p>
       </Card>

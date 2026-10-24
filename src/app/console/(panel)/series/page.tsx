@@ -167,8 +167,8 @@ export default async function AdminSeriesList({
       {rows.length === 0 ? (
         <EmptyState title="No series match these filters." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10">
-          <div className="hidden items-center gap-3 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/35 sm:flex">
+        <div className="overflow-hidden rounded-xl border border-line">
+          <div className="hidden items-center gap-3 border-b border-line bg-white/[0.02] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted sm:flex">
             <span className="w-8" />
             <span className="flex-1">Title</span>
             <span className="w-14">Type</span>
@@ -177,7 +177,7 @@ export default async function AdminSeriesList({
             <span className="w-24">Status</span>
             <span className="w-16 text-right">Updated</span>
           </div>
-          <div className="divide-y divide-white/[0.06]">
+          <div className="divide-y divide-line">
             {rows.map((s) => {
               const src = cover(s.coverUrl);
               const withVideo = s.episodes.length;
@@ -201,10 +201,10 @@ export default async function AdminSeriesList({
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-white/85">{s.title}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      {s.metadataSource === "mal" && <Badge tone="violet">MAL</Badge>}
-                      {flagged && <Badge tone="pink">⚑ minor?</Badge>}
+                      {s.metadataSource === "mal" && <Badge tone="info">MAL</Badge>}
+                      {flagged && <Badge tone="accent">⚑ minor?</Badge>}
                       {/* meta shown inline on mobile only */}
-                      <span className="text-[11px] text-white/35 sm:hidden">
+                      <span className="text-[11px] text-muted sm:hidden">
                         {s.type} · {s.year ?? "—"} · {withVideo}/{s._count.episodes || s.totalEpisodes || 0} ep
                       </span>
                       <span className="sm:hidden">
@@ -224,7 +224,7 @@ export default async function AdminSeriesList({
                   <span className="hidden w-24 sm:block">
                     <PublishBadge status={s.publish} />
                   </span>
-                  <span className="hidden w-16 text-right text-xs text-white/35 sm:block">
+                  <span className="hidden w-16 text-right text-xs text-muted sm:block">
                     {timeAgo(s.updatedAt)}
                   </span>
                 </Link>

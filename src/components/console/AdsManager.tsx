@@ -3,16 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Megaphone, Monitor, Smartphone, Globe, Plus, Trash2 } from "lucide-react";
 import { AD_SLOTS, REVENUE_META, type AdSlotId } from "@/lib/ads";
+import { PageHeader, Note, EmptyState } from "@/components/console/ui";
 
-const C = {
-  card: "#14141d",
-  bg: "#0d0d13",
-  border: "rgba(255,255,255,0.09)",
-  fg: "#ececf1",
-  muted: "#8b8b99",
-  accent: "#ff3d7f",
-};
-const HEAD = { fontFamily: "var(--font-sora), var(--font-inter), sans-serif" };
 const SLOT_KEYS = Object.keys(AD_SLOTS) as AdSlotId[];
 
 type Variant = {
@@ -65,17 +57,6 @@ function filled(v: Variant): boolean {
     : !!v.networkCode.trim();
 }
 
-const input: React.CSSProperties = {
-  background: C.bg,
-  border: `1px solid ${C.border}`,
-  color: C.fg,
-  borderRadius: "0.6rem",
-  padding: "0.5rem 0.7rem",
-  fontSize: "0.85rem",
-  width: "100%",
-  outline: "none",
-};
-
 type Band = "desktop" | "mobile" | "all";
 type Pools = Record<Band, Variant[]>;
 
@@ -91,7 +72,7 @@ function VariantCard({
 }) {
   const set = (patch: Partial<Variant>) => onChange({ ...v, ...patch });
   return (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: "0.7rem" }} className="p-3">
+    <div className="c-card c-card-pad">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex gap-1.5">
           {(["network", "affiliate"] as const).map((t) => (
@@ -99,37 +80,25 @@ function VariantCard({
               key={t}
               type="button"
               onClick={() => set({ type: t })}
-              style={{
-                padding: "0.35rem 0.6rem",
-                borderRadius: "0.5rem",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                border: `1px solid ${C.border}`,
-                background: v.type === t ? C.accent : C.bg,
-                color: v.type === t ? "#fff" : C.muted,
-              }}
+              className={`rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition ${
+                v.type === t ? "bg-accent text-white" : "bg-bg text-muted ring-1 ring-inset ring-line hover:text-white"
+              }`}
             >
               {t === "network" ? "Ad code" : "Banner image"}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2.5">
-          <label className="flex items-center gap-1.5 text-[11px]" style={{ color: C.muted }}>
+          <label className="flex items-center gap-1.5 text-[11px] text-muted">
             <input
               type="checkbox"
               checked={v.active}
               onChange={(e) => set({ active: e.target.checked })}
-              className="h-3.5 w-3.5 accent-[color:#ff3d7f]"
+              className="h-3.5 w-3.5 accent-accent"
             />
             Live
           </label>
-          <button
-            type="button"
-            onClick={onRemove}
-            title="Remove from pool"
-            style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}
-          >
+          <button type="button" onClick={onRemove} title="Remove from pool" className="c-icon-x">
             <Trash2 size={14} />
           </button>
         </div>
@@ -141,61 +110,35 @@ function VariantCard({
           onChange={(e) => set({ networkCode: e.target.value })}
           rows={4}
           placeholder="Paste the ExoClick / ad-network / affiliate embed for this device only"
-          style={{ ...input, fontFamily: "monospace", fontSize: "0.72rem", resize: "vertical" }}
+          className="c-input font-mono text-xs"
         />
       ) : (
         <div className="space-y-1.5">
-          <input
-            value={v.imageUrl}
-            onChange={(e) => set({ imageUrl: e.target.value })}
-            placeholder="Banner image URL"
-            style={input}
-          />
-          <input
-            value={v.linkUrl}
-            onChange={(e) => set({ linkUrl: e.target.value })}
-            placeholder="Destination URL (your affiliate link)"
-            style={input}
-          />
+          <input value={v.imageUrl} onChange={(e) => set({ imageUrl: e.target.value })} placeholder="Banner image URL" className="c-input" />
+          <input value={v.linkUrl} onChange={(e) => set({ linkUrl: e.target.value })} placeholder="Destination URL (your affiliate link)" className="c-input" />
           <div className="grid grid-cols-2 gap-1.5">
-            <input
-              value={v.adTitle}
-              onChange={(e) => set({ adTitle: e.target.value })}
-              placeholder="Caption title (optional)"
-              style={{ ...input, fontSize: "0.78rem" }}
-            />
-            <input
-              value={v.altText}
-              onChange={(e) => set({ altText: e.target.value })}
-              placeholder="Alt text"
-              style={{ ...input, fontSize: "0.78rem" }}
-            />
+            <input value={v.adTitle} onChange={(e) => set({ adTitle: e.target.value })} placeholder="Caption title (optional)" className="c-input text-[13px]" />
+            <input value={v.altText} onChange={(e) => set({ altText: e.target.value })} placeholder="Alt text" className="c-input text-[13px]" />
           </div>
         </div>
       )}
 
       <div className="mt-1.5 flex items-center gap-1.5">
-        <span className="text-[11px]" style={{ color: C.muted }}>
-          Priority
-        </span>
+        <span className="text-[11px] text-muted">Priority</span>
         <input
           type="number"
           value={v.priority}
           onChange={(e) => set({ priority: Number(e.target.value) || 0 })}
-          style={{ ...input, width: "4.5rem", padding: "0.3rem 0.5rem", fontSize: "0.78rem" }}
+          className="c-input w-[4.5rem] !py-1 text-[13px]"
         />
-        <span className="text-[10px]" style={{ color: C.muted }}>
-          equal priority rotates randomly · higher always wins over lower
-        </span>
+        <span className="text-[10px] text-muted">equal priority rotates randomly · higher always wins over lower</span>
       </div>
 
       {v.id && (
-        <div className="mt-1.5 text-[10px]" style={{ color: C.muted }}>
+        <div className="mt-1.5 text-[10px] text-muted">
           {v.impressions.toLocaleString()} impressions
           {v.type === "affiliate" && <> · {v.clicks.toLocaleString()} clicks</>}
-          {v.type === "network" && (
-            <> · clicks tracked by the ad network itself (sub-id in the embed), not here</>
-          )}
+          {v.type === "network" && <> · clicks tracked by the ad network itself (sub-id in the embed), not here</>}
         </div>
       )}
     </div>
@@ -219,11 +162,8 @@ function PoolPanel({
 }) {
   if (disabled) {
     return (
-      <div
-        style={{ border: `1px dashed ${C.border}`, borderRadius: "0.7rem" }}
-        className="p-3 text-xs"
-      >
-        <span style={{ color: C.muted }} className="flex items-center gap-1.5">
+      <div className="rounded-xl border border-dashed border-line p-3 text-xs">
+        <span className="flex items-center gap-1.5 text-muted">
           {icon} {band} — not available for this slot
         </span>
       </div>
@@ -232,22 +172,12 @@ function PoolPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: C.fg }}>
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
           {icon} {band}
-          {items.length > 1 && (
-            <span
-              style={{ color: C.muted, fontWeight: 500, fontSize: "0.72rem" }}
-            >
-              — {items.length} in rotation
-            </span>
-          )}
+          {items.length > 1 && <span className="text-[11px] font-medium text-muted">— {items.length} in rotation</span>}
         </span>
       </div>
-      {hint && (
-        <p className="mb-2 text-[11px]" style={{ color: C.muted }}>
-          {hint}
-        </p>
-      )}
+      {hint && <p className="mb-2 text-[11px] text-muted">{hint}</p>}
       <div className="space-y-2">
         {items.map((v, i) => (
           <VariantCard
@@ -258,21 +188,7 @@ function PoolPanel({
           />
         ))}
       </div>
-      <button
-        type="button"
-        onClick={() => onChange([...items, emptyVariant()])}
-        className="mt-2 flex items-center gap-1.5"
-        style={{
-          padding: "0.4rem 0.7rem",
-          borderRadius: "0.6rem",
-          fontSize: "0.78rem",
-          fontWeight: 600,
-          color: C.muted,
-          background: "none",
-          border: `1px dashed ${C.border}`,
-          cursor: "pointer",
-        }}
-      >
+      <button type="button" onClick={() => onChange([...items, emptyVariant()])} className="c-btn-ghost mt-2 !px-2.5 border border-dashed border-line">
         <Plus size={13} /> Add creative
       </button>
     </div>
@@ -293,9 +209,7 @@ export function AdsManager() {
   const refreshStatus = useCallback(async () => {
     setLoading(true);
     const r = await fetch("/api/console/ads");
-    const rows: { slot: string; deviceType: string; isActive: boolean }[] = r.ok
-      ? await r.json()
-      : [];
+    const rows: { slot: string; deviceType: string; isActive: boolean }[] = r.ok ? await r.json() : [];
     const s: Record<string, { desktop: boolean; mobile: boolean; all: boolean }> = {};
     for (const k of SLOT_KEYS) s[k] = { desktop: false, mobile: false, all: false };
     for (const row of rows) {
@@ -372,35 +286,20 @@ export function AdsManager() {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 style={{ ...HEAD, fontSize: "1.6rem", fontWeight: 800, color: C.fg }}>
-          Ad slots
-        </h1>
-        <p style={{ color: C.muted, fontSize: "0.875rem", marginTop: "0.2rem" }}>
-          Each slot per device holds a rotation pool, not just one creative —{" "}
-          <strong style={{ color: C.fg }}>add several</strong> and they rotate
-          randomly across pageviews (equal priority = equal share; raise one's
-          priority to make it win outright). A code or banner you add under{" "}
-          <strong style={{ color: C.fg }}>Desktop</strong> only ever serves on
-          desktop; <strong style={{ color: C.fg }}>Mobile</strong> only on
-          phones; <strong style={{ color: C.fg }}>All devices</strong> is the
-          fallback when the specific band is empty.
-        </p>
-      </div>
+      <PageHeader title="Ad slots" />
+      <Note>
+        Each slot per device holds a rotation pool, not just one creative — <strong className="text-white">add several</strong> and they rotate
+        randomly across pageviews (equal priority = equal share; raise one&apos;s priority to make it win outright). A code or banner you add
+        under <strong className="text-white">Desktop</strong> only ever serves on desktop; <strong className="text-white">Mobile</strong> only on
+        phones; <strong className="text-white">All devices</strong> is the fallback when the specific band is empty.
+      </Note>
 
       {loading ? (
-        <div className="py-12 text-center" style={{ color: C.muted }}>
-          Loading…
-        </div>
+        <div className="py-12 text-center text-muted">Loading…</div>
       ) : (
         Object.entries(grouped).map(([page, keys]) => (
           <div key={page} className="mb-7">
-            <h2
-              style={{ ...HEAD, color: C.fg }}
-              className="mb-2.5 text-sm font-bold uppercase tracking-wider"
-            >
-              {page} pages
-            </h2>
+            <h2 className="mb-2.5 font-display text-sm font-bold uppercase tracking-wider text-white">{page} pages</h2>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {keys.map((k) => {
                 const s = status[k] ?? { desktop: false, mobile: false, all: false };
@@ -408,45 +307,23 @@ export function AdsManager() {
                 const r = REVENUE_META[d.hint.revenue];
                 const anyLive = s.desktop || s.mobile || s.all;
                 return (
-                  <button
-                    key={k}
-                    onClick={() => open(k)}
-                    className="flex flex-col rounded-xl p-3.5 text-left transition-opacity hover:opacity-90"
-                    style={{ background: C.card, border: `1px solid ${C.border}` }}
-                  >
+                  <button key={k} onClick={() => open(k)} className="c-card c-card-pad flex flex-col text-left transition-colors hover:border-accent/40">
                     <div className="mb-1 flex items-center gap-1.5">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: anyLive ? "#34d399" : C.muted, opacity: anyLive ? 1 : 0.4 }}
-                      />
-                      <span style={{ color: C.fg }} className="text-[13px] font-semibold">
-                        {d.label}
-                      </span>
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${anyLive ? "bg-good" : "bg-white/25"}`} />
+                      <span className="text-[13px] font-semibold text-white">{d.label}</span>
                     </div>
-                    <span style={{ color: C.muted }} className="text-[11px]">
-                      {d.description}
-                    </span>
+                    <span className="text-[11px] text-muted">{d.description}</span>
                     <div className="mt-2 flex items-center gap-2">
                       <span
-                        style={{
-                          fontSize: "0.55rem",
-                          fontWeight: 700,
-                          color: r.color,
-                          background: `${r.color}1e`,
-                          padding: "0.08rem 0.4rem",
-                          borderRadius: "999px",
-                        }}
+                        className="rounded-full px-1.5 py-[0.08rem] text-[10px] font-bold"
+                        style={{ color: r.color, background: `${r.color}1e` }}
                       >
                         {r.label}
                       </span>
-                      <span className="flex items-center gap-1.5 text-[10px]" style={{ color: C.muted }}>
-                        {d.desktop && (
-                          <span style={{ color: s.desktop ? "#34d399" : C.muted }}>D</span>
-                        )}
-                        {d.mobile && (
-                          <span style={{ color: s.mobile ? "#34d399" : C.muted }}>M</span>
-                        )}
-                        <span style={{ color: s.all ? "#34d399" : C.muted }}>A</span>
+                      <span className="flex items-center gap-1.5 text-[10px] text-muted">
+                        {d.desktop && <span className={s.desktop ? "text-good" : ""}>D</span>}
+                        {d.mobile && <span className={s.mobile ? "text-good" : ""}>M</span>}
+                        <span className={s.all ? "text-good" : ""}>A</span>
                       </span>
                     </div>
                   </button>
@@ -459,63 +336,35 @@ export function AdsManager() {
 
       {openSlot && def && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4"
-          style={{ background: "rgba(0,0,0,0.75)" }}
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpenSlot(null);
           }}
         >
-          <div
-            className="my-8 w-full max-w-lg rounded-2xl p-5"
-            style={{ background: C.card, border: `1px solid ${C.border}` }}
-          >
+          <div className="c-card my-8 w-full max-w-lg p-5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h3 style={{ ...HEAD, fontSize: "1.05rem", fontWeight: 800, color: C.fg }}>
-                  {def.label}
-                </h3>
-                <p className="text-xs" style={{ color: C.muted }}>
-                  {def.description}
-                </p>
+                <h3 className="font-display text-[1.05rem] font-bold text-white">{def.label}</h3>
+                <p className="text-xs text-muted">{def.description}</p>
               </div>
-              <button
-                onClick={() => setOpenSlot(null)}
-                style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}
-              >
+              <button onClick={() => setOpenSlot(null)} className="c-icon-x">
                 <X size={20} />
               </button>
             </div>
 
             {rev && (
-              <div
-                className="mb-3 rounded-lg p-2.5 text-[11px]"
-                style={{ background: `${rev.color}12`, border: `1px solid ${rev.color}33`, color: C.muted }}
-              >
-                <strong style={{ color: rev.color }}>{rev.label}</strong> · best format:{" "}
-                <strong style={{ color: C.fg }}>{def.hint.format}</strong> · {def.hint.size}
+              <div className="mb-3 rounded-lg p-2.5 text-[11px] text-muted" style={{ background: `${rev.color}12`, border: `1px solid ${rev.color}33` }}>
+                <strong style={{ color: rev.color }}>{rev.label}</strong> · best format: <strong className="text-white">{def.hint.format}</strong> ·{" "}
+                {def.hint.size}
               </div>
             )}
 
             {!editing ? (
-              <div className="py-8 text-center text-sm" style={{ color: C.muted }}>
-                Loading…
-              </div>
+              <div className="py-8 text-center text-sm text-muted">Loading…</div>
             ) : (
               <div className="space-y-4">
-                <PoolPanel
-                  band="Desktop"
-                  icon={<Monitor size={13} />}
-                  disabled={!def.desktop}
-                  items={editing.desktop}
-                  onChange={(items) => setEditing({ ...editing, desktop: items })}
-                />
-                <PoolPanel
-                  band="Mobile"
-                  icon={<Smartphone size={13} />}
-                  disabled={!def.mobile}
-                  items={editing.mobile}
-                  onChange={(items) => setEditing({ ...editing, mobile: items })}
-                />
+                <PoolPanel band="Desktop" icon={<Monitor size={13} />} disabled={!def.desktop} items={editing.desktop} onChange={(items) => setEditing({ ...editing, desktop: items })} />
+                <PoolPanel band="Mobile" icon={<Smartphone size={13} />} disabled={!def.mobile} items={editing.mobile} onChange={(items) => setEditing({ ...editing, mobile: items })} />
                 <PoolPanel
                   band="All devices"
                   icon={<Globe size={13} />}
@@ -526,30 +375,13 @@ export function AdsManager() {
               </div>
             )}
 
-            {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
+            {err && <p className="mt-3 text-xs text-bad">{err}</p>}
 
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setOpenSlot(null)}
-                style={{ padding: "0.5rem 1rem", borderRadius: "0.6rem", fontSize: "0.85rem", color: C.muted, background: "none", border: "none", cursor: "pointer" }}
-              >
+              <button onClick={() => setOpenSlot(null)} className="c-btn-ghost">
                 Cancel
               </button>
-              <button
-                onClick={save}
-                disabled={saving || !editing}
-                style={{
-                  padding: "0.5rem 1.25rem",
-                  borderRadius: "0.6rem",
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  color: "#fff",
-                  background: C.accent,
-                  border: "none",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  opacity: saving ? 0.7 : 1,
-                }}
-              >
+              <button onClick={save} disabled={saving || !editing} className="c-btn-primary">
                 {saving ? "Saving…" : "Save slot"}
               </button>
             </div>
@@ -558,15 +390,7 @@ export function AdsManager() {
       )}
 
       {!loading && SLOT_KEYS.every((k) => !status[k] || (!status[k].desktop && !status[k].mobile && !status[k].all)) && (
-        <div
-          className="mt-2 rounded-xl py-10 text-center"
-          style={{ background: C.card, border: `1px solid ${C.border}` }}
-        >
-          <Megaphone size={26} className="mx-auto mb-2 opacity-20" style={{ color: C.muted }} />
-          <p style={{ color: C.muted, fontSize: "0.85rem" }}>
-            No ads live yet — open a slot above and paste a code.
-          </p>
-        </div>
+        <EmptyState icon={<Megaphone className="h-5 w-5" />} title="No ads live yet" hint="Open a slot above and paste a code." />
       )}
     </>
   );

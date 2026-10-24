@@ -150,7 +150,7 @@ export function AutoPublishQueue({ items: initialItems }: { items: AutoPubItem[]
               <button
                 onClick={() => setSelected(new Set())}
                 disabled={pending}
-                className="text-white/35 transition-colors hover:text-white/60 disabled:opacity-60"
+                className="text-muted transition-colors hover:text-white/60 disabled:opacity-60"
               >
                 Clear
               </button>
@@ -165,7 +165,7 @@ export function AutoPublishQueue({ items: initialItems }: { items: AutoPubItem[]
         <EmptyState title="Nothing to spot-check." hint="Scraper auto-publishes land here." />
       ) : (
         <div className="mb-8 grid gap-2">
-          <label className="flex items-center gap-2 px-1 text-[11px] font-medium uppercase tracking-wide text-white/35">
+          <label className="flex items-center gap-2 px-1 text-[11px] font-medium uppercase tracking-wide text-muted">
             <input
               type="checkbox"
               checked={allSelected}
@@ -185,14 +185,14 @@ export function AutoPublishQueue({ items: initialItems }: { items: AutoPubItem[]
                   className="h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-accent"
                   aria-label={`Select ${s.title}`}
                 />
-                <Badge tone="green">auto-published</Badge>
+                <Badge tone="good">auto-published</Badge>
                 <Link
                   href={`/console/series/${s.id}`}
                   className="min-w-0 flex-1 truncate font-medium text-white/85 hover:text-accent"
                 >
                   {s.title}
                 </Link>
-                <span className="text-xs text-white/35">
+                <span className="text-xs text-muted">
                   {s.year ?? "—"} · {s.episodeCount} live ep · {timeAgo(s.autoPublishedAt)}
                 </span>
                 <div className="flex gap-1.5">

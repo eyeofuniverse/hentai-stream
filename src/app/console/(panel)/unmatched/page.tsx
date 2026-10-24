@@ -129,7 +129,7 @@ export default async function UnmatchedPage({
           {rows.map((u) => (
             <Card key={u.id} className="p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="slate">{u.site}</Badge>
+                <Badge tone="muted">{u.site}</Badge>
                 <a
                   href={u.sampleUrl}
                   target="_blank"
@@ -138,9 +138,9 @@ export default async function UnmatchedPage({
                 >
                   {u.rawTitle}
                 </a>
-                {u.year && <span className="text-xs text-white/35">{u.year}</span>}
+                {u.year && <span className="text-xs text-muted">{u.year}</span>}
                 {u.episodeCount > 0 && (
-                  <Badge tone="violet">{u.episodeCount} ep waiting</Badge>
+                  <Badge tone="info">{u.episodeCount} ep waiting</Badge>
                 )}
                 <span className="text-xs text-white/25">
                   ×{u.hits} · {timeAgo(u.lastSeenAt)}

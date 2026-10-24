@@ -61,11 +61,11 @@ const ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   analytics: BarChart2,
 };
 
-const TONE: Record<string, string> = {
-  amber: "#fbbf24",
-  pink: "#ff3d7f",
-  red: "#f87171",
-  slate: "#8b8b99",
+const BADGE_TONE: Record<string, string> = {
+  amber: "bg-warn/15 text-warn",
+  pink: "bg-accent/15 text-accent",
+  red: "bg-bad/15 text-bad",
+  slate: "bg-surface-2 text-white/55",
 };
 
 function Item({ item }: { item: NavItem }) {
@@ -78,22 +78,13 @@ function Item({ item }: { item: NavItem }) {
   return (
     <Link
       href={item.href}
-      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors [touch-action:manipulation]"
-      style={{
-        background: active ? "rgba(255,61,127,0.12)" : "transparent",
-        color: active ? "#ff3d7f" : "rgba(255,255,255,0.55)",
-      }}
+      className="c-nav-link [touch-action:manipulation]"
+      aria-current={active ? "page" : undefined}
     >
       <Icon size={16} />
       <span className="flex-1">{item.label}</span>
       {item.badge ? (
-        <span
-          className="rounded-full px-1.5 py-0.5 text-[11px] font-bold"
-          style={{
-            background: `${TONE[item.tone ?? "slate"]}22`,
-            color: TONE[item.tone ?? "slate"],
-          }}
-        >
+        <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${BADGE_TONE[item.tone ?? "slate"]}`}>
           {item.badge}
         </span>
       ) : null}
@@ -118,7 +109,7 @@ function List({ groups }: { groups: NavGroup[] }) {
           </div>
         </div>
       ))}
-      <div className="mt-3 border-t border-white/10 pt-3">
+      <div className="mt-3 border-t border-line pt-3">
         <Link
           href="/"
           className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-white/40 transition-colors hover:text-white"
@@ -161,16 +152,16 @@ export function AdminNav({
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             <List groups={groups} />
           </div>
-          <div className="mt-5 shrink-0 border-t border-white/10 px-3 pt-4 text-xs">
+          <div className="mt-5 shrink-0 border-t border-line px-3 pt-4 text-xs">
             <div className="truncate text-white/70">{handle}</div>
-            <div className="mt-0.5 text-white/35">{role}</div>
+            <div className="mt-0.5 text-muted">{role}</div>
             <LogoutButton />
           </div>
         </div>
       </aside>
 
       {/* mobile top bar */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-bg/95 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-40 border-b border-line bg-bg/95 backdrop-blur md:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/console" className="font-display text-sm font-bold tracking-tight">
             Lust<span className="text-accent">Hentai</span>
@@ -178,16 +169,16 @@ export function AdminNav({
           </Link>
           <button
             onClick={() => setOpen((v) => !v)}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-white/70 [touch-action:manipulation] active:bg-white/10"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-white/70 [touch-action:manipulation] active:bg-surface-2"
             aria-label="Menu"
           >
             {open ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
         {open && (
-          <div key={key} className="border-t border-white/10 px-3 py-3" onClick={() => setOpen(false)}>
+          <div key={key} className="border-t border-line px-3 py-3" onClick={() => setOpen(false)}>
             <List groups={groups} />
-            <div className="mt-2 flex items-center justify-between border-t border-white/10 px-3 pt-3 text-xs text-white/40">
+            <div className="mt-2 flex items-center justify-between border-t border-line px-3 pt-3 text-xs text-white/40">
               <span className="truncate">
                 {handle} · {role}
               </span>

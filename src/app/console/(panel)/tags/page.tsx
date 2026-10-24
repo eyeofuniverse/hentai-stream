@@ -110,7 +110,7 @@ export default async function AdminTagsPage({
         </div>
       )}
       {tags.length === 400 && (
-        <p className="mt-3 text-xs text-white/35">
+        <p className="mt-3 text-xs text-muted">
           Showing first 400 — narrow with search or a filter.
         </p>
       )}

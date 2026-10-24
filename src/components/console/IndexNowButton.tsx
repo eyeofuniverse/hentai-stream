@@ -52,7 +52,7 @@ export function IndexNowButton() {
         {busy ? "Submitting…" : "Submit all to IndexNow"}
       </button>
       {result && (
-        <p className="mt-2 text-xs text-white/45">
+        <p className="mt-2 text-xs text-muted">
           Submitted <span className="font-semibold text-emerald-300">{result.submitted}</span> of{" "}
           {result.totalUrls} URLs ({result.seriesCount} series, {result.episodeCount} episodes,{" "}
           {result.tagCount} tags, {result.studioCount} studios)

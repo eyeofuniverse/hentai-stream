@@ -17,8 +17,8 @@ const TABS = [
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
-const TH = "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-white/45";
-const THR = "px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-white/45";
+const TH = "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted";
+const THR = "px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted";
 
 export default async function AnalyticsPage({
   searchParams,
@@ -43,14 +43,14 @@ export default async function AnalyticsPage({
         actions={
           <Link
             href="/console/search"
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-surface px-3 py-1.5 text-xs font-medium text-white/50 hover:text-white"
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-white/50 hover:text-white"
           >
             <Search size={13} /> Search analytics →
           </Link>
         }
       />
 
-      <div className="mb-6 flex w-full gap-1 overflow-x-auto rounded-xl border border-white/10 bg-surface p-1 sm:w-fit">
+      <div className="mb-6 flex w-full gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1 sm:w-fit">
         {TABS.map(({ key, label, icon: Icon }) => {
           const active = activeTab === key;
           return (
@@ -79,7 +79,7 @@ export default async function AnalyticsPage({
           countLabel="tags"
           hrefFor={(r) => `/tag/${r.slug}`}
           extraBadge={(r) =>
-            r.category ? <Badge tone="slate">{r.category.replace("_", " ").toLowerCase()}</Badge> : null
+            r.category ? <Badge tone="muted">{r.category.replace("_", " ").toLowerCase()}</Badge> : null
           }
         />
       )}
@@ -116,7 +116,7 @@ function PerformanceTable({
 }) {
   return (
     <div>
-      <p className="mb-4 text-sm text-white/45">
+      <p className="mb-4 text-sm text-muted">
         {rows.length} {countLabel} — sorted by total views
       </p>
       <Card className="overflow-hidden">
@@ -126,7 +126,7 @@ function PerformanceTable({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px] text-sm">
               <thead>
-                <tr className="border-b border-white/10">
+                <tr className="border-b border-line">
                   <th className={`${TH} w-6`}>#</th>
                   <th className={TH}>Name</th>
                   <th className={THR}>Series</th>
@@ -139,28 +139,28 @@ function PerformanceTable({
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.id} className="border-b border-white/[0.06]">
-                    <td className="px-4 py-3 text-xs tabular-nums text-white/35">{i + 1}</td>
+                    <td className="px-4 py-3 text-xs tabular-nums text-muted">{i + 1}</td>
                     <td className="px-4 py-3">
                       <Link href={hrefFor(r)} target="_blank" className="text-sm font-medium text-white/85 hover:text-accent">
                         {r.name}
                       </Link>
                       {extraBadge && <span className="ml-2">{extraBadge(r)}</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-xs tabular-nums text-white/45">
+                    <td className="px-4 py-3 text-right text-xs tabular-nums text-muted">
                       {r.seriesCount.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       <span className="flex items-center justify-end gap-1 text-sm font-semibold text-white/85">
-                        <Eye size={11} className="text-white/35" />
+                        <Eye size={11} className="text-muted" />
                         {r.totalViews.toLocaleString()}
                       </span>
                     </td>
-                    <td className="hidden px-4 py-3 text-right text-xs tabular-nums text-white/45 sm:table-cell">
+                    <td className="hidden px-4 py-3 text-right text-xs tabular-nums text-muted sm:table-cell">
                       <span className="flex items-center justify-end gap-1">
                         <Heart size={10} /> {r.totalFavorites.toLocaleString()}
                       </span>
                     </td>
-                    <td className="hidden px-4 py-3 text-right text-xs tabular-nums text-white/45 md:table-cell">
+                    <td className="hidden px-4 py-3 text-right text-xs tabular-nums text-muted md:table-cell">
                       <span className="flex items-center justify-end gap-1">
                         <MessageCircle size={10} /> {r.totalComments.toLocaleString()}
                       </span>

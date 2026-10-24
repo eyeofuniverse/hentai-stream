@@ -57,7 +57,7 @@ export function InfoTip({ text }: { text: string }) {
         onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)}
         onBlur={() => setHover(false)}
-        className="grid h-[15px] w-[15px] place-items-center rounded-full border border-white/25 text-[9px] font-bold leading-none text-white/45 transition-colors hover:border-accent hover:text-accent"
+        className="grid h-[15px] w-[15px] place-items-center rounded-full border border-white/25 text-[9px] font-bold leading-none text-muted transition-colors hover:border-accent hover:text-accent"
       >
         i
       </button>

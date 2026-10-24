@@ -71,7 +71,7 @@ export default async function SearchAnalyticsPage() {
           {zero.length === 0 ? (
             <EmptyState title="No zero-result searches yet." />
           ) : (
-            <ul className="divide-y divide-white/[0.06] text-sm">
+            <ul className="divide-y divide-line text-sm">
               {zero.map((z) => (
                 <li key={z.id} className="flex items-center gap-2 py-2">
                   <span className="min-w-0 flex-1 truncate text-white/85">
@@ -85,7 +85,7 @@ export default async function SearchAnalyticsPage() {
                   >
                     MAL ↗
                   </a>
-                  <Badge tone="amber">×{z.count}</Badge>
+                  <Badge tone="warn">×{z.count}</Badge>
                   <span className="shrink-0 text-xs text-white/25">
                     {timeAgo(z.lastSearchedAt)}
                   </span>
@@ -101,7 +101,7 @@ export default async function SearchAnalyticsPage() {
           {top.length === 0 ? (
             <EmptyState title="No searches recorded yet." />
           ) : (
-            <ul className="divide-y divide-white/[0.06] text-sm">
+            <ul className="divide-y divide-line text-sm">
               {top.map((t) => (
                 <li key={t.id} className="flex items-center gap-2 py-2">
                   <span className="w-8 shrink-0 text-right text-xs tabular-nums text-white/30">
@@ -113,7 +113,7 @@ export default async function SearchAnalyticsPage() {
                   >
                     {t.sample}
                   </Link>
-                  <span className="min-w-0 flex-1 truncate text-xs text-white/35">
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted">
                     {t.topSeriesTitle ? `→ ${t.topSeriesTitle}` : ""}
                   </span>
                   {t.topSeriesId && (
@@ -124,7 +124,7 @@ export default async function SearchAnalyticsPage() {
                       edit
                     </Link>
                   )}
-                  <Badge tone="slate">{t.lastResultCount} hit</Badge>
+                  <Badge tone="muted">{t.lastResultCount} hit</Badge>
                 </li>
               ))}
             </ul>
@@ -142,10 +142,10 @@ export default async function SearchAnalyticsPage() {
                 <Link
                   key={r.matchedTagSlug}
                   href={`/tag/${r.matchedTagSlug}`}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/80 hover:border-white/25"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-white/[0.03] px-3 py-1.5 text-sm text-white/80 hover:border-white/25"
                 >
                   {tagName[r.matchedTagSlug!] ?? r.matchedTagSlug}
-                  <span className="text-xs text-white/35">×{r._sum.count ?? 0}</span>
+                  <span className="text-xs text-muted">×{r._sum.count ?? 0}</span>
                 </Link>
               ))}
             </div>
@@ -170,13 +170,13 @@ function Stat({
       className={`rounded-xl border p-4 ${
         tone === "warn" && value > 0
           ? "border-amber-500/30 bg-amber-500/5"
-          : "border-white/10 bg-surface"
+          : "border-line bg-surface"
       }`}
     >
       <div className="text-2xl font-bold tabular-nums text-white">
         {value.toLocaleString()}
       </div>
-      <div className="mt-0.5 text-xs text-white/45">{label}</div>
+      <div className="mt-0.5 text-xs text-muted">{label}</div>
     </div>
   );
 }

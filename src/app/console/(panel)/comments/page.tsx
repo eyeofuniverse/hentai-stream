@@ -20,7 +20,7 @@ export default async function CommentsModPage() {
         subtitle="Reported and auto-hidden comments. Deleting a comment removes its replies too."
       />
 
-      <h2 className="mb-3 mt-2 text-sm font-bold uppercase tracking-wider text-white/45">
+      <h2 className="mb-3 mt-2 text-sm font-bold uppercase tracking-wider text-muted">
         Reported{reported.length ? ` (${reported.length})` : ""}
       </h2>
       {reported.length === 0 ? (
@@ -46,7 +46,7 @@ export default async function CommentsModPage() {
         </div>
       )}
 
-      <h2 className="mb-3 mt-8 text-sm font-bold uppercase tracking-wider text-white/45">
+      <h2 className="mb-3 mt-8 text-sm font-bold uppercase tracking-wider text-muted">
         Auto-hidden{hidden.length ? ` (${hidden.length})` : ""}
       </h2>
       {hidden.length === 0 ? (

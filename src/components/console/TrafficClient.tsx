@@ -6,7 +6,7 @@ import {
   TrendingUp, RefreshCw, ExternalLink, AlertTriangle, BarChart2,
 } from "lucide-react";
 import type { TrafficData, TrafficSource, TopReferrer, DeviceStat, HourStat, TopPage } from "@/lib/visitor-analytics";
-import { Card, DailyTrendChart } from "@/components/console/ui";
+import { Card, Stat, DailyTrendChart } from "@/components/console/ui";
 
 const PERIODS = [
   { label: "24h", days: 1 },
@@ -42,30 +42,10 @@ function fmtHour(h: number) {
   return `${h12}${ap}`;
 }
 
-function StatCard({
-  icon, label, value, sub, color,
-}: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string;
-}) {
-  const c = color ?? "#ff3d7f";
-  return (
-    <Card className="flex items-center gap-3 p-4">
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${c}20`, color: c }}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-white/45">{label}</p>
-        <p className="text-xl font-bold leading-tight text-white">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-white/35">{sub}</p>}
-      </div>
-    </Card>
-  );
-}
-
 function HBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div className="h-1.5 w-[60px] overflow-hidden rounded-full bg-white/10">
+    <div className="h-1.5 w-[60px] overflow-hidden rounded-full bg-surface-2">
       <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 2)}%`, background: color }} />
     </div>
   );
@@ -83,10 +63,10 @@ function SourcesPanel({ sources, total }: { sources: TrafficSource[]; total: num
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Globe size={14} className="text-accent" />
         <h2 className="text-sm font-semibold text-white">Traffic Sources</h2>
-        <span className="ml-auto text-xs tabular-nums text-white/35">{fmt(total)} total visits</span>
+        <span className="ml-auto text-xs tabular-nums text-muted">{fmt(total)} total visits</span>
       </div>
 
       <div className="flex flex-wrap gap-2 px-4 pb-2 pt-3">
@@ -103,11 +83,11 @@ function SourcesPanel({ sources, total }: { sources: TrafficSource[]; total: num
       </div>
 
       {sources.length === 0 ? (
-        <div className="py-12 text-center text-sm text-white/35">
+        <div className="py-12 text-center text-sm text-muted">
           No traffic data yet. It appears once visitors start arriving.
         </div>
       ) : (
-        <div className="divide-y divide-white/[0.06]">
+        <div className="divide-y divide-line">
           {sources.slice(0, 20).map((s) => {
             const color = CATEGORY_COLORS[s.category] ?? "#888";
             return (
@@ -118,7 +98,7 @@ function SourcesPanel({ sources, total }: { sources: TrafficSource[]; total: num
                 <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums" style={{ color }}>
                   {s.pct}%
                 </span>
-                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-white/45">{fmt(s.count)}</span>
+                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{fmt(s.count)}</span>
               </div>
             );
           })}
@@ -131,17 +111,17 @@ function SourcesPanel({ sources, total }: { sources: TrafficSource[]; total: num
 function ReferrersPanel({ referrers }: { referrers: TopReferrer[] }) {
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Link2 size={14} className="text-blue-400" />
         <h2 className="text-sm font-semibold text-white">Top Referrers</h2>
       </div>
       {referrers.length === 0 ? (
-        <div className="py-10 text-center text-sm text-white/35">No external referrers yet.</div>
+        <div className="py-10 text-center text-sm text-muted">No external referrers yet.</div>
       ) : (
-        <div className="divide-y divide-white/[0.06]">
+        <div className="divide-y divide-line">
           {referrers.map((r, i) => (
             <div key={r.domain} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="w-5 shrink-0 text-right text-xs tabular-nums text-white/35">{i + 1}</span>
+              <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted">{i + 1}</span>
               <a
                 href={r.domain}
                 target="_blank"
@@ -149,9 +129,9 @@ function ReferrersPanel({ referrers }: { referrers: TopReferrer[] }) {
                 className="flex flex-1 items-center gap-1 truncate text-sm text-white/85 hover:text-accent"
               >
                 {r.domain.replace(/^https?:\/\//, "")}
-                <ExternalLink size={10} className="shrink-0 text-white/35" />
+                <ExternalLink size={10} className="shrink-0 text-muted" />
               </a>
-              <span className="shrink-0 text-xs tabular-nums text-white/35">{r.pct}%</span>
+              <span className="shrink-0 text-xs tabular-nums text-muted">{r.pct}%</span>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-blue-400">{fmt(r.count)}</span>
             </div>
           ))}
@@ -165,13 +145,13 @@ function DevicesPanel({ devices }: { devices: DeviceStat[] }) {
   const deviceColors: Record<string, string> = { desktop: "#6366f1", mobile: "#10b981", tablet: "#f59e0b" };
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Monitor size={14} className="text-indigo-400" />
         <h2 className="text-sm font-semibold text-white">Device Breakdown</h2>
       </div>
       <div className="space-y-3 p-4">
         {devices.length === 0 ? (
-          <p className="py-4 text-center text-sm text-white/35">No data yet.</p>
+          <p className="py-4 text-center text-sm text-muted">No data yet.</p>
         ) : (
           devices.map((d) => {
             const color = deviceColors[d.device] ?? "#888";
@@ -182,9 +162,9 @@ function DevicesPanel({ devices }: { devices: DeviceStat[] }) {
                     <span style={{ color }}>{DEVICE_ICONS[d.device] ?? <Monitor size={14} />}</span>
                     {d.device}
                   </span>
-                  <span className="text-xs tabular-nums text-white/45">{fmt(d.count)} · {d.pct}%</span>
+                  <span className="text-xs tabular-nums text-muted">{fmt(d.count)} · {d.pct}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-2 overflow-hidden rounded-full bg-surface-2">
                   <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(d.pct, 1)}%`, background: color }} />
                 </div>
               </div>
@@ -203,7 +183,7 @@ function DailyTrafficPanel({ data, days }: { data: TrafficData["dailyTraffic"]; 
       <div className="mb-4 flex items-center gap-2">
         <BarChart2 size={14} className="text-accent" />
         <h2 className="text-sm font-semibold text-white">Daily Traffic</h2>
-        <span className="ml-auto text-xs text-white/35">peak: {fmt(peak)} visits</span>
+        <span className="ml-auto text-xs text-muted">peak: {fmt(peak)} visits</span>
       </div>
       <DailyTrendChart data={data} days={days} />
     </Card>
@@ -216,11 +196,11 @@ function PeakHoursPanel({ hours }: { hours: HourStat[] }) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Clock size={14} className="text-amber-400" />
         <h2 className="text-sm font-semibold text-white">Peak Hours</h2>
         {peakHour && max > 0 && (
-          <span className="ml-auto text-xs text-white/35">Peak: {fmtHour(peakHour.hour)} UTC</span>
+          <span className="ml-auto text-xs text-muted">Peak: {fmtHour(peakHour.hour)} UTC</span>
         )}
       </div>
       <div className="px-4 pb-3 pt-4">
@@ -243,7 +223,7 @@ function PeakHoursPanel({ hours }: { hours: HourStat[] }) {
         </div>
         <div className="relative mt-1" style={{ height: "14px" }}>
           {[0, 6, 12, 18, 23].map((h) => (
-            <span key={h} className="absolute -translate-x-1/2 text-[9px] tabular-nums text-white/35" style={{ left: `${(h / 23) * 100}%` }}>
+            <span key={h} className="absolute -translate-x-1/2 text-[9px] tabular-nums text-muted" style={{ left: `${(h / 23) * 100}%` }}>
               {fmtHour(h)}
             </span>
           ))}
@@ -257,17 +237,17 @@ function TopPagesPanel({ pages }: { pages: TopPage[] }) {
   const max = pages[0]?.count ?? 1;
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <FileText size={14} className="text-accent" />
         <h2 className="text-sm font-semibold text-white">Top Pages</h2>
       </div>
       {pages.length === 0 ? (
-        <div className="py-10 text-center text-sm text-white/35">No page data yet.</div>
+        <div className="py-10 text-center text-sm text-muted">No page data yet.</div>
       ) : (
-        <div className="divide-y divide-white/[0.06]">
+        <div className="divide-y divide-line">
           {pages.map((p, i) => (
             <div key={p.path} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="w-5 shrink-0 text-right text-xs tabular-nums text-white/35">{i + 1}</span>
+              <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted">{i + 1}</span>
               <a
                 href={p.path}
                 target="_blank"
@@ -328,23 +308,18 @@ export function TrafficClient({ data: initial }: { data: TrafficData }) {
         </div>
       )}
       <div className="mb-5 flex items-center justify-between">
-        <p className="text-sm text-white/45">
+        <p className="text-sm text-muted">
           {fmt(data.totalVisits)} page visits in the last {days === 1 ? "24 hours" : `${days} days`}
         </p>
         <div className="flex items-center gap-2">
-          {loading && <RefreshCw size={13} className="animate-spin text-white/35" />}
-          <div className="flex gap-1">
+          {loading && <RefreshCw size={13} className="animate-spin text-muted" />}
+          <div className="inline-flex gap-1 rounded-xl bg-surface-2 p-1">
             {PERIODS.map(({ label, days: d }) => (
               <button
                 key={label}
                 onClick={() => setDays(d)}
-                className={`rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium transition-all ${
-                  days === d ? "" : "bg-surface"
-                }`}
-                style={{
-                  background: days === d ? "#ff3d7f" : undefined,
-                  color: days === d ? "white" : "rgba(255,255,255,0.45)",
-                }}
+                aria-current={days === d ? "page" : undefined}
+                className="c-tab"
               >
                 {label}
               </button>
@@ -354,22 +329,22 @@ export function TrafficClient({ data: initial }: { data: TrafficData }) {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={<TrendingUp size={16} />} label="Total Visits" value={fmt(data.totalVisits)} color="#ff3d7f" />
-        <StatCard
+        <Stat icon={<TrendingUp size={16} />} label="Total Visits" value={fmt(data.totalVisits)} color="#ff3d7f" />
+        <Stat
           icon={<Globe size={16} />}
           label="Top Source"
           value={topSrc?.source ?? directSrc?.source ?? "Direct"}
           sub={topSrc ? `${topSrc.pct}% of traffic` : undefined}
           color={CATEGORY_COLORS[topSrc?.category ?? "direct"]}
         />
-        <StatCard
+        <Stat
           icon={<Smartphone size={16} />}
           label="Mobile Share"
           value={mobile ? `${mobile.pct}%` : "—"}
           sub={mobile ? `${fmt(mobile.count)} visits` : undefined}
           color="#10b981"
         />
-        <StatCard
+        <Stat
           icon={<Link2 size={16} />}
           label="Direct Traffic"
           value={directSrc ? `${directSrc.pct}%` : "—"}

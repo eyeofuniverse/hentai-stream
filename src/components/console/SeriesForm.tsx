@@ -162,14 +162,14 @@ export function SeriesForm({
       </Card>
 
       {s?.externalScore != null && (
-        <p className="px-1 text-xs text-white/35">
+        <p className="px-1 text-xs text-muted">
           MyAnimeList score {s.externalScore.toFixed(2)} · metadata source:{" "}
           {s.metadataSource ?? "—"}
         </p>
       )}
 
       {/* save bar — sticks to the viewport bottom while the form is on screen */}
-      <div className="sticky bottom-0 z-30 -mx-4 mt-1 flex items-end gap-3 border-t border-white/10 bg-bg/90 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-0 z-30 -mx-4 mt-1 flex items-end gap-3 border-t border-line bg-bg/90 px-4 py-3 backdrop-blur">
         <Field
           label="Publish"
           className="w-36"

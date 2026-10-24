@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const input =
-  "w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent/50";
+  "w-full rounded-lg border border-line bg-black/30 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent/50";
 
 export function LoginForm({ needsBootstrap }: { needsBootstrap: boolean }) {
   const router = useRouter();
