@@ -16,6 +16,7 @@ export function GenreGrid({
           <Link
             key={g.slug}
             href={`/tag/${g.slug}`}
+            prefetch={false}
             className="group relative flex h-24 items-end overflow-hidden rounded-xl p-3.5 ring-1 ring-white/5"
           >
             <div

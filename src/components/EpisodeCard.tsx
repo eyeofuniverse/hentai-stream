@@ -35,6 +35,9 @@ export function EpisodeCard({
   return (
     <Link
       href={`/hentai/${ep.series.slug}/${ep.number}`}
+      // same reasoning as SeriesCard — don't prefetch every card a visitor
+      // scrolls past, only the ones they actually click
+      prefetch={false}
       className="group block w-[230px] shrink-0 snap-start sm:w-[260px]"
     >
       <div className="relative aspect-video overflow-hidden rounded-xl bg-surface-2 ring-1 ring-white/5">

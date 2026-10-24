@@ -76,6 +76,9 @@ export function EpisodeList({
                 key={e.number}
                 ref={isCur ? curRef : undefined}
                 href={`/hentai/${slug}/${e.number}`}
+                // a long-running series can list dozens of these — don't
+                // prefetch every one just because it scrolled into view
+                prefetch={false}
                 aria-current={isCur ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                   isCur

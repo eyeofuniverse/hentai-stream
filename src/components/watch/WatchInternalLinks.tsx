@@ -48,6 +48,8 @@ export function WatchInternalLinks({
     <li>
       <Link
         href={href}
+        // ~16 of these render per watch page footer — not worth prefetching
+        prefetch={false}
         className="text-white/60 transition-colors hover:text-accent"
       >
         {children}

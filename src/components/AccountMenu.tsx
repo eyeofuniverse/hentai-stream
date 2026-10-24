@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { createClient } from "@/lib/supabase/client";
+import { hasSessionCookie } from "@/lib/has-session-cookie";
 
 type Me = {
   handle: string;
@@ -19,6 +20,16 @@ export function AccountMenu() {
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
   const refresh = useCallback(async () => {
+    // This renders in the header on every page, so an unconditional fetch
+    // here means one extra Function Invocation per pageview site-wide — for
+    // a check that's "not logged in" on the overwhelming majority of them.
+    // A present cookie still goes through the real endpoint, since that also
+    // joins the Postgres profile (handle/displayName/avatarUrl), not just
+    // auth state.
+    if (!hasSessionCookie()) {
+      setMe(null);
+      return;
+    }
     try {
       const r = await fetch("/api/me", { cache: "no-store" });
       setMe(await r.json());

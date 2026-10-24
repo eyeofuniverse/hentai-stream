@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { hasSessionCookie } from "@/lib/has-session-cookie";
 
 type Item = {
   slug: string;
@@ -19,6 +20,14 @@ export function ContinueWatching() {
   const [items, setItems] = useState<Item[] | null>(null);
 
   useEffect(() => {
+    // Fires on the homepage — the single highest-traffic page — for every
+    // visitor including signed-out ones, who the server would always answer
+    // with an empty list anyway. Skip the round-trip when there's plainly no
+    // session cookie.
+    if (!hasSessionCookie()) {
+      setItems([]);
+      return;
+    }
     fetch("/api/continue")
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => setItems(d.items ?? []))

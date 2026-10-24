@@ -20,13 +20,13 @@ export async function GET(req: Request) {
     // rotate across visits — the old 600s/3600s shared-cache window meant
     // every visitor hitting the same edge POP got the exact same random
     // pick for up to an hour, defeating the rotation almost entirely.
-    // s-maxage=60 fixed the rotation but, with several ad slots firing this
-    // route per pageview across real traffic, a 10x-shorter cache meant
-    // ~10x more real function executions — a real, measurable contributor
-    // to a Vercel usage spike (2026-10-18). 150s is the compromise: still
-    // rotates several times an hour, far fewer cold executions than 60s.
+    // Tightened to 150s for better rotation (2026-10-18), then eased back
+    // out to 300s (2026-10-24) once Function Invocations became the binding
+    // constraint, not ad variety — several slots fire this route per
+    // pageview, so this is the single biggest invocation multiplier on the
+    // site. Still rotates ~12x/hour across all visitors combined.
     headers: ad
-      ? { "Cache-Control": "public, max-age=60, s-maxage=150, stale-while-revalidate=450" }
+      ? { "Cache-Control": "public, max-age=120, s-maxage=300, stale-while-revalidate=900" }
       : { "Cache-Control": "public, max-age=60, s-maxage=300" },
   });
 }

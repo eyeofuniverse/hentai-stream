@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { RateWidget } from "@/components/RateWidget";
+import { hasSessionCookie } from "@/lib/has-session-cookie";
 
 type State = {
   signedIn: boolean;
@@ -32,6 +33,14 @@ export function SeriesControls({
   const [s, setS] = useState<State | null>(null);
 
   useEffect(() => {
+    // Series pages are one of the most-visited page types on the site, and
+    // this fires on every one of them for every visitor. The server route
+    // would end up concluding "not signed in" for the same reason anyway —
+    // skip the round-trip when there's plainly no session.
+    if (!hasSessionCookie()) {
+      setS({ signedIn: false, listStatus: null, myRating: null });
+      return;
+    }
     fetch(`/api/series-state?seriesId=${encodeURIComponent(seriesId)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setS(d ?? { signedIn: false, listStatus: null, myRating: null }))

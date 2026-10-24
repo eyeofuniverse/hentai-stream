@@ -29,6 +29,10 @@ export function SeriesCard({
   return (
     <Link
       href={`/hentai/${series.slug}`}
+      // default prefetch fires for every card that scrolls into view, not
+      // just ones a visitor clicks — on a grid of dozens of these that's a
+      // burst of CDN requests per browse session for free
+      prefetch={false}
       className={`group block ${
         inRow ? "w-[136px] shrink-0 snap-start sm:w-[160px]" : ""
       }`}
