@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma, db } from "@/lib/db";
+import { SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET(
     select: { isActive: true, type: true, linkUrl: true },
   });
   if (!ad || !ad.isActive || ad.type !== "affiliate" || !ad.linkUrl) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/", SITE));
   }
 
   // a malformed destination (saved without validation in the admin UI)
@@ -27,7 +28,7 @@ export async function GET(
   try {
     destination = new URL(ad.linkUrl);
   } catch {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/", SITE));
   }
 
   // this is a rare, one-off navigation (unlike impression counting on the
