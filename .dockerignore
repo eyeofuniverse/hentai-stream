@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+*.md
+tsconfig*.tsbuildinfo
+.vercel
+scripts/_*
+build.log
+"🔥🌶️2026 - NSFW Assets"

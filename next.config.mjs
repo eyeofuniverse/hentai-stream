@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // the Docker image runs the self-contained server (see Dockerfile); Vercel builds are not affected
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" } : {}),
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   images: {
